@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Начальник патруля — планирование и учёт</title>
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><title>Начальник патруля — планирование и учёт</title>
 <style>
 
 :root{--bg:#eef1f5;--card:#fff;--tx:#18222f;--mu:#667487;--bd:#dce2ea;--nav:#16304f;--nav2:#0f2340;--ac:#1f8a7d;--ac2:#176f64;--acs:rgba(31,138,125,.12);--red:#c93c3c;--reds:rgba(201,60,60,.12);--yl:#a96f00;--yls:rgba(201,138,18,.16);--gr:#1f8a52;--grs:rgba(31,138,82,.13);--hv:rgba(60,90,130,.07);--sh:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05);color-scheme:light}
@@ -81,6 +81,27 @@ td input.in{width:64px;padding:4px 7px;min-height:32px;text-align:right}
 @media(max-width:1180px){.wk{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}}
 @media(max-width:700px){.cd{min-height:64px}.mp{display:none}.cd .dots{display:block}}
 @media print{.wk,.cal{display:none}}
+
+@media(max-width:760px){
+html{-webkit-text-size-adjust:100%}body{-webkit-tap-highlight-color:transparent}
+.app{display:block}
+aside{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:25;flex-direction:row;gap:0;padding:0 0 env(safe-area-inset-bottom);overflow-x:auto;overflow-y:hidden;box-shadow:0 -2px 14px rgba(8,16,28,.25);scrollbar-width:none}
+aside::-webkit-scrollbar{display:none}
+aside .logo,aside .org,aside .sv,aside .sp{display:none}
+aside button.n{flex-direction:column;gap:3px;font-size:10px;font-weight:600;line-height:1.1;padding:8px 4px 7px;min-width:68px;max-width:84px;width:auto;justify-content:center;align-items:center;text-align:center;border-radius:0;position:relative;white-space:normal;flex:1 0 auto}
+aside button.n svg.i{width:22px;height:22px}aside button.n .bg{position:absolute;top:3px;left:calc(50% + 6px);margin:0}
+main{padding:14px 14px calc(96px + env(safe-area-inset-bottom))}
+h1{font-size:22px}.sub{font-size:13px}
+input,select,textarea{font-size:16px;min-height:46px;max-width:100%}.btn{min-height:46px}.btn.s{min-height:38px}
+.bar{gap:8px}.bar .search{flex:1 1 100%;width:100%}
+.kpis{grid-template-columns:1fr 1fr;gap:10px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:auto}
+.card{padding:14px}.note{flex-wrap:wrap}
+.ov{align-items:flex-end;padding:0}.mod{border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.toast{bottom:calc(88px + env(safe-area-inset-bottom));max-width:92vw}
+.scroll{max-height:none}
+.paper{padding:14px;overflow-x:auto;font-size:13px}.paper table{min-width:520px}
+.chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+}
 </style></head><body>
 <div class="app"><aside id="nv"></aside><main id="m"></main></div><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json"><input type="file" id="imp2" hidden accept=".json">
 <datalist id="dl_staff"></datalist>
@@ -103,11 +124,11 @@ const wd=s=>(P(s).getDay()+6)%7,mon=s=>add(s,-wd(s)),fd=d=>d?d.split('-').revers
 const fs=s=>{const d=P(s);return d.getDate()+' '+MG[d.getMonth()]};
 const fl=s=>{const d=P(s);return DS[wd(s)]+', '+d.getDate()+' '+MG[d.getMonth()]+' '+d.getFullYear()};
 const uid=()=>Math.random().toString(36).slice(2,9);
-const SET0={org:'Патрульная служба',boss:'Борисов М.К.',ped:'Лылов Н.А.',master:'Ипполитов А.Д.',posts:'КПП, ТЕРРИТОРИЯ, УК-1, УК-2',theme:'auto'};
-function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[{k:uid(),name:'Борисов М.К.',pos:POS[0],grp:'',tel:'',st:'в строю'},{k:uid(),name:'Ипполитов А.Д.',pos:POS[2],grp:'',tel:'',st:'в строю'}],
+const SET0={org:'Патрульная служба',boss:'',ped:'',master:'',posts:'КПП, ТЕРРИТОРИЯ, УК-1, УК-2',theme:'auto'};
+function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[],
  events:[{k:uid(),d:b,t:'08:00',te:'',title:'Развод и инструктаж личного состава',type:'Развод',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
  {k:uid(),d:b,t:'16:30',te:'',title:'Доклад педагогу-организатору об итогах службы',type:'Доклад',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
- {k:uid(),d:add(b,4),t:'15:00',te:'',title:'Проверка имущества патруля со старшим мастером',type:'Проверка',rec:'week',until:'',who:'Ипполитов А.Д.',note:''}],
+ {k:uid(),d:add(b,4),t:'15:00',te:'',title:'Проверка имущества патруля со старшим мастером',type:'Проверка',rec:'week',until:'',who:'',note:''}],
  done:{},duty:{},viol:[],inc:[],tasks:[],prop:[],ichk:[],isum:null,bk:0}}
 function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','viol','inc','tasks','prop','ichk'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.duty=j.duty||{};j.bk=j.bk||0;return j}
 function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
@@ -325,6 +346,7 @@ $('#imp2').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{c
 const SXC={role:'nach',name:'Начальник патруля',h1:1,approve:1,sends:'план, события, поручения, личный состав, ответы по согласованию документов',
  out:()=>[...D.events.filter(v=>!sxSeedEv(v)).map(v=>({t:'ev',k:v.k,d:v})),...D.tasks.map(v=>({t:'tk',k:v.k,d:v})),...D.staff.map(v=>({t:'st',k:v.k,d:v})),...Object.values(sxS().in.ou||{}).filter(x=>x.lc).map(x=>({t:'ou',k:x.k,d:{from:'nach',st:x.d.st,ans:x.d.ans||''}}))],
  inn:{ev:sxIEv,tk:sxITk,is:d=>{D.isum=d;return d}}};
+const CMC={role:'nach',title:'Начальник патруля',nameKey:'boss',nameLabel:'Ваше ФИО',staffPos:'Начальник патруля',others:[['ped','Руководитель патруля (ФИО)','Фамилия И.О.'],['pedD','Ему, в дательном падеже (кому)','например, Петрову П.П.'],['bossD','Вам, в дательном падеже (для документов)','например, Иванову И.И.']]};
 /* ===== ОБМЕН ПАКЕТАМИ МЕЖДУ РОЛЯМИ ===== */
 const SXSEED=['Развод и инструктаж личного состава','Доклад педагогу-организатору об итогах службы','Проверка имущества патруля со старшим мастером','Обход постов','Проверка журналов патруля','Доклад начальнику патруля об итогах','Развод: отметить явку личного состава','Заполнить журнал службы за день','Недельный отчёт начальнику патруля','Передать материалы руководителю патруля'];
 const sxSeedEv=v=>v.rec!='none'&&(SXSEED.includes(v.title)||String(v.note||'').startsWith('Время условное'));
@@ -335,17 +357,27 @@ const sxD=s=>s?String(s).slice(8,10)+'.'+String(s).slice(5,7)+'.'+String(s).slic
 const sxDT=t=>t?new Date(t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'ещё не было';
 function sxB64(b){let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function sxUn64(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b}
+async function sxKey(pw,salt){const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function sxPack(o){const raw=new TextEncoder().encode(JSON.stringify(o));let z=null;try{z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(x){}
- return z&&z.length<raw.length?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
-async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZ]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]);if(m[1]=='Z')b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
-function sxCollect(all){const S=sxS(),r=[],now=Date.now();SXC.out().forEach(it=>{const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h})});return r}
+ const useZ=z&&z.length<raw.length,body=useZ?z:raw,pw=sxS().pw;
+ if(pw){if(!(window.crypto&&crypto.subtle))throw new Error('nocrypto');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),pl=new Uint8Array(body.length+1);pl[0]=useZ?1:0;pl.set(body,1);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await sxKey(pw,salt),pl)),out=new Uint8Array(28+ct.length);out.set(salt,0);out.set(iv,16);out.set(ct,28);return'ПАТРУЛЬ1E:'+sxB64(out)}
+ return useZ?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
+async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZE]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]),z=m[1]=='Z';
+ if(m[1]=='E'){const pw=sxS().pw;if(!pw)throw new Error('needpw');let pl;try{pl=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(16,28)},await sxKey(pw,b.slice(0,16)),b.slice(28)))}catch(x){throw new Error('badpw')}z=pl[0]==1;b=pl.slice(1)}
+ if(z)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
+const SXCOL=()=>({ev:D.events,tk:D.tasks,mt:D.mat,rp:D.rep,ou:D.out});
+const SXDEL=['ev','tk','mt','rp'];
+function sxCollect(all){const S=sxS(),r=[],now=Date.now(),seen=new Set(),col=SXCOL();SXC.out().forEach(it=>{seen.add(it.k);const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h,_t:it.t})});
+ Object.entries(S.meta).forEach(([k,m])=>{if(m.live&&!m.del&&!seen.has(k)&&SXDEL.includes(m.t)&&Array.isArray(col[m.t])&&!col[m.t].some(x=>x.k==k))r.push({t:m.t,k,u:now,f:SXC.name,del:1,_h:'del',_t:m.t})});return r}
 async function sxSend(all){const S=sxS(),it=sxCollect(all);if(!it.length)return toast('Нечего отправлять: после прошлой отправки изменений нет');
- const code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,...r})=>r)});
- SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]={h:x._h,u:x.u});S.tOut=Date.now();save();
+ let code;try{code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,_t,...r})=>r)})}catch(x){return toast('Не удалось зашифровать пакет: откройте программу по адресу с https')}
+ SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]=x.del?{h:'del',u:x.u,del:1}:{h:x._h,u:x.u,live:1,t:x._t});S.tOut=Date.now();save();
  modal(`<h3>Пакет готов</h3><p class="mu" style="margin-top:0">Позиций: ${it.length}. Отправьте текст в общий чат патруля. Остальные нажмут «Принять пакет» и вставят его.</p><textarea readonly rows="4" style="width:100%;font-size:12px">${e(SXTXT)}</textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxshare">Отправить</button><button class="btn g" style="flex:1" data-act="sxcopy">Копировать</button><button class="btn g" data-act="sxfile">Файл</button></div><div class="bar" style="margin:0"><button class="btn g" style="flex:1" data-act="sxcl">Готово</button></div>`);draw(1)}
-async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast('Это не пакет обмена. Скопируйте сообщение целиком')}
- const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
-  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
+async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast(x&&x.message=='needpw'?'Пакет зашифрован. Задайте пароль патруля в «Обмен»':x&&x.message=='badpw'?'Неверный пароль патруля':'Это не пакет обмена. Скопируйте сообщение целиком')}
+ const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;
+  if(it.del){const c=SXCOL()[it.t];if(Array.isArray(c)){const i=c.findIndex(x=>x.k==it.k);if(i>=0)c.splice(i,1)}if(S.in[it.t])delete S.in[it.t][it.k];S.meta[it.k]={h:'del',u:it.u,del:1};n++;return}
+  const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
+  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u,live:1,t:it.t}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
  S.tIn=Date.now();save();closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
 function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
 const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
@@ -362,9 +394,10 @@ function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','
  return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
 function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
  return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: вы отправляете свои изменения одним сообщением, остальные принимают его в программе. Данные идут только в ваш чат.</p>
- <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><button class="btn s g" data-act="sxall" style="margin-top:10px">Отправить всё заново</button></div>${ib}`}
+ <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><div class="bar" style="margin:10px 0 0"><button class="btn s g" data-act="sxall">Отправить всё заново</button><button class="btn s g" data-act="sxpw">${S.pw?'Пароль патруля: задан':'Пароль патруля'}</button></div></div>${ib}`}
 const SXA={
- sxcl:()=>closeM(),sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
+ sxcl:()=>closeM(),sxpw:()=>modal(`<h3>Пароль патруля</h3><p class="mu" style="margin-top:0">Если задать пароль, пакеты в чате будут зашифрованы и посторонний их не прочитает. Пароль должен быть <b>одинаковым у всех</b> ролей. Передайте его лично, не в чат.</p><input id="sx_pw" type="password" autocomplete="off" placeholder="Пароль" value="${e(sxS().pw||'')}"><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="sxpw2">Сохранить</button><button class="btn g" data-act="sxpw3">Убрать пароль</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
+ sxpw2:()=>{const v=$('#sx_pw').value.trim();if(v&&!(window.crypto&&crypto.subtle))return toast('Шифрование недоступно: откройте программу по адресу с https');sxS().pw=v;save();closeM();draw(1);toast(v?'Пароль задан':'Пароль убран')},sxpw3:()=>{sxS().pw='';save();closeM();draw(1);toast('Пароль убран')},sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
  sxrecv:()=>modal(`<h3>Принять пакет</h3><p class="mu" style="margin-top:0">Скопируйте сообщение с пакетом из чата и вставьте сюда.</p><textarea id="sx_t" rows="5" style="width:100%;font-size:13px"></textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxapply">Принять</button><button class="btn g" data-act="sxpaste">Вставить из буфера</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
  sxapply:()=>sxApplyTxt($('#sx_t').value),
  sxpaste:()=>{(navigator.clipboard&&navigator.clipboard.readText?navigator.clipboard.readText():Promise.reject()).then(t=>{$('#sx_t').value=t},()=>toast('Не удалось прочитать буфер: вставьте текст вручную'))},
@@ -373,10 +406,39 @@ const SXA={
  sxfile:async()=>{const name='patrul_paket_'+today()+'.txt';try{const dl=window.claude&&await window.claude.use('downloads');if(dl)return void await dl.save({filename:name,data:new Blob([SXTXT],{type:'text/plain'})})}catch(x){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([SXTXT],{type:'text/plain'}));a.download=name;document.body.appendChild(a);a.click();a.remove()},
  sxou:t=>{const x=sxS().in.ou[t.dataset.k];x.d.st=t.dataset.v;x.lc=1;draw(1);toast('Ответ: '+t.dataset.v+'. Нажмите «Отправить пакет»')},
  sxmat:t=>SXC.rpMat(sxS().in.rp[t.dataset.k])};
-Object.assign(A,SXA);IC.sx='<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>';
+Object.assign(A,SXA);
 function sxIEv(d){if(!TYPES[d.type])d={...d,type:'Прочее'};const i=D.events.findIndex(x=>x.k==d.k);if(i>=0)D.events[i]=d;else D.events.push(d);return d}
 function sxITk(d){const i=D.tasks.findIndex(x=>x.k==d.k);if(i>=0)D.tasks[i]=d;else D.tasks.push(d);return d}
 function sxISt(d){let i=D.staff.findIndex(x=>x.k==d.k);if(i<0)i=D.staff.findIndex(x=>x.name==d.name);if(i>=0){D.staff[i]={...d,k:D.staff[i].k};return D.staff[i]}D.staff.push(d);return d}
+IC.sx='<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>';
 
-draw();
+/* ===== ОБЩЕЕ: первый запуск, защита, крупный текст ===== */
+const cmLS={g(k){try{return localStorage.getItem(k)}catch(x){return null}},s(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(x){}}};
+const cmH=s=>{let h=2166136261;s='patrul:'+s;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(16)};
+const cmK=n=>KEY+'_'+n;
+function cmZoom(){const z=parseFloat(cmLS.g(cmK('zoom'))||'1');document.documentElement.style.zoom=z==1?'':z}
+function cmFirst(){if(D.set.init||document.getElementById('cm_n'))return;const c=CMC,f=(k,l,ph)=>`<div class="w"><label>${l}</label><input id="cm_${k}" value="${e(D.set[k]||'')}" placeholder="${ph||''}"></div>`;
+ modal(`<h3>Первый запуск: кто вы?</h3><p class="mu" style="margin-top:0">Роль: <b>${c.title}</b>. Эти данные нужны для подписей в документах. Всё хранится только на этом устройстве, потом можно изменить в «Настройках».</p><div class="fg"><div class="w"><label>${c.nameLabel}</label><input id="cm_n" value="${e(D.set[c.nameKey]||'')}" placeholder="Фамилия И.О."></div>${(c.others||[]).map(o=>f(o[0],o[1],o[2])).join('')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmfirst">Готово</button></div>`);const o=document.querySelector('.ov');if(o)o.removeAttribute('data-act')}
+function cmLockShow(){if(document.getElementById('cmlock'))return;const d=document.createElement('div');d.id='cmlock';d.style.cssText='position:fixed;inset:0;z-index:99;background:var(--bg,#eef1f6);display:flex;align-items:center;justify-content:center;padding:20px';d.innerHTML='<div style="background:var(--card,#fff);color:var(--tx,#1a2433);border:1px solid var(--bd,#dbe2ec);border-radius:16px;padding:24px;width:min(340px,100%);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.2)"><h3 style="margin:0 0 6px">Программа заблокирована</h3><p style="margin:0 0 14px;opacity:.7;font-size:14px">Введите ПИН-код</p><input id="cm_pin" type="password" inputmode="numeric" autocomplete="off" style="width:100%;text-align:center;font-size:24px;letter-spacing:6px;box-sizing:border-box"><div id="cm_err" style="color:#c0463f;min-height:20px;margin:6px 0;font-size:14px"></div><button id="cm_ok" class="btn" style="width:100%">Открыть</button></div>';document.body.appendChild(d);
+ const go=()=>{if(cmH($('#cm_pin').value)==cmLS.g(cmK('pin'))){d.remove();cmLS.s(cmK('last'),String(Date.now()))}else{$('#cm_err').textContent='Неверный ПИН-код';$('#cm_pin').value=''}};$('#cm_ok').onclick=go;$('#cm_pin').onkeydown=e=>{if(e.key=='Enter')go()};setTimeout(()=>$('#cm_pin').focus(),50)}
+function cmLockCheck(force){if(!cmLS.g(cmK('pin')))return;const mins=parseInt(cmLS.g(cmK('lockmin'))||'5'),last=parseInt(cmLS.g(cmK('last'))||'0');if(force||mins==0||Date.now()-last>mins*60000)cmLockShow()}
+function cmCard(){const pin=!!cmLS.g(cmK('pin')),zm=cmLS.g(cmK('zoom'))||'1',lm=cmLS.g(cmK('lockmin'))||'5';
+ return`<div class="card" style="margin-top:14px"><h3>Защита и вид (только на этом устройстве)</h3><p class="mu" style="margin-top:0">ПИН-код защищает от случайного просмотра чужим человеком, а не от взлома. Данные студентов лучше не оставлять на разблокированном телефоне.</p><div class="bar"><button class="btn" data-act="cmpin">${pin?'Сменить ПИН-код':'Поставить ПИН-код'}</button>${pin?'<button class="btn g" data-act="cmpinrm">Снять ПИН-код</button><button class="btn g" data-act="cmlock">Заблокировать сейчас</button>':''}</div>
+ ${pin?`<div class="fg"><div class="w"><label>Блокировать при возврате в программу</label><select data-cm="lockmin">${[[0,'Всегда'],[1,'Через 1 минуту'],[5,'Через 5 минут'],[15,'Через 15 минут'],[60,'Через час']].map(x=>`<option value="${x[0]}" ${lm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div>`:''}
+ <div class="fg"><div class="w"><label>Размер текста</label><select data-cm="zoom">${[['1','Обычный'],['1.15','Крупный'],['1.3','Очень крупный']].map(x=>`<option value="${x[0]}" ${zm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`}
+const CMA={
+ cmfirst:()=>{const c=CMC,n=$('#cm_n').value.trim();if(!n)return toast('Впишите ваше ФИО');D.set[c.nameKey]=n;(c.others||[]).forEach(o=>{const el=$('#cm_'+o[0]);if(el)D.set[o[0]]=el.value.trim()});D.set.init=1;
+  if(Array.isArray(D.staff)){const add=(name,pos)=>{if(name&&!D.staff.some(x=>x.name==name))D.staff.push({k:uid(),name,pos,grp:'',tel:'',st:'в строю'})};add(n,c.staffPos);if(D.set.boss&&c.role!='nach')add(D.set.boss,'Начальник патруля')}
+  save();closeM();draw();toast('Готово, данные сохранены')},
+ cmpin:()=>modal(`<h3>ПИН-код</h3><div class="fg"><div class="w"><label>Новый ПИН-код (4–8 цифр)</label><input id="cm_p1" type="password" inputmode="numeric" autocomplete="off"></div><div class="w"><label>Повторите</label><input id="cm_p2" type="password" inputmode="numeric" autocomplete="off"></div></div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmpin2">Сохранить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
+ cmpin2:()=>{const a=$('#cm_p1').value,b=$('#cm_p2').value;if(!/^\d{4,8}$/.test(a))return toast('ПИН-код: от 4 до 8 цифр');if(a!=b)return toast('ПИН-коды не совпадают');cmLS.s(cmK('pin'),cmH(a));cmLS.s(cmK('last'),String(Date.now()));closeM();draw(1);toast('ПИН-код установлен. Запомните его: восстановить нельзя')},
+ cmpinrm:()=>{cmLS.s(cmK('pin'),null);draw(1);toast('ПИН-код снят')},cmlock:()=>cmLockCheck(true)};
+Object.assign(A,CMA);if(!A.cl)A.cl=()=>closeM();
+document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset&&t.dataset.cm;if(!c)return;cmLS.s(cmK(c),t.value);if(c=='zoom')cmZoom();toast('Сохранено')});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cmLS.s(cmK('last'),String(Date.now()));else cmLockCheck(false)});
+stt=(function(_s){return function(){return _s()+cmCard()}})(stt);
+cmZoom();cmLockCheck(false);
+
+
+draw();cmFirst();
 </script></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Учёт имущества — Караульное помещение</title>
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><title>Учёт имущества — Караульное помещение</title>
 <style>
 :root{--bg:#eef1f5;--card:#fff;--tx:#18222f;--mu:#667487;--bd:#dce2ea;--nav:#16304f;--nav2:#0f2340;--ac:#1f8a7d;--ac2:#176f64;--acs:rgba(31,138,125,.12);--red:#c93c3c;--reds:rgba(201,60,60,.12);--yl:#a96f00;--yls:rgba(201,138,18,.16);--gr:#1f8a52;--grs:rgba(31,138,82,.13);--hv:rgba(60,90,130,.07);--sh:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05);color-scheme:light}
 :root[data-t=dark]{--bg:#0f151d;--card:#17202b;--tx:#e7ecf2;--mu:#98a5b6;--bd:#283343;--nav:#0b121b;--nav2:#080d14;--ac:#2fb5a5;--ac2:#27a091;--acs:rgba(47,181,165,.16);--red:#ff8a8a;--reds:rgba(255,100,100,.15);--yl:#f0c060;--yls:rgba(240,192,96,.15);--gr:#6fd39a;--grs:rgba(111,211,154,.14);--hv:rgba(150,180,220,.08);--sh:0 2px 12px rgba(0,0,0,.35);color-scheme:dark}
@@ -56,6 +56,27 @@ td input.in{width:64px;padding:4px 7px;min-height:32px;text-align:right}
 .top{display:none}
 @media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;padding:8px}.logo,.org,.sp,.sv{display:none}aside button.n{width:auto;white-space:nowrap}main{padding:16px 14px 60px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:1}.paper{padding:16px}}
 @media print{aside,.bar,.noprint,.toast,.hint,.note,h1,.sub{display:none!important}.app{display:block}body{background:#fff}main{padding:0;max-width:none}.paper{box-shadow:none;padding:0;max-width:none}}
+
+@media(max-width:760px){
+html{-webkit-text-size-adjust:100%}body{-webkit-tap-highlight-color:transparent}
+.app{display:block}
+aside{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:25;flex-direction:row;gap:0;padding:0 0 env(safe-area-inset-bottom);overflow-x:auto;overflow-y:hidden;box-shadow:0 -2px 14px rgba(8,16,28,.25);scrollbar-width:none}
+aside::-webkit-scrollbar{display:none}
+aside .logo,aside .org,aside .sv,aside .sp{display:none}
+aside button.n{flex-direction:column;gap:3px;font-size:10px;font-weight:600;line-height:1.1;padding:8px 4px 7px;min-width:68px;max-width:84px;width:auto;justify-content:center;align-items:center;text-align:center;border-radius:0;position:relative;white-space:normal;flex:1 0 auto}
+aside button.n svg.i{width:22px;height:22px}aside button.n .bg{position:absolute;top:3px;left:calc(50% + 6px);margin:0}
+main{padding:14px 14px calc(96px + env(safe-area-inset-bottom))}
+h1{font-size:22px}.sub{font-size:13px}
+input,select,textarea{font-size:16px;min-height:46px;max-width:100%}.btn{min-height:46px}.btn.s{min-height:38px}
+.bar{gap:8px}.bar .search{flex:1 1 100%;width:100%}
+.kpis{grid-template-columns:1fr 1fr;gap:10px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:auto}
+.card{padding:14px}.note{flex-wrap:wrap}
+.ov{align-items:flex-end;padding:0}.mod{border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.toast{bottom:calc(88px + env(safe-area-inset-bottom));max-width:92vw}
+.scroll{max-height:none}
+.paper{padding:14px;overflow-x:auto;font-size:13px}.paper table{min-width:520px}
+.chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+}
 </style></head><body>
 <div class="app"><aside id="nv"></aside><main id="m"></main></div><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json">
 <script>
@@ -68,7 +89,7 @@ const IC={ov:'<path d="M3 13h7V3H3zM14 21h7V11h-7zM14 3v5h7V3zM3 21h7v-5H3z"/>',
 const ic=n=>`<svg class="i" viewBox="0 0 24 24">${IC[n]}</svg>`;
 const $=s=>document.querySelector(s),today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')},fd=d=>d?d.split('-').reverse().join('.'):'—',rub=n=>Math.round(n).toLocaleString('ru-RU')+' ₽';
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const SET0={boss:'Борисов М.К.',master:'Ипполитов А.Д.',org:'Караульное помещение',interval:90,coef:2,theme:'auto'};
+const SET0={boss:'',master:'',org:'Караульное помещение',interval:90,coef:2,theme:'auto'};
 function seed(){return{items:S0.map(r=>({id:r[0],name:r[1],cat:PRE[r[0].split('-')[0]],type:TY[r[2]],place:PL[r[3]],state:ST[r[4]],unit:r[5]?'компл.':'шт',book:r[6],fact:r[7],price:r[8],note:r[9],min:null,date:'2026-10-28',inv:0,daily:r[0].startsWith('ПИ-')&&r[0]!='ПИ-019'})),ops:[],set:{...SET0},bk:0}}
 function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}if(!j||!j.items)j=seed();return norm(j)}
 function norm(j){j.set=Object.assign({},SET0,j.set);j.ops=j.ops||[];j.ops.forEach(o=>{o.k=o.k||Math.random().toString(36).slice(2);o.ts=o.ts||0});j.items.forEach(i=>{if(i.date===undefined)i.date='2026-10-28';i.inv=i.inv||0;if(i.daily===undefined)i.daily=i.cat=='Патрульный инвентарь'&&i.id!='ПИ-019'});j.bk=j.bk||0;j.checks=j.checks||[];j.rep=j.rep||[];j.audit=j.audit||[];j.items.forEach(i=>{i.sn=i.sn||''});j.notes=j.notes||'';j.items.forEach(i=>{i.to=i.to||''});return j}
@@ -150,7 +171,7 @@ function cardv(){const i=D.items.find(x=>x.id==cid);if(!i){tab='it';return it()}
  const row=(l,v)=>`<tr><td class="mu" style="width:42%">${l}</td><td>${v||'<span class="mu">—</span>'}</td></tr>`;
  return`<div class="bar"><button class="btn g" data-act="cback">← К списку</button><button class="btn g s" data-act="cnav" data-d="-1" ${a[k-1]?'':'disabled'}>‹ Предыдущая</button><button class="btn g s" data-act="cnav" data-d="1" ${a[k+1]?'':'disabled'}>Следующая ›</button><span class="mu">${k>=0?(k+1)+' из '+a.length:''}</span></div>
  <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px"><div style="width:170px"><div style="width:170px;height:170px;border-radius:12px;background:var(--hv);display:grid;place-items:center;overflow:hidden;color:var(--mu)">${i.photo?`<img src="${i.photo}" alt="" style="width:100%;height:100%;object-fit:cover">`:'<span style="text-align:center;font-size:12px">Фото<br>не добавлено</span>'}</div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><label class="btn s g" style="cursor:pointer">${i.photo?'Заменить':'Добавить фото'}<input type="file" accept="image/*" hidden data-chg="photo" data-id="${e(i.id)}"></label>${i.photo?`<button class="btn s g r" data-act="photodel" data-id="${e(i.id)}">Убрать</button>`:''}</div></div>
- <div style="flex:1;min-width:260px"><div class="mu">${e(i.id)} · ${e(i.cat)} · ${e(i.type)}</div><h1 style="margin:2px 0 10px">${e(i.name)}</h1><div style="margin-bottom:14px">${stPill(i.state)} ${tags(i)}</div><div class="bar" style="margin:0"><button class="btn" data-act="edit" data-id="${e(i.id)}">Изменить</button><button class="btn g" data-act="op" data-id="${e(i.id)}">Операция</button>${BAD.includes(i.state)?`<button class="btn g" data-act="repnew" data-id="${e(i.id)}">В ремонт</button>`:''}<button class="btn g" data-act="dup" data-id="${e(i.id)}">Дублировать</button><button class="btn g" data-act="cprn">Печать карточки</button><button class="btn g r" data-act="del" data-id="${e(i.id)}">Удалить</button></div></div></div>
+ <div style="flex:1;min-width:260px"><div class="mu">${e(i.id)} · ${e(i.cat)} · ${e(i.type)}</div><h1 style="margin:2px 0 10px">${e(i.name)}</h1><div style="margin-bottom:14px">${stPill(i.state)} ${tags(i)}</div><div class="bar" style="margin:0"><button class="btn" data-act="edit" data-id="${e(i.id)}">Изменить</button><button class="btn g" data-act="op" data-id="${e(i.id)}">Операция</button><button class="btn g" data-act="op" data-id="${e(i.id)}" data-op="Списание">Списать</button>${BAD.includes(i.state)?`<button class="btn g" data-act="repnew" data-id="${e(i.id)}">В ремонт</button>`:''}<button class="btn g" data-act="dup" data-id="${e(i.id)}">Дублировать</button><button class="btn g" data-act="cprn">Печать карточки</button><button class="btn g r" data-act="del" data-id="${e(i.id)}">Удалить</button></div></div></div>
  <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">${[['Остаток',c.s+' '+i.unit],['По книгам',i.book],['Факт',i.fact??'—'],['Мин. остаток',i.min??'—'],['Цена',i.price?rub(i.price):'—'],['Стоимость остатка',i.price?rub(c.s*i.price):'—']].map(x=>`<div class="card kpi" style="cursor:default"><div><b style="font-size:20px">${x[1]}</b><span>${x[0]}</span></div></div>`).join('')}</div>
  <div class="g2"><div class="card"><h3>Данные</h3><table>${row('Место хранения',e(i.place))}${row('Состояние',i.state)}${row('Серийный / заводской №',e(i.sn))}${row('Ед. измерения',e(i.unit))}${row('Последняя инвентаризация',i.date?fd(i.date)+' ('+days(i.date)+' дн. назад)':'')}${row('След. ТО / поверка',i.to?fd(i.to):'')}${row('Ежедневная проверка',i.daily?'входит':'не входит')}${row('Примечание',e(i.note))}${i.state=='В ремонте'?row('В ремонте',e(i.rwho||'')+' с '+fd(i.rdate)+(i.defect?' · '+e(i.defect):'')):i.defect?row('Дефект',e(i.defect)):''}${row('На руках',hold.length?hold.map(h=>e(h[0])+' — '+h[1]).join('<br>'):'')}</table></div>
  <div class="card"><h3>История позиции</h3>${hs.length?`<div style="max-height:420px;overflow:auto"><table>${hs.map(h=>`<tr><td class="mu" style="white-space:nowrap">${fd(h.d)}</td><td>${e(h.t)}</td></tr>`).join('')}</table></div>`:'<div class="empty">Событий пока нет</div>'}</div></div>`}
@@ -211,7 +232,7 @@ function edit(id){const n=!id,i=id?D.items.find(x=>x.id==id):{id:'',name:'',cat:
  const h=D.ops.filter(o=>o.id==id).slice(-5).reverse();
  modal(`<h3>${n?'Новая позиция':e(i.name)}</h3>${n?'':`<div class="bar" style="margin-bottom:6px">${tags(i)}<span class="mu">Остаток: <b>${cur(i)}</b> ${i.unit}</span></div>`}<div class="fg">${F('Наименование','name','text','w')}<div><label>Категория</label><input id="f_cat" list="dl_c" value="${e(i.cat)}"><datalist id="dl_c">${cats().map(c=>`<option value="${e(c)}">`).join('')}</datalist></div>${S('Тип учёта','type',TY)}${F('Инв. №','id','text','',n?'':'disabled')}<div><label>Место хранения</label><input id="f_place" list="dl_p" value="${e(i.place)}"><datalist id="dl_p">${[...new Set(D.items.map(x=>x.place).filter(Boolean))].map(c=>`<option value="${e(c)}">`).join('')}</datalist></div>${S('Состояние','state',ST)}${F('Ед. изм.','unit')}${F('По книгам (учёт)','book','number','','min=0')}${F('Фактически','fact','number','','min=0')}${F('Мин. остаток (расходник)','min','number','','min=0')}${F('Цена за ед., ₽','price','number','','min=0')}${F('След. ТО / поверка','to','date')}${F('Серийный / заводской №','sn')}${F('Примечание','note','text','w')}<div class="w"><label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="f_daily" style="min-height:0" ${i.daily?'checked':''}> Входит в ежедневную проверку</label></div></div>
  ${h.length?`<h3 style="margin:16px 0 6px">Последние операции</h3><table>${h.map(o=>`<tr><td class="mu">${fd(o.d)}</td><td>${o.op}</td><td class="num">${o.qty}</td><td>${e(o.w)}</td></tr>`).join('')}</table>`:''}
- <div class="bar" style="margin:18px 0 0"><button class="btn" data-act="sv" data-id="${e(id||'')}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${n?'':`<button class="btn g" data-act="op" data-id="${e(id)}">Операция</button><button class="btn g" data-act="dup" data-id="${e(id)}">Дублировать</button><button class="btn g r" style="margin-left:auto" data-act="del" data-id="${e(id)}">Удалить</button>`}</div>`);
+ <div class="bar" style="margin:18px 0 0"><button class="btn" data-act="sv" data-id="${e(id||'')}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${n?'':`<button class="btn g" data-act="op" data-id="${e(id)}">Операция</button><button class="btn g" data-act="op" data-id="${e(id)}" data-op="Списание">Списать</button><button class="btn g" data-act="dup" data-id="${e(id)}">Дублировать</button><button class="btn g r" style="margin-left:auto" data-act="del" data-id="${e(id)}">Удалить</button>`}</div>`);
  if(n){const c=$('#f_cat');const u=()=>{const x=$('#f_id');if(!x.dataset.m)x.value=nextId(c.value)};c.onchange=u;$('#f_id').oninput=ev=>ev.target.dataset.m=1;$('#f_id').value=nextId(i.cat)}}
 function sv(id){const g=k=>$('#f_'+k).value.trim(),n=k=>g(k)===''?null:+g(k);
  const o={name:g('name'),cat:g('cat')||'Прочее',type:g('type'),state:g('state'),place:g('place'),unit:g('unit')||'шт',book:n('book')??0,fact:n('fact'),min:n('min'),price:n('price'),note:g('note'),to:g('to'),sn:g('sn'),daily:$('#f_daily').checked};
@@ -302,6 +323,7 @@ function sxImCalc(j){const items=j.items||[],ops=j.ops||[],set=j.set||{},BADs=['
 const TYPES={};
 const SXC={role:'mast',name:'Старший мастер патруля',h1:1,approve:0,sends:'сводку по имуществу (недостачи, ремонт, закупка, имущество на руках)',
  out:()=>[{t:'is',k:'is_mast',d:sxImCalc(D)}],inn:{}};
+const CMC={role:'mast',title:'Старший мастер патруля',nameKey:'master',nameLabel:'Ваше ФИО',staffPos:'Старший мастер патруля',others:[['boss','Начальник патруля (ФИО)','Фамилия И.О.']]};
 /* ===== ОБМЕН ПАКЕТАМИ МЕЖДУ РОЛЯМИ ===== */
 const SXSEED=['Развод и инструктаж личного состава','Доклад педагогу-организатору об итогах службы','Проверка имущества патруля со старшим мастером','Обход постов','Проверка журналов патруля','Доклад начальнику патруля об итогах','Развод: отметить явку личного состава','Заполнить журнал службы за день','Недельный отчёт начальнику патруля','Передать материалы руководителю патруля'];
 const sxSeedEv=v=>v.rec!='none'&&(SXSEED.includes(v.title)||String(v.note||'').startsWith('Время условное'));
@@ -312,17 +334,27 @@ const sxD=s=>s?String(s).slice(8,10)+'.'+String(s).slice(5,7)+'.'+String(s).slic
 const sxDT=t=>t?new Date(t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'ещё не было';
 function sxB64(b){let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function sxUn64(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b}
+async function sxKey(pw,salt){const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function sxPack(o){const raw=new TextEncoder().encode(JSON.stringify(o));let z=null;try{z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(x){}
- return z&&z.length<raw.length?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
-async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZ]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]);if(m[1]=='Z')b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
-function sxCollect(all){const S=sxS(),r=[],now=Date.now();SXC.out().forEach(it=>{const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h})});return r}
+ const useZ=z&&z.length<raw.length,body=useZ?z:raw,pw=sxS().pw;
+ if(pw){if(!(window.crypto&&crypto.subtle))throw new Error('nocrypto');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),pl=new Uint8Array(body.length+1);pl[0]=useZ?1:0;pl.set(body,1);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await sxKey(pw,salt),pl)),out=new Uint8Array(28+ct.length);out.set(salt,0);out.set(iv,16);out.set(ct,28);return'ПАТРУЛЬ1E:'+sxB64(out)}
+ return useZ?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
+async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZE]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]),z=m[1]=='Z';
+ if(m[1]=='E'){const pw=sxS().pw;if(!pw)throw new Error('needpw');let pl;try{pl=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(16,28)},await sxKey(pw,b.slice(0,16)),b.slice(28)))}catch(x){throw new Error('badpw')}z=pl[0]==1;b=pl.slice(1)}
+ if(z)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
+const SXCOL=()=>({ev:D.events,tk:D.tasks,mt:D.mat,rp:D.rep,ou:D.out});
+const SXDEL=['ev','tk','mt','rp'];
+function sxCollect(all){const S=sxS(),r=[],now=Date.now(),seen=new Set(),col=SXCOL();SXC.out().forEach(it=>{seen.add(it.k);const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h,_t:it.t})});
+ Object.entries(S.meta).forEach(([k,m])=>{if(m.live&&!m.del&&!seen.has(k)&&SXDEL.includes(m.t)&&Array.isArray(col[m.t])&&!col[m.t].some(x=>x.k==k))r.push({t:m.t,k,u:now,f:SXC.name,del:1,_h:'del',_t:m.t})});return r}
 async function sxSend(all){const S=sxS(),it=sxCollect(all);if(!it.length)return toast('Нечего отправлять: после прошлой отправки изменений нет');
- const code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,...r})=>r)});
- SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]={h:x._h,u:x.u});S.tOut=Date.now();save();
+ let code;try{code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,_t,...r})=>r)})}catch(x){return toast('Не удалось зашифровать пакет: откройте программу по адресу с https')}
+ SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]=x.del?{h:'del',u:x.u,del:1}:{h:x._h,u:x.u,live:1,t:x._t});S.tOut=Date.now();save();
  modal(`<h3>Пакет готов</h3><p class="mu" style="margin-top:0">Позиций: ${it.length}. Отправьте текст в общий чат патруля. Остальные нажмут «Принять пакет» и вставят его.</p><textarea readonly rows="4" style="width:100%;font-size:12px">${e(SXTXT)}</textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxshare">Отправить</button><button class="btn g" style="flex:1" data-act="sxcopy">Копировать</button><button class="btn g" data-act="sxfile">Файл</button></div><div class="bar" style="margin:0"><button class="btn g" style="flex:1" data-act="sxcl">Готово</button></div>`);draw(1)}
-async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast('Это не пакет обмена. Скопируйте сообщение целиком')}
- const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
-  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
+async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast(x&&x.message=='needpw'?'Пакет зашифрован. Задайте пароль патруля в «Обмен»':x&&x.message=='badpw'?'Неверный пароль патруля':'Это не пакет обмена. Скопируйте сообщение целиком')}
+ const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;
+  if(it.del){const c=SXCOL()[it.t];if(Array.isArray(c)){const i=c.findIndex(x=>x.k==it.k);if(i>=0)c.splice(i,1)}if(S.in[it.t])delete S.in[it.t][it.k];S.meta[it.k]={h:'del',u:it.u,del:1};n++;return}
+  const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
+  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u,live:1,t:it.t}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
  S.tIn=Date.now();save();closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
 function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
 const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
@@ -339,9 +371,10 @@ function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','
  return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
 function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
  return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: вы отправляете свои изменения одним сообщением, остальные принимают его в программе. Данные идут только в ваш чат.</p>
- <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><button class="btn s g" data-act="sxall" style="margin-top:10px">Отправить всё заново</button></div>${ib}`}
+ <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><div class="bar" style="margin:10px 0 0"><button class="btn s g" data-act="sxall">Отправить всё заново</button><button class="btn s g" data-act="sxpw">${S.pw?'Пароль патруля: задан':'Пароль патруля'}</button></div></div>${ib}`}
 const SXA={
- sxcl:()=>closeM(),sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
+ sxcl:()=>closeM(),sxpw:()=>modal(`<h3>Пароль патруля</h3><p class="mu" style="margin-top:0">Если задать пароль, пакеты в чате будут зашифрованы и посторонний их не прочитает. Пароль должен быть <b>одинаковым у всех</b> ролей. Передайте его лично, не в чат.</p><input id="sx_pw" type="password" autocomplete="off" placeholder="Пароль" value="${e(sxS().pw||'')}"><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="sxpw2">Сохранить</button><button class="btn g" data-act="sxpw3">Убрать пароль</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
+ sxpw2:()=>{const v=$('#sx_pw').value.trim();if(v&&!(window.crypto&&crypto.subtle))return toast('Шифрование недоступно: откройте программу по адресу с https');sxS().pw=v;save();closeM();draw(1);toast(v?'Пароль задан':'Пароль убран')},sxpw3:()=>{sxS().pw='';save();closeM();draw(1);toast('Пароль убран')},sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
  sxrecv:()=>modal(`<h3>Принять пакет</h3><p class="mu" style="margin-top:0">Скопируйте сообщение с пакетом из чата и вставьте сюда.</p><textarea id="sx_t" rows="5" style="width:100%;font-size:13px"></textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxapply">Принять</button><button class="btn g" data-act="sxpaste">Вставить из буфера</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
  sxapply:()=>sxApplyTxt($('#sx_t').value),
  sxpaste:()=>{(navigator.clipboard&&navigator.clipboard.readText?navigator.clipboard.readText():Promise.reject()).then(t=>{$('#sx_t').value=t},()=>toast('Не удалось прочитать буфер: вставьте текст вручную'))},
@@ -355,6 +388,34 @@ function sxIEv(d){if(!TYPES[d.type])d={...d,type:'Прочее'};const i=D.event
 function sxITk(d){const i=D.tasks.findIndex(x=>x.k==d.k);if(i>=0)D.tasks[i]=d;else D.tasks.push(d);return d}
 function sxISt(d){let i=D.staff.findIndex(x=>x.k==d.k);if(i<0)i=D.staff.findIndex(x=>x.name==d.name);if(i>=0){D.staff[i]={...d,k:D.staff[i].k};return D.staff[i]}D.staff.push(d);return d}
 IC.sx='<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>';
-draw();$('#cnt')&&cnt();
+
+/* ===== ОБЩЕЕ: первый запуск, защита, крупный текст ===== */
+const cmLS={g(k){try{return localStorage.getItem(k)}catch(x){return null}},s(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(x){}}};
+const cmH=s=>{let h=2166136261;s='patrul:'+s;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(16)};
+const cmK=n=>KEY+'_'+n;
+function cmZoom(){const z=parseFloat(cmLS.g(cmK('zoom'))||'1');document.documentElement.style.zoom=z==1?'':z}
+function cmFirst(){if(D.set.init||document.getElementById('cm_n'))return;const c=CMC,f=(k,l,ph)=>`<div class="w"><label>${l}</label><input id="cm_${k}" value="${e(D.set[k]||'')}" placeholder="${ph||''}"></div>`;
+ modal(`<h3>Первый запуск: кто вы?</h3><p class="mu" style="margin-top:0">Роль: <b>${c.title}</b>. Эти данные нужны для подписей в документах. Всё хранится только на этом устройстве, потом можно изменить в «Настройках».</p><div class="fg"><div class="w"><label>${c.nameLabel}</label><input id="cm_n" value="${e(D.set[c.nameKey]||'')}" placeholder="Фамилия И.О."></div>${(c.others||[]).map(o=>f(o[0],o[1],o[2])).join('')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmfirst">Готово</button></div>`);const o=document.querySelector('.ov');if(o)o.removeAttribute('data-act')}
+function cmLockShow(){if(document.getElementById('cmlock'))return;const d=document.createElement('div');d.id='cmlock';d.style.cssText='position:fixed;inset:0;z-index:99;background:var(--bg,#eef1f6);display:flex;align-items:center;justify-content:center;padding:20px';d.innerHTML='<div style="background:var(--card,#fff);color:var(--tx,#1a2433);border:1px solid var(--bd,#dbe2ec);border-radius:16px;padding:24px;width:min(340px,100%);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.2)"><h3 style="margin:0 0 6px">Программа заблокирована</h3><p style="margin:0 0 14px;opacity:.7;font-size:14px">Введите ПИН-код</p><input id="cm_pin" type="password" inputmode="numeric" autocomplete="off" style="width:100%;text-align:center;font-size:24px;letter-spacing:6px;box-sizing:border-box"><div id="cm_err" style="color:#c0463f;min-height:20px;margin:6px 0;font-size:14px"></div><button id="cm_ok" class="btn" style="width:100%">Открыть</button></div>';document.body.appendChild(d);
+ const go=()=>{if(cmH($('#cm_pin').value)==cmLS.g(cmK('pin'))){d.remove();cmLS.s(cmK('last'),String(Date.now()))}else{$('#cm_err').textContent='Неверный ПИН-код';$('#cm_pin').value=''}};$('#cm_ok').onclick=go;$('#cm_pin').onkeydown=e=>{if(e.key=='Enter')go()};setTimeout(()=>$('#cm_pin').focus(),50)}
+function cmLockCheck(force){if(!cmLS.g(cmK('pin')))return;const mins=parseInt(cmLS.g(cmK('lockmin'))||'5'),last=parseInt(cmLS.g(cmK('last'))||'0');if(force||mins==0||Date.now()-last>mins*60000)cmLockShow()}
+function cmCard(){const pin=!!cmLS.g(cmK('pin')),zm=cmLS.g(cmK('zoom'))||'1',lm=cmLS.g(cmK('lockmin'))||'5';
+ return`<div class="card" style="margin-top:14px"><h3>Защита и вид (только на этом устройстве)</h3><p class="mu" style="margin-top:0">ПИН-код защищает от случайного просмотра чужим человеком, а не от взлома. Данные студентов лучше не оставлять на разблокированном телефоне.</p><div class="bar"><button class="btn" data-act="cmpin">${pin?'Сменить ПИН-код':'Поставить ПИН-код'}</button>${pin?'<button class="btn g" data-act="cmpinrm">Снять ПИН-код</button><button class="btn g" data-act="cmlock">Заблокировать сейчас</button>':''}</div>
+ ${pin?`<div class="fg"><div class="w"><label>Блокировать при возврате в программу</label><select data-cm="lockmin">${[[0,'Всегда'],[1,'Через 1 минуту'],[5,'Через 5 минут'],[15,'Через 15 минут'],[60,'Через час']].map(x=>`<option value="${x[0]}" ${lm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div>`:''}
+ <div class="fg"><div class="w"><label>Размер текста</label><select data-cm="zoom">${[['1','Обычный'],['1.15','Крупный'],['1.3','Очень крупный']].map(x=>`<option value="${x[0]}" ${zm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`}
+const CMA={
+ cmfirst:()=>{const c=CMC,n=$('#cm_n').value.trim();if(!n)return toast('Впишите ваше ФИО');D.set[c.nameKey]=n;(c.others||[]).forEach(o=>{const el=$('#cm_'+o[0]);if(el)D.set[o[0]]=el.value.trim()});D.set.init=1;
+  if(Array.isArray(D.staff)){const add=(name,pos)=>{if(name&&!D.staff.some(x=>x.name==name))D.staff.push({k:uid(),name,pos,grp:'',tel:'',st:'в строю'})};add(n,c.staffPos);if(D.set.boss&&c.role!='nach')add(D.set.boss,'Начальник патруля')}
+  save();closeM();draw();toast('Готово, данные сохранены')},
+ cmpin:()=>modal(`<h3>ПИН-код</h3><div class="fg"><div class="w"><label>Новый ПИН-код (4–8 цифр)</label><input id="cm_p1" type="password" inputmode="numeric" autocomplete="off"></div><div class="w"><label>Повторите</label><input id="cm_p2" type="password" inputmode="numeric" autocomplete="off"></div></div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmpin2">Сохранить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
+ cmpin2:()=>{const a=$('#cm_p1').value,b=$('#cm_p2').value;if(!/^\d{4,8}$/.test(a))return toast('ПИН-код: от 4 до 8 цифр');if(a!=b)return toast('ПИН-коды не совпадают');cmLS.s(cmK('pin'),cmH(a));cmLS.s(cmK('last'),String(Date.now()));closeM();draw(1);toast('ПИН-код установлен. Запомните его: восстановить нельзя')},
+ cmpinrm:()=>{cmLS.s(cmK('pin'),null);draw(1);toast('ПИН-код снят')},cmlock:()=>cmLockCheck(true)};
+Object.assign(A,CMA);if(!A.cl)A.cl=()=>closeM();
+document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset&&t.dataset.cm;if(!c)return;cmLS.s(cmK(c),t.value);if(c=='zoom')cmZoom();toast('Сохранено')});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cmLS.s(cmK('last'),String(Date.now()));else cmLockCheck(false)});
+stt=(function(_s){return function(){return _s()+cmCard()}})(stt);
+cmZoom();cmLockCheck(false);
+
+draw();$('#cnt')&&cnt();cmFirst();
 const _d=draw;draw=function(k){_d(k);cnt()};cnt();
 </script></body></html>
