@@ -1,0 +1,426 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><title>Документовед патруля — журналы и документы</title>
+<style>
+
+:root{--bg:#eef1f5;--card:#fff;--tx:#18222f;--mu:#667487;--bd:#dce2ea;--nav:#16304f;--nav2:#0f2340;--ac:#1f8a7d;--ac2:#176f64;--acs:rgba(31,138,125,.12);--red:#c93c3c;--reds:rgba(201,60,60,.12);--yl:#a96f00;--yls:rgba(201,138,18,.16);--gr:#1f8a52;--grs:rgba(31,138,82,.13);--hv:rgba(60,90,130,.07);--sh:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05);color-scheme:light}
+:root[data-t=dark]{--bg:#0f151d;--card:#17202b;--tx:#e7ecf2;--mu:#98a5b6;--bd:#283343;--nav:#0b121b;--nav2:#080d14;--ac:#2fb5a5;--ac2:#27a091;--acs:rgba(47,181,165,.16);--red:#ff8a8a;--reds:rgba(255,100,100,.15);--yl:#f0c060;--yls:rgba(240,192,96,.15);--gr:#6fd39a;--grs:rgba(111,211,154,.14);--hv:rgba(150,180,220,.08);--sh:0 2px 12px rgba(0,0,0,.35);color-scheme:dark}
+@media(prefers-color-scheme:dark){:root:not([data-t=light]){--bg:#0f151d;--card:#17202b;--tx:#e7ecf2;--mu:#98a5b6;--bd:#283343;--nav:#0b121b;--nav2:#080d14;--ac:#2fb5a5;--ac2:#27a091;--acs:rgba(47,181,165,.16);--red:#ff8a8a;--reds:rgba(255,100,100,.15);--yl:#f0c060;--yls:rgba(240,192,96,.15);--gr:#6fd39a;--grs:rgba(111,211,154,.14);--hv:rgba(150,180,220,.08);--sh:0 2px 12px rgba(0,0,0,.35);color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+aside{background:linear-gradient(180deg,var(--nav),var(--nav2));color:#fff;padding:18px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow:auto}
+.logo{display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:2px 10px}.logo svg{width:26px;height:26px;color:#5fd3c4}
+.org{padding:2px 10px 16px;opacity:.6;font-size:12px}
+aside button.n{display:flex;gap:11px;align-items:center;border:0;background:transparent;color:#c5d1e2;font:inherit;font-weight:600;padding:10px 12px;border-radius:9px;cursor:pointer;text-align:left;width:100%}
+aside button.n:hover{background:rgba(255,255,255,.08)}aside button.n.on{background:var(--ac);color:#fff}
+.bg{margin-left:auto;background:#d64545;color:#fff;border-radius:10px;font-size:11px;padding:0 7px;line-height:18px;font-weight:700}
+.sp{flex:1}.sv{font-size:12px;opacity:.55;padding:6px 12px}
+main{padding:24px 32px 70px;max-width:1320px;width:100%;min-width:0}
+h1{margin:0 0 2px;font-size:24px}h3{margin:0 0 12px;font-size:16px}.sub{color:var(--mu);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;box-shadow:var(--sh)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:14px}
+.kpi{display:flex;gap:14px;align-items:center;cursor:pointer;text-align:left;font:inherit;color:inherit}.kpi:hover{border-color:var(--ac)}
+.ic{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:var(--acs);color:var(--ac)}.ic svg{width:22px;height:22px}
+.kpi b{display:block;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}.kpi span{color:var(--mu);font-size:12.5px}
+.kpi.w .ic{background:var(--reds);color:var(--red)}.kpi.w b{color:var(--red)}.kpi.y .ic{background:var(--yls);color:var(--yl)}
+.g2{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:14px}.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:14px}.g3 .card{overflow-x:auto}[hidden]{display:none!important}
+.bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+input,select,textarea{font:inherit;padding:9px 12px;border:1px solid var(--bd);border-radius:9px;background:var(--card);color:var(--tx);outline:0;min-height:40px}
+input:focus,select:focus,textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)}
+.btn{display:inline-flex;gap:7px;align-items:center;justify-content:center;background:var(--ac);color:#fff;border:0;border-radius:9px;padding:9px 16px;min-height:40px;font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--ac2)}.btn.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}.btn.g:hover{background:var(--hv)}.btn.r{color:var(--red)}.btn.s{padding:4px 10px;min-height:30px;font-size:13px}
+.btn svg{width:16px;height:16px}
+.search{flex:1;min-width:200px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;padding:5px 13px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.scroll{overflow:auto;max-height:72vh;border-radius:12px;border:1px solid var(--bd);background:var(--card);box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{background:var(--card);color:var(--mu);text-align:left;padding:10px 12px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;border-bottom:2px solid var(--bd);z-index:1;white-space:nowrap}
+th.so{cursor:pointer}th.so:hover{color:var(--ac)}
+td{padding:9px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}tr.r:hover td{background:var(--hv)}.num{text-align:right}.mu{color:var(--mu);font-size:12px}
+a.nm{cursor:pointer;font-weight:600}a.nm:hover{color:var(--ac)}
+td input.in{width:64px;padding:4px 7px;min-height:32px;text-align:right}
+.tag{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;font-weight:600;background:var(--grs);color:var(--gr);margin:1px;white-space:nowrap}
+.tag.b{background:var(--reds);color:var(--red)}.tag.y{background:var(--yls);color:var(--yl)}.tag.m{background:var(--hv);color:var(--mu)}
+.pb{height:8px;border-radius:6px;background:var(--hv);overflow:hidden;margin-top:5px}.pb i{display:block;height:100%;background:var(--ac);border-radius:6px}
+.cr{margin-bottom:13px}.cr div:first-child{display:flex;justify-content:space-between;gap:8px}
+.empty{text-align:center;padding:34px;color:var(--mu)}
+.note{background:var(--yls);color:var(--yl);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hint{background:var(--hv);border-radius:10px;padding:10px 14px;color:var(--mu);font-size:13px;margin-bottom:14px}
+.ov{position:fixed;inset:0;background:rgba(8,16,28,.6);display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto;z-index:30}
+.mod{background:var(--card);border-radius:14px;padding:22px;width:min(620px,100%);box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}.fg label{font-size:12px;color:var(--mu);margin-top:9px;display:block;font-weight:600}.fg input,.fg select{width:100%}.fg .w{grid-column:1/3}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16304f;color:#fff;padding:10px 12px 10px 20px;border-radius:30px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:60;display:flex;gap:12px;align-items:center}
+.toast button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:20px;padding:4px 12px;font:inherit;font-weight:600;cursor:pointer}
+.paper{background:#fff;color:#000;padding:30px 38px;max-width:840px;margin:auto;font:13px/1.45 "Times New Roman",serif;box-shadow:var(--sh);border-radius:4px}
+.paper h2{text-align:center;margin:0;font-size:17px}.paper .c{text-align:center}.paper table{margin:12px 0}.paper th{background:#fff;color:#000;border:1px solid #000;position:static;text-transform:none;letter-spacing:0;font-size:12px;padding:5px}.paper td{border:1px solid #000;padding:5px 7px}
+.sg{margin-top:24px;display:flex;align-items:baseline;gap:8px}.sg i{width:160px;border-bottom:1px solid #000;display:inline-block}
+.donut{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.donut svg{width:130px;height:130px;flex:none}.lg div{display:flex;gap:8px;align-items:center;margin:4px 0}.lg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.top{display:none}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;padding:8px}.logo,.org,.sp,.sv{display:none}aside button.n{width:auto;white-space:nowrap}main{padding:16px 14px 60px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:1}.paper{padding:16px}}
+@media print{aside,.bar,.noprint,.toast,.hint,.note,h1,.sub{display:none!important}.app{display:block}body{background:#fff}main{padding:0;max-width:none}.paper{box-shadow:none;padding:0;max-width:none}}
+
+[hidden]{display:none!important}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.day{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:6px;min-height:200px;min-width:0}
+.day.today{border-color:var(--ac);box-shadow:0 0 0 2px var(--acs)}.day.we .dh b{color:var(--red)}
+.dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--bd);padding-bottom:5px}.dh span{color:var(--mu);font-size:12px}
+.ev{display:flex;gap:6px;align-items:flex-start;padding:5px 7px;border-radius:7px;background:color-mix(in srgb,var(--c) 14%,transparent);border-left:3px solid var(--c);font-size:13px;line-height:1.3}
+.ev input{min-height:0;width:14px;height:14px;margin-top:2px;flex:none;padding:0}
+.ev .tt{cursor:pointer;min-width:0;overflow-wrap:break-word;hyphens:auto;font-size:12.5px}.ev .tm{display:block}.ev .tm{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ev.dn .tt{text-decoration:line-through;opacity:.55}
+.add{margin-top:auto;border:1px dashed var(--bd);background:transparent;color:var(--mu);border-radius:8px;padding:4px;cursor:pointer;font:inherit;font-size:12px}.add:hover{color:var(--ac);border-color:var(--ac)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.ch{background:var(--card);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase}
+.cd{background:var(--card);min-height:98px;padding:5px;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0}.cd:hover{background:var(--hv)}.cd.o{opacity:.45}.cd.sel{outline:2px solid var(--ac);outline-offset:-2px}
+.cd .n{font-size:13px;font-weight:600;display:flex;justify-content:space-between}.cd.today .n b{background:var(--ac);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center}
+.mp{font-size:11px;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--tx);border-left:3px solid var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:3px}
+.lg2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mu)}.lg2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;background:var(--c)}
+.sec{margin:20px 0 8px;font-size:15px;font-weight:700}
+.dt input,.dt select{width:100%;min-width:90px;min-height:32px;padding:4px 8px}.dt td{padding:5px 6px}
+@media(max-width:1180px){.wk{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}}
+@media(max-width:700px){.cd{min-height:64px}.mp{display:none}.cd .dots{display:block}}
+@media print{.wk,.cal{display:none}}
+@page land{size:A4 landscape;margin:10mm}.paper.land{page:land;max-width:1150px}.paper.land table{font-size:12px}.small{font-size:12px}
+@media print{.app{min-height:0}main{min-height:0}#md,#ts{display:none}}
+
+@media(max-width:760px){
+html{-webkit-text-size-adjust:100%}body{-webkit-tap-highlight-color:transparent}
+.app{display:block}
+aside{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:25;flex-direction:row;gap:0;padding:0 0 env(safe-area-inset-bottom);overflow-x:auto;overflow-y:hidden;box-shadow:0 -2px 14px rgba(8,16,28,.25);scrollbar-width:none}
+aside::-webkit-scrollbar{display:none}
+aside .logo,aside .org,aside .sv,aside .sp{display:none}
+aside button.n{flex-direction:column;gap:3px;font-size:10px;font-weight:600;line-height:1.1;padding:8px 4px 7px;min-width:68px;max-width:84px;width:auto;justify-content:center;align-items:center;text-align:center;border-radius:0;position:relative;white-space:normal;flex:1 0 auto}
+.n svg.i{width:22px;height:22px}aside button.n .bg{position:absolute;top:3px;left:calc(50% + 6px);margin:0}
+main{padding:14px 14px calc(96px + env(safe-area-inset-bottom))}
+h1{font-size:22px}.sub{font-size:13px}
+input,select,textarea{font-size:16px;min-height:46px;max-width:100%}.btn{min-height:46px}.btn.s{min-height:38px}
+.bar{gap:8px}.bar .search{flex:1 1 100%;width:100%}
+.kpis{grid-template-columns:1fr 1fr;gap:10px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:auto}
+.card{padding:14px}.note{flex-wrap:wrap}
+.ov{align-items:flex-end;padding:0}.mod{border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.toast{bottom:calc(88px + env(safe-area-inset-bottom));max-width:92vw}
+.scroll{max-height:none;border:0;background:transparent;box-shadow:none;overflow:visible}
+table.rs,table.rs tbody,table.rs tr,table.rs td{display:block;width:100%}
+table.rs tr:has(th){display:none}
+table.rs tr{background:var(--card);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;padding:10px 14px;box-shadow:var(--sh)}
+table.rs td{border:0;padding:3px 0;text-align:left}
+table.rs td[data-l]::before{content:attr(data-l) ": ";color:var(--mu);font-size:12px}
+table.rs td select{width:100%;margin-top:4px}
+table.rs td.num{text-align:left}
+.paper{padding:14px;overflow-x:auto;font-size:13px}.paper table{min-width:520px}
+.chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+}
+</style></head><body>
+<div class="app"><aside id="nv"></aside><main id="m"></main></div><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json"><input type="file" id="imp2" hidden accept=".json">
+<datalist id="dl_staff"></datalist>
+<script>
+const KEY='dokumentoved_v1';
+const TYPES={'Журнал':'#1f8a7d','Отчёт':'#3b6fb6','Развод':'#78872a','Сдача документов':'#c26a1a','Совещание':'#8a52b5','Доклад':'#4f6d8f','Проверка':'#1f8a52','Прочее':'#667487'};
+const REC=[['none','Не повторять'],['daily','Каждый день'],['work','По будням'],['week','Каждую неделю']];
+const POS=['Начальник патруля','Заместитель начальника патруля','Старший мастер патруля','Документовед патруля','Старший патруля','Патрульный'];
+const VT=['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'];
+const MK=['Рапорт','Объяснительная','Фото','Видео','Аудио','Другое'];
+const MSS=['Новый','На доработке','Приобщён','Передан'];
+const OKD=['Докладная записка','Служебная записка','Информация куратору','Информация в отдел воспитательной работы','Другое'];
+const OSS=['Черновик','На согласовании','Согласовано','Отправлено'];
+const AT=[['+','Явился'],['оп','Опоздал'],['у','Отсутствует (уваж.)'],['н','Отсутствует'],['б','Болезнь']];
+const MISS={fio:'ФИО',grp:'группа',d:'дата',place:'место',gist:'суть'};
+
+const DS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],MN=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'],MG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const IC={ov:'<path d="M3 13h7V3H3zM14 21h7V11h-7zM14 3v5h7V3zM3 21h7v-5H3z"/>',wk:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',nr:'<path d="M4 4h12a2 2 0 012 2v14H6a2 2 0 01-2-2zM18 8h2v12h-2M8 8h6M8 12h6"/>',ps:'<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 015-5h4a5 5 0 015 5v2M17 3a4 4 0 010 8M22 21v-2a4 4 0 00-3-3.9"/>',vl:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01"/>',inc:'<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/>',tk:'<path d="M9 11l3 3 8-8M4 6h3M4 12h3M4 18h10"/>',im:'<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/>',dc:'<path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z"/>',st:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',pl:'<path d="M12 5v14M5 12h14"/>',sh:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'};
+const ico=n=>`<svg class="i" viewBox="0 0 24 24">${IC[n]}</svg>`;
+const $=s=>document.querySelector(s);
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>iso(new Date()),P=s=>new Date(s+'T12:00'),add=(s,n)=>{const d=P(s);d.setDate(d.getDate()+n);return iso(d)};
+const wd=s=>(P(s).getDay()+6)%7,mon=s=>add(s,-wd(s)),fd=d=>d?d.split('-').reverse().join('.'):'—';
+const fs=s=>{const d=P(s);return d.getDate()+' '+MG[d.getMonth()]};
+const fl=s=>{const d=P(s);return DS[wd(s)]+', '+d.getDate()+' '+MG[d.getMonth()]+' '+d.getFullYear()};
+const uid=()=>Math.random().toString(36).slice(2,9);
+IC.jr=IC.nr;IC.reg=IC.vl;IC.out='<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>';
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
+function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2200)}
+const pc=s=>String(s||'').replace(/ё/g,'е').toLowerCase();
+const posts=()=>D.set.posts.split(',').map(x=>x.trim()).filter(Boolean);
+const tag=(c,t)=>`<span class="tag ${c}">${e(t)}</span>`;
+const SET0={org:'Патрульная служба',boss:'Борисов М.К.',bossD:'Борисову М.К.',ped:'Лылов Н.А.',pedD:'Лылову Н.А.',dok:'',posts:'КПП, ТЕРРИТОРИЯ, УК-1, УК-2',theme:'auto'};
+function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[{k:uid(),name:'Борисов М.К.',pos:POS[0],grp:'',tel:'',st:'в строю'},{k:uid(),name:'Ипполитов А.Д.',pos:POS[2],grp:'',tel:'',st:'в строю'}],
+ events:[{k:uid(),d:b,t:'08:00',te:'',title:'Развод: отметить явку личного состава',type:'Развод',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
+ {k:uid(),d:b,t:'17:00',te:'',title:'Заполнить журнал службы за день',type:'Журнал',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
+ {k:uid(),d:add(b,4),t:'15:00',te:'',title:'Недельный отчёт начальнику патруля',type:'Отчёт',rec:'week',until:'',who:'',note:''},
+ {k:uid(),d:add(b,4),t:'16:00',te:'',title:'Передать материалы руководителю патруля',type:'Сдача документов',rec:'week',until:'',who:'',note:''}],
+ done:{},jr:{},mat:[],out:[],tasks:[],bk:0}}
+function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','mat','out','tasks'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.jr=j.jr||{};j.bk=j.bk||0;return j}
+function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
+let D=load(),tab='ov',wk=mon(today()),cm=today().slice(0,7)+'-01',csel=today(),jsel=today(),lastUndo=null,mper='',mst='',mq='',tkf='act',doc='d1',dd=today(),p1=mon(today()),p2=add(mon(today()),6),dto='boss',selOut='',dgrp='';
+
+function eventsOn(s){const w=wd(s);return D.events.filter(v=>v.rec=='none'?v.d==s:(v.d<=s&&(!v.until||s<=v.until)&&(v.rec=='daily'||(v.rec=='work'&&w<5)||(v.rec=='week'&&wd(v.d)==w)))).sort((a,b)=>(a.t||'99').localeCompare(b.t||'99'))}
+const isDone=(v,s)=>!!D.done[v.k+'|'+s];
+function evRow(v,s){const c=TYPES[v.type]||'#667487',dn=isDone(v,s);return`<div class="ev ${dn?'dn':''}" style="--c:${c}"><input type="checkbox" data-chg="evdone" data-k="${v.k}" data-d="${s}" ${dn?'checked':''}><span class="tt" data-act="evedit" data-k="${v.k}" data-d="${s}">${v.t?`<span class="tm">${v.t}${v.te?'–'+v.te:''}</span> `:''}${e(v.title)}${v.rec!='none'?' ↻':''}</span></div>`}
+const dueTasks=s=>D.tasks.filter(t=>t.due==s&&t.st!='Выполнено');
+const dok=()=>D.set.dok||'______________';
+const T=(l,id,v,c='w')=>`<div class="${c}"><label>${l}</label><textarea id="${id}" rows="4" style="width:100%">${e(v??'')}</textarea></div>`;
+const g=id=>$('#'+id).value.trim();
+/* ---------- каркас ---------- */
+const TABS=[['ov','Обзор'],['wk','Планер недели'],['cal','Календарь'],['jr','Журнал службы'],['reg','Журнал регистрации'],['out','Исходящие'],['sx','Обмен'],['tk','Поручения'],['ps','Личный состав'],['dc','Документы'],['st','Настройки']];
+function badge(k){const t=today();return k=='sx'?sxUnread():k=='tk'?D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t).length:k=='reg'?D.mat.filter(x=>x.st=='Новый'||x.st=='На доработке').length:k=='out'?D.out.filter(x=>x.st=='На согласовании').length:0}
+function draw(keep){save();theme();$('#dl_staff').innerHTML=D.staff.map(s=>`<option value="${e(s.name)}">`).join('');
+ $('#nv').innerHTML=`<div class="logo">${ico('sh')}Документовед патруля</div><div class="org">${e(D.set.org)}</div>`+TABS.map(t=>{const b=badge(t[0]);return`<button class="n ${t[0]==tab?'on':''}" data-act="tab" data-v="${t[0]}">${ico(t[0])}${t[1]}${b?`<span class="bg">${b}</span>`:''}</button>`}).join('')+`<div class="sp"></div><div class="sv">Данные хранятся в этом браузере<br>Клавиша N — новое событие</div>`;
+ $('#m').innerHTML=({ov,wk:wkv,cal:calv,jr:jrv,reg,out:outv,sx:SXV,tk,ps,dc,st:stt})[tab]();if(!keep)scrollTo(0,0)}
+function go(t){tab=t;draw()}
+/* ---------- материалы ---------- */
+const miss=m=>Object.keys(MISS).filter(k=>!String(m[k]||'').trim()).map(k=>MISS[k]);
+const mst2=s=>s=='Новый'?'y':s=='На доработке'?'b':s=='Передан'?'m':'';
+function ov(){const t=today(),ev=eventsOn(t),dn=ev.filter(v=>isDone(v,t)).length,od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t),j=D.jr[t],
+ nw=D.mat.filter(m=>m.st=='Новый'),rw=D.mat.filter(m=>m.st=='На доработке'),rd=D.mat.filter(m=>m.st=='Приобщён'),ag=D.out.filter(x=>x.st=='На согласовании'),soon=[];
+ for(let i=1;i<=7;i++){const s=add(t,i);eventsOn(s).forEach(v=>soon.push([s,v]))}
+ const noAtt=!j||!Object.keys(j.att||{}).length;
+ return`<h1>Обзор</h1><p class="sub">${fl(t)} · ${e(D.set.org)}</p>
+ ${!j||!j.sum?`<div class="note"><span>Итоги службы за сегодня ещё не внесены в журнал.</span><button class="btn s" data-act="jropen" data-d="${t}">Открыть журнал</button></div>`:''}
+ ${noAtt?`<div class="note"><span>Явка на сегодня не отмечена.</span><button class="btn s" data-act="jropen" data-d="${t}">Отметить явку</button></div>`:''}
+ ${bkNote()}
+ <div class="bar"><button class="btn" data-act="mnew">${ico('pl')}Материал в журнал</button><button class="btn g" data-act="jropen" data-d="${t}">${ico('nr')}Журнал за сегодня</button><button class="btn g" data-act="onew">${ico('out')}Новый документ</button><button class="btn g" data-act="evnew" data-d="${t}">${ico('pl')}Событие</button></div>
+ <div class="kpis"><button class="card kpi" data-act="tab" data-v="wk"><div class="ic">${ico('wk')}</div><div><b>${dn}/${ev.length}</b><span>событий сегодня выполнено</span></div></button>
+ <button class="card kpi ${nw.length?'y':''}" data-act="regf" data-v="Новый"><div class="ic">${ico('reg')}</div><div><b>${nw.length}</b><span>материалов ждут проверки</span></div></button>
+ <button class="card kpi ${rw.length?'w':''}" data-act="regf" data-v="На доработке"><div class="ic">${ico('inc')}</div><div><b>${rw.length}</b><span>на доработке у патрульных</span></div></button>
+ <button class="card kpi" data-act="regf" data-v="Приобщён"><div class="ic">${ico('dc')}</div><div><b>${rd.length}</b><span>ждут передачи руководителю</span></div></button>
+ <button class="card kpi ${ag.length?'y':''}" data-act="tab" data-v="out"><div class="ic">${ico('out')}</div><div><b>${ag.length}</b><span>документов на согласовании</span></div></button>
+ <button class="card kpi ${od.length?'w':''}" data-act="tab" data-v="tk"><div class="ic">${ico('tk')}</div><div><b>${od.length}</b><span>поручений просрочено</span></div></button></div>
+ <div class="g2"><div class="card"><h3>План на сегодня</h3>${ev.length?ev.map(v=>evRow(v,t)).join('<div style="height:6px"></div>'):'<div class="empty">На сегодня событий нет</div>'}${dueTasks(t).length?`<h3 style="margin:14px 0 6px">Сроки поручений</h3>${dueTasks(t).map(x=>`<div>• ${e(x.text)}</div>`).join('')}`:''}</div>
+ <div class="card"><h3>Ближайшие 7 дней</h3>${soon.length?`<table>${soon.slice(0,9).map(([s,v])=>`<tr><td class="mu" style="white-space:nowrap">${DS[wd(s)]}, ${fs(s)}</td><td>${v.t?`<b>${v.t}</b> `:''}${e(v.title)}</td></tr>`).join('')}</table>`:'<div class="empty">Ничего не запланировано</div>'}</div></div>
+ <div class="g2"><div class="card"><h3>Что требует внимания</h3>${nw.length+rw.length?`<table>${[...rw,...nw].slice(0,7).map(m=>`<tr class="r" data-act="medit" data-k="${m.k}" style="cursor:pointer"><td>${fd(m.d)}</td><td>${e(m.fio||'— без ФИО —')}<div class="mu">${e(m.grp||'')} ${e(m.kind)}</div></td><td>${tag(mst2(m.st),m.st)}${miss(m).length?`<div class="mu">не хватает: ${miss(m).join(', ')}</div>`:''}</td></tr>`).join('')}</table>`:'<div class="empty">Все материалы проверены</div>'}</div>
+ <div class="card"><h3>Просроченные поручения</h3>${od.length?`<table>${od.slice(0,6).map(x=>`<tr class="r"><td>${e(x.text)}<div class="mu">${e(x.src||'')}</div></td><td class="num">${tag('b',fd(x.due))}</td></tr>`).join('')}</table>`:'<div class="empty">Просрочек нет</div>'}</div></div>`}
+function bkNote(){const d=D.bk?Math.floor((Date.now()-D.bk)/864e5):null;return d==null||d>7?`<div class="note"><span>${d==null?'Резервная копия ещё не сохранялась.':'Последняя резервная копия была '+d+' дн. назад.'} Документы нельзя терять: сохраните копию.</span><button class="btn s" data-act="exp">Сохранить копию</button></div>`:''}
+
+/* ---------- планер недели ---------- */
+function wkv(){const t=today(),d=[0,1,2,3,4,5,6].map(i=>add(wk,i)),all=d.flatMap(s=>eventsOn(s).map(v=>[s,v])),dn=all.filter(([s,v])=>isDone(v,s)).length,pr=all.length?Math.round(dn/all.length*100):0;
+ return`<h1>Планер недели</h1><p class="sub">${fs(wk)} — ${fs(d[6])} ${P(d[6]).getFullYear()}. Отмечайте выполненное галочкой, нажмите на событие, чтобы изменить.</p>
+ <div class="bar"><button class="btn g" data-act="wkn" data-d="-1">‹ Предыдущая</button><button class="btn g" data-act="wkt">Эта неделя</button><button class="btn g" data-act="wkn" data-d="1">Следующая ›</button><button class="btn" data-act="evnew" data-d="${t>=wk&&t<=d[6]?t:wk}">${ico('pl')}Событие</button><button class="btn g" data-act="prdoc" data-doc="d4" style="margin-left:auto">${ico('dc')}График на неделю</button></div>
+ <div class="card" style="margin-bottom:14px;padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap"><b>Выполнено ${dn} из ${all.length}</b><div class="pb" style="flex:1;min-width:140px;margin:0"><i style="width:${pr}%"></i></div><span class="mu">${pr}%</span></div>
+ <div class="wk">${d.map(s=>{const ev=eventsOn(s),tk=dueTasks(s),vn=D.mat.filter(v=>v.d==s).length;return`<div class="day ${s==t?'today':''} ${wd(s)>4?'we':''}"><div class="dh"><b>${DS[wd(s)]}</b><span>${fs(s)}</span></div>${D.jr[s]?`<div class="mu small">${ico('nr')} журнал ведётся${vn?` · материалов: ${vn}`:''}</div>`:vn?`<div class="mu small">материалов: ${vn}</div>`:''}${ev.map(v=>evRow(v,s)).join('')}${tk.map(x=>`<div class="ev" style="--c:#b5423f"><span class="tt" data-act="tkedit" data-k="${x.k}">${ico('tk')} ${e(x.text)}<div class="mu">срок · ${e(x.who||'—')}</div></span></div>`).join('')}<button class="add" data-act="evnew" data-d="${s}">+ добавить</button></div>`}).join('')}</div>
+ <div class="lg2">${Object.entries(TYPES).map(([k,c])=>`<span style="--c:${c}"><i></i>${k}</span>`).join('')}<span style="--c:#b5423f"><i></i>Срок поручения</span></div>`}
+/* ---------- календарь ---------- */
+function calv(){const m0=cm,first=P(m0),start=mon(m0),t=today(),days=[];for(let i=0;i<42;i++)days.push(add(start,i));
+ const ym=m0.slice(0,7),sel=csel,ev=eventsOn(sel),tk=dueTasks(sel);
+ return`<h1>Календарь</h1><p class="sub">Месячный план: события, повторяющиеся дела и сроки поручений. Нажмите на день, чтобы открыть его.</p>
+ <div class="bar"><button class="btn g" data-act="calm" data-d="-1">‹</button><h3 style="margin:0;min-width:170px;text-align:center;text-transform:capitalize">${MN[first.getMonth()]} ${first.getFullYear()}</h3><button class="btn g" data-act="calm" data-d="1">›</button><button class="btn g" data-act="calt">Сегодня</button><button class="btn" data-act="evnew" data-d="${sel}">${ico('pl')}Событие</button></div>
+ <div class="cal">${DS.map(x=>`<div class="ch">${x}</div>`).join('')}${days.map(s=>{const ev=eventsOn(s),vn=D.mat.filter(v=>v.d==s).length;return`<div class="cd ${s.slice(0,7)!=ym?'o':''} ${s==t?'today':''} ${s==sel?'sel':''}" data-act="calsel" data-d="${s}"><div class="n"><b>${+s.slice(8)}</b><span>${D.jr[s]?ico('nr').replace('class="i"','class="i" style="width:13px;height:13px"'):''}${vn?'<i class="dot"></i>':''}</span></div>${ev.slice(0,3).map(v=>`<div class="mp" style="--c:${TYPES[v.type]||'#667487'}">${v.t?v.t+' ':''}${e(v.title)}</div>`).join('')}${ev.length>3?`<div class="mu small">ещё ${ev.length-3}</div>`:''}</div>`}).join('')}</div>
+ <div class="card"><div class="bar" style="margin-bottom:10px"><h3 style="margin:0">${fl(sel)}</h3><button class="btn s" data-act="evnew" data-d="${sel}">${ico('pl')}Добавить</button><button class="btn s g" data-act="jropen" data-d="${sel}">${ico('nr')}Журнал за этот день</button></div>
+ ${ev.length?ev.map(v=>evRow(v,sel)).join('<div style="height:6px"></div>'):'<div class="empty">На этот день ничего не запланировано</div>'}${tk.length?`<h3 style="margin:14px 0 6px">Сроки поручений</h3>${tk.map(x=>`<div class="small">• ${e(x.text)} <span class="mu">— ${e(x.who||'без исполнителя')}</span></div>`).join('')}`:''}
+ ${D.mat.filter(v=>v.d==sel).length?`<p class="mu" style="margin:12px 0 0">Материалов за этот день: ${D.mat.filter(v=>v.d==sel).length}</p>`:''}</div>`}
+const F=(l,id,v,t='text',c='',x='')=>`<div class="${c}"><label>${l}</label><input id="${id}" type="${t}" value="${e(v??'')}" ${x}></div>`;
+const S=(l,id,o,v,c='')=>`<div class="${c}"><label>${l}</label><select id="${id}">${o.map(x=>Array.isArray(x)?`<option value="${x[0]}" ${x[0]==v?'selected':''}>${e(x[1])}</option>`:`<option ${x==v?'selected':''}>${e(x)}</option>`).join('')}</select></div>`;
+const staffNames=()=>['',...D.staff.map(s=>s.name)];
+function modal(h){$('#md').innerHTML=`<div class="ov" data-act="bgc"><div class="mod">${h}</div></div>`}
+function closeM(){$('#md').innerHTML=''}
+function evForm(k,d){const v=k?D.events.find(x=>x.k==k):{title:'',type:'Служба',d:d||today(),t:'',te:'',rec:'none',until:'',who:'',note:''};
+ modal(`<h3>${k?'Событие':'Новое событие'}</h3><div class="fg">${F('Название','v_title',v.title,'text','w')}${S('Тип','v_type',Object.keys(TYPES),v.type)}${S('Ответственный','v_who',staffNames(),v.who)}${F('Дата','v_d',v.d,'date')}${S('Повторять','v_rec',REC,v.rec)}${F('Начало','v_t',v.t,'time')}${F('Конец','v_te',v.te,'time')}${F('Повторять до (необязательно)','v_until',v.until,'date','w')}${F('Заметка','v_note',v.note,'text','w')}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="evsv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" style="margin-left:auto" data-act="evdel" data-k="${k}">Удалить</button>`:''}</div>${k&&v.rec!='none'?'<p class="mu" style="margin:10px 0 0">Событие повторяющееся: изменения и удаление действуют на все даты.</p>':''}`)}
+function setP(o,p,v){const k=p.split('|');let c=o;for(let i=0;i<k.length-1;i++){const n=k[i];if(c[n]==null)c[n]=/^\d+$/.test(k[i+1])?[]:{};c=c[n]}c[k[k.length-1]]=v}
+function dl(name,rows){const t='﻿'+rows.map(x=>x.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+/* ---------- журнал службы ---------- */
+const jdef=()=>({t1:'',t2:'',sum:'',inc:'',rem:'',att:{},post:{}});
+const gj=s=>D.jr[s]||jdef();const gjw=()=>D.jr[jsel]||(D.jr[jsel]=jdef());
+const jPost=()=>['',...posts(),'Резерв'];
+function jrv(){const s=jsel,j=gj(s),ms=D.mat.filter(m=>m.d==s),pres=D.staff.filter(x=>['+','оп'].includes(j.att[x.k])).length,jv=(k,x='')=>`value="${e(j[k]||'')}" data-chg="jr" data-p="${k}" ${x}`;
+ return`<h1>Журнал службы</h1><p class="sub">Ежедневные записи об итогах службы и явка личного состава. Записывается сразу, кнопки «Сохранить» нет.</p>
+ <div class="bar"><button class="btn g" data-act="jday" data-d="-1">‹</button><input type="date" value="${s}" data-chg="jsel"><button class="btn g" data-act="jday" data-d="1">›</button><button class="btn g" data-act="jtoday">Сегодня</button><b style="margin-left:8px">${fl(s)}</b><span style="margin-left:auto" class="chips"><button class="btn g" data-act="prdoc" data-doc="d2">${ico('dc')}Рапорт об итогах</button><button class="btn g" data-act="prdoc" data-doc="d6">${ico('dc')}Схема постов</button></span></div>
+ <div class="g2"><div class="card"><h3>Явка и расстановка по постам</h3>${D.staff.length?`<div class="scroll" style="max-height:none;box-shadow:none"><table class="rs"><tr><th>ФИО</th><th>Должность</th><th>Явка</th><th>Пост</th></tr>${D.staff.map(x=>`<tr><td><b>${e(x.name)}</b><div class="mu">${e(x.grp||'')}${x.st!='в строю'?' · '+x.st:''}</div></td><td class="mu">${e(x.pos)}</td><td data-l="Явка"><select data-chg="jr" data-p="att|${x.k}"><option value="">—</option>${AT.map(a=>`<option value="${a[0]}" ${j.att[x.k]==a[0]?'selected':''}>${a[1]}</option>`).join('')}</select></td><td data-l="Пост"><select data-chg="jr" data-p="post|${x.k}">${jPost().map(p=>`<option ${j.post[x.k]==p?'selected':''}>${e(p)}</option>`).join('')}</select></td></tr>`).join('')}</table></div><div class="bar" style="margin:12px 0 0"><button class="btn s g" data-act="jall">Все явились</button><span class="mu">На службе: <b>${pres}</b> из ${D.staff.length}</span></div>`:'<div class="empty">Список личного состава пуст. Добавьте людей во вкладке «Личный состав».</div>'}</div>
+ <div class="card"><h3>Итоги службы</h3><div class="fg"><div><label>Смена с</label><input type="time" ${jv('t1')}></div><div><label>до</label><input type="time" ${jv('t2')}></div>
+ <div class="w"><label>Итоги патрулирования</label><textarea rows="3" style="width:100%" data-chg="jr" data-p="sum">${e(j.sum||'')}</textarea></div>
+ <div class="w"><label>Происшествия</label><textarea rows="2" style="width:100%" data-chg="jr" data-p="inc">${e(j.inc||'')}</textarea></div>
+ <div class="w"><label>Замечания и примечания</label><textarea rows="2" style="width:100%" data-chg="jr" data-p="rem">${e(j.rem||'')}</textarea></div></div></div></div>
+ <div class="card"><h3>Материалы за этот день: ${ms.length}</h3>${ms.length?`<table>${ms.map(m=>`<tr class="r" data-act="medit" data-k="${m.k}" style="cursor:pointer"><td class="num">${m.no||''}</td><td>${e(m.fio||'—')}<div class="mu">${e(m.grp||'')}</div></td><td>${e(m.cat||'')}</td><td>${tag(mst2(m.st),m.st)}</td></tr>`).join('')}</table>`:'<div class="empty">Материалов за этот день нет</div>'}<div class="bar" style="margin:12px 0 0"><button class="btn s" data-act="mnew" data-d="${s}">${ico('pl')}Добавить материал</button></div></div>`}
+/* ---------- журнал регистрации ---------- */
+function mlist(){const t=today(),t0=mper=='w'?mon(t):mper=='m'?t.slice(0,7)+'-01':'',q=pc(mq);return D.mat.filter(m=>(!t0||m.d>=t0)&&(!mst||m.st==mst)&&(!q||pc([m.fio,m.grp,m.cat,m.by,m.gist,m.place,m.no].join(' ')).includes(q))).sort((a,b)=>(b.d+(b.no||0)).toString().localeCompare((a.d+(a.no||0)).toString())||b.no-a.no)}
+function mrows(){const a=mlist();return a.length?a.map(m=>{const ms=miss(m);return`<tr class="r" data-act="medit" data-k="${m.k}" style="cursor:pointer"><td class="num" data-l="№"><b>${m.no||''}</b></td><td>${fd(m.d)}<div class="mu">${m.t||''}</div></td><td><b>${e(m.fio||'—')}</b><div class="mu">${e(m.grp||'')}</div></td><td>${e(m.cat||'')}<div class="mu">${e(m.kind)}${m.att?' · '+e(m.att):''}</div></td><td class="mu" data-l="Передал">${e(m.by||'')}</td><td data-l="Данные">${ms.length?tag('b','не хватает: '+ms.join(', ')):tag('','полно')}</td><td data-l="Статус"><select data-chg="mst" data-k="${m.k}" onclick="event.stopPropagation()">${MSS.map(s=>`<option ${s==m.st?'selected':''}>${s}</option>`).join('')}</select>${m.st=='На доработке'&&m.ret?`<div class="mu">${e(m.ret)}</div>`:''}</td></tr>`}).join(''):'<tr><td colspan="7" class="empty">Ничего не найдено</td></tr>'}
+function reg(){return`<h1>Журнал регистрации</h1><p class="sub">Сюда вносятся сведения о нарушениях от старших патруля и патрульных, с проверкой полноты данных. Сам реестр нарушителей ведётся на отдельном сайте: отсюда можно выгрузить таблицу.</p>
+ <div class="bar"><button class="btn" data-act="mnew">${ico('pl')}Новый материал</button><input class="search" id="mq" placeholder="Поиск: ФИО, группа, нарушение…" value="${e(mq)}"><select data-chg="mper"><option value="">За всё время</option><option value="w" ${mper=='w'?'selected':''}>За неделю</option><option value="m" ${mper=='m'?'selected':''}>За месяц</option></select><button class="btn g" data-act="mcsv">Таблица (CSV)</button></div>
+ <div class="bar chips">${['',...MSS].map(s=>`<button class="chip ${mst==s?'on':''}" data-act="regf" data-v="${s}">${s||'Все'}${s?' · '+D.mat.filter(m=>m.st==s).length:''}</button>`).join('')}</div>
+ <div class="scroll"><table class="rs"><tr><th>№</th><th>Дата</th><th>ФИО</th><th>Нарушение</th><th>Кто передал</th><th>Полнота данных</th><th>Статус</th></tr><tbody id="mb">${mrows()}</tbody></table></div>`}
+function mForm(k,d){const v=k?D.mat.find(x=>x.k==k):{d:d||today(),t:'',fio:'',grp:'',cat:VT[0],kind:MK[0],by:'',place:'',gist:'',att:'',res:'',note:'',st:'Новый'};
+ modal(`<h3>${k?'Запись № '+(v.no||''):'Новый материал'}</h3><div class="fg">${F('ФИО студента','m_fio',v.fio,'text','w')}${F('Группа','m_grp',v.grp)}${S('Нарушение','m_cat',VT,v.cat)}${F('Дата','m_d',v.d,'date')}${F('Время','m_t',v.t,'time')}${F('Место','m_place',v.place,'text','w')}${F('Суть нарушения','m_gist',v.gist,'text','w')}${S('Вид материала','m_kind',MK,v.kind)}${F('Приложения (например, 2 фото)','m_att',v.att)}${F('Кто передал (старший / патрульный)','m_by',v.by,'text','w','list="dl_staff"')}${F('Результат патрулирования / принятые меры','m_res',v.res,'text','w')}${F('Примечание','m_note',v.note,'text','w')}${S('Статус','m_st',MSS,v.st,'w')}</div><div id="m_chk" class="mu" style="margin-top:8px"></div>
+ <div class="bar" style="margin:16px 0 0"><button class="btn" data-act="msv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g" data-act="mret" data-k="${k}">Вернуть на доработку</button><button class="btn g r" style="margin-left:auto" data-act="mdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- исходящие ---------- */
+const addrName=(o)=>o.addr=='boss'?'Начальнику патруля '+D.set.bossD:o.addr=='ped'?'Руководителю патруля '+D.set.pedD:(o.to||'');
+function outv(){const a=[...D.out].sort((x,y)=>y.d.localeCompare(x.d)||(y.no||0)-(x.no||0));
+ return`<h1>Исходящие документы</h1><p class="sub">Докладные и служебные записки, информация кураторам и в воспитательный отдел. Всё готовится на имя начальника или руководителя патруля и согласуется с начальником до отправки.</p>
+ <div class="bar"><button class="btn" data-act="onew">${ico('pl')}Новый документ</button><button class="btn g" data-act="oweek">Докладная по итогам недели</button></div>
+ <div class="scroll"><table class="rs"><tr><th>№</th><th>Дата</th><th>Вид</th><th>Кому</th><th>Тема</th><th>Статус</th><th></th></tr>${a.length?a.map(o=>`<tr class="r"><td class="num">${o.no||''}</td><td>${fd(o.d)}</td><td>${e(o.kind)}</td><td class="mu" data-l="Кому">${e(addrName(o))}</td><td><a class="nm" data-act="oedit" data-k="${o.k}">${e(o.subj||'без темы')}</a></td><td data-l="Статус"><select data-chg="ost" data-k="${o.k}">${OSS.map(s=>`<option ${s==o.st?'selected':''}>${s}</option>`).join('')}</select></td><td><button class="btn s g" data-act="oprn" data-k="${o.k}">${ico('dc')}Печать</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Документов пока нет</td></tr>'}</table></div>`}
+function oForm(k){const v=k?D.out.find(x=>x.k==k):{d:today(),kind:OKD[0],addr:'boss',to:'',subj:'',text:'',st:'Черновик'};
+ modal(`<h3>${k?'Документ':'Новый документ'}</h3><div class="fg">${S('Вид','o_kind',OKD,v.kind)}${F('Дата','o_d',v.d,'date')}${S('Кому','o_addr',[['boss','Начальнику патруля'],['ped','Руководителю патруля'],['other','Другому адресату']],v.addr)}${F('Другой адресат (если выбран)','o_to',v.to,'text','','placeholder="Куратору группы …"')}${F('Тема','o_subj',v.subj,'text','w')}${T('Текст','o_text',v.text)}${S('Статус','o_st',OSS,v.st,'w')}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="osv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g" data-act="oprn" data-k="${k}">${ico('dc')}Печать</button><button class="btn g r" style="margin-left:auto" data-act="odel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- поручения ---------- */
+const SRC=['Начальник патруля','Руководитель патруля','Другое'];
+function tk(){const t=today(),F2=[['act','Активные'],['od','Просроченные'],['done','Выполненные']],a=D.tasks.filter(x=>tkf=='done'?x.st=='Выполнено':x.st!='Выполнено'&&(tkf!='od'||(x.due&&x.due<t))).sort((x,y)=>(x.due||'9').localeCompare(y.due||'9'));
+ return`<h1>Поручения</h1><p class="sub">Задания от начальника и руководителя патруля по документам.</p><div class="bar"><button class="btn" data-act="tknew">${ico('pl')}Новое поручение</button><span class="chips">${F2.map(f=>`<button class="chip ${tkf==f[0]?'on':''}" data-act="tkflt" data-v="${f[0]}">${f[1]}</button>`).join('')}</span></div>
+ <div class="scroll"><table class="rs"><tr><th>Поручение</th><th>От кого</th><th>Срок</th><th>Статус</th></tr>${a.length?a.map(x=>`<tr class="r"><td><a class="nm" data-act="tkedit" data-k="${x.k}">${e(x.text)}</a></td><td class="mu" data-l="От кого">${e(x.src||'')}</td><td>${x.due?(x.due<t&&x.st!='Выполнено'?tag('b',fd(x.due)):fd(x.due)):'—'}</td><td data-l="Статус"><select data-chg="tkst" data-k="${x.k}">${['Новое','В работе','Выполнено'].map(s=>`<option ${(x.st||'Новое')==s?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join(''):'<tr><td colspan="4" class="empty">Поручений нет</td></tr>'}</table></div>`}
+function tkForm(k){const v=k?D.tasks.find(x=>x.k==k):{text:'',src:SRC[0],due:''};modal(`<h3>${k?'Поручение':'Новое поручение'}</h3><div class="fg">${F('Что сделать','t_text',v.text,'text','w')}${S('От кого','t_src',SRC,v.src)}${F('Срок','t_due',v.due,'date')}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="tksv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" style="margin-left:auto" data-act="tkdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- личный состав ---------- */
+function ps(){const t=today(),d0=add(t,-30),days=Object.keys(D.jr).filter(s=>s>=d0&&s<=t);
+ return`<h1>Личный состав</h1><p class="sub">Список для документов и учёта явки. Явка отмечается в журнале службы.</p><div class="bar"><button class="btn" data-act="stnew">${ico('pl')}Добавить</button></div>
+ <div class="scroll"><table class="rs"><tr><th>ФИО</th><th>Должность</th><th>Группа</th><th>Телефон</th><th>Явка за 30 дней</th><th></th></tr>${D.staff.length?D.staff.map(x=>{const ok=days.filter(s=>['+','оп'].includes(D.jr[s].att[x.k])).length,ab=days.filter(s=>['н'].includes(D.jr[s].att[x.k])).length;return`<tr class="r"><td><a class="nm" data-act="stedit" data-k="${x.k}">${e(x.name)}</a></td><td>${e(x.pos)}</td><td>${e(x.grp||'—')}</td><td>${e(x.tel||'—')}</td><td>${days.length?`${ok} из ${days.length}${ab?' '+tag('b','прогулов: '+ab):''}`:'—'}</td><td>${x.st!='в строю'?tag('m',x.st):''}</td></tr>`}).join(''):'<tr><td colspan="6" class="empty">Список пуст</td></tr>'}</table></div>`}
+function stForm(k){const v=k?D.staff.find(x=>x.k==k):{name:'',pos:POS[5],grp:'',tel:'',st:'в строю'};modal(`<h3>${k?'Сотрудник патруля':'Новый сотрудник'}</h3><div class="fg">${F('ФИО','s_name',v.name,'text','w')}${S('Должность','s_pos',POS,v.pos)}${F('Группа','s_grp',v.grp)}${F('Телефон','s_tel',v.tel)}${S('Статус','s_st',['в строю','отстранён','не в составе'],v.st)}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="stsv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" style="margin-left:auto" data-act="stdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- настройки ---------- */
+function stt(){const s=D.set,f=(l,k,c='',p='')=>`<div class="${c}"><label>${l}</label><input value="${e(s[k])}" placeholder="${p}" data-chg="s_${k}"></div>`;
+ return`<h1>Настройки</h1><p class="sub">Подписи в документах, посты и резервные копии.</p><div class="g2"><div class="card"><h3>Подписи и адресаты</h3><div class="fg">${f('Подразделение','org','w')}${f('Документовед (ФИО)','dok','w','Впишите вашу фамилию и инициалы')}${f('Начальник патруля','boss')}${f('Ему (в дательном падеже)','bossD','','Борисову М.К.')}${f('Руководитель патруля','ped')}${f('Ему (в дательном падеже)','pedD','','Лылову Н.А.')}${f('Посты (через запятую)','posts','w')}<div class="w"><label>Оформление</label><select data-chg="s_theme"><option value="auto" ${s.theme=='auto'?'selected':''}>Как в системе</option><option value="light" ${s.theme=='light'?'selected':''}>Светлое</option><option value="dark" ${s.theme=='dark'?'selected':''}>Тёмное</option></select></div></div></div>
+ <div class="card"><h3>Резервная копия</h3><p class="mu">Данные хранятся в этом браузере на этом компьютере. Раз в неделю сохраняйте копию и кладите на флешку. Это же документы службы: терять их нельзя, и посторонним их показывать тоже нельзя.${D.bk?`<br>Последняя копия: ${new Date(D.bk).toLocaleString('ru-RU')}`:''}</p><div class="bar"><button class="btn" data-act="exp">Сохранить копию</button><button class="btn g" data-act="impb">Загрузить копию</button></div><button class="btn g r" data-act="rst">Сбросить данные</button></div></div>`}
+async function exp(){D.bk=Date.now();save();const txt=JSON.stringify(D),name='dokumentoved_kopiya_'+today()+'.json';let ok=false;try{const dl=window.claude&&await window.claude.use('downloads');if(dl){await dl.save({filename:name,data:new Blob([txt],{type:'application/json'})});ok=true}}catch(x){}
+ if(!ok){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();ok=true}catch(x){}}
+ draw(1);toast(ok?'Копия сохранена':'Не удалось сохранить файл')}
+
+/* ---------- документы ---------- */
+const L={d1:'Докладная / служебная записка (из «Исходящих»)',d2:'Рапорт об итогах службы за день',d3:'Отчёт о работе патруля за период',d4:'График патрулирования на неделю',d5:'Список личного состава',d6:'Схема расстановки по постам',d7:'Табель явки за неделю',d8:'Выписка из журнала регистрации',d9:'Акт передачи материалов',d10:'Информация куратору группы'};
+const LAND={d4:1,d7:1,d8:1};
+const ATL={'+':'явился','оп':'опоздал','у':'отсутствует (уваж.)','н':'отсутствует','б':'болезнь'};
+const sig=(r,n)=>`<div class="sg">${r}: <i></i> / ${e(n)}</div>`,tb=(h,r,n=0)=>`<table style="width:100%;border-collapse:collapse"><tr>${['№',...h].map(x=>`<th>${x}</th>`).join('')}</tr>${r.map((x,k)=>`<tr><td>${k+1}</td>${x.map(c=>`<td>${c??''}</td>`).join('')}</tr>`).join('')}${Array.from({length:Math.max(0,n-r.length)},()=>`<tr>${'<td>&nbsp;</td>'.repeat(h.length+1)}</tr>`).join('')}</table>`;
+const hdr=(h,n)=>`<div style="margin-left:52%;line-height:1.35">${h}<br>${e(n)}<br><br>от документоведа патруля<br>${e(dok())}</div>`;
+const hdrTo=()=>dto=='ped'?hdr('Руководителю патруля',D.set.pedD):hdr('Начальнику патруля',D.set.bossD);
+const fdl=s=>{const d=P(s);return`«${d.getDate()}» ${MG[d.getMonth()]} ${d.getFullYear()} г.`};
+const dsig=d=>`<div class="sg" style="justify-content:space-between;margin-top:30px"><span>${fdl(d)}</span><span>Документовед патруля <i></i> / ${e(dok())}</span></div>`;
+const compOf=s=>{const j=D.jr[s];return j?D.staff.filter(x=>['+','оп'].includes(j.att[x.k])).map(x=>x.name).join(', '):''};
+const cnt=(a,f)=>{const m={};a.forEach(x=>{const k=f(x)||'не указано';m[k]=(m[k]||0)+1});return Object.entries(m).sort((x,y)=>y[1]-x[1])};
+function dc(){const needDate=['d2','d6','d7','d4','d9'].includes(doc),needP=['d3','d8','d10'].includes(doc),needTo=['d2','d3','d9'].includes(doc);
+ const xf=doc=='d9'?D.mat.filter(m=>m.st=='Приобщён').length:0;
+ return`<h1>Документы</h1><p class="sub">Бланки заполняются из ваших данных. Выберите документ, проверьте и нажмите «Распечатать» (можно сохранить как PDF).</p>
+ <div class="bar"><select data-chg="doc">${Object.keys(L).map(k=>`<option value="${k}" ${k==doc?'selected':''}>${L[k]}</option>`).join('')}</select>
+ ${doc=='d1'?`<select data-chg="selOut">${D.out.map(o=>`<option value="${o.k}" ${o.k==selOut?'selected':''}>${fd(o.d)} · ${e(o.subj||o.kind)}</option>`).join('')}</select>`:''}
+ ${needDate?`<input type="date" value="${dd}" data-chg="dd">`:''}${needP?`<input type="date" value="${p1}" data-chg="p1"><span class="mu">—</span><input type="date" value="${p2}" data-chg="p2">`:''}
+ ${doc=='d10'?`<input placeholder="Группа, например 2-12" value="${e(dgrp)}" data-chg="dgrp" style="width:170px">`:''}
+ ${needTo?`<select data-chg="dto"><option value="boss" ${dto=='boss'?'selected':''}>Кому: начальнику патруля</option><option value="ped" ${dto=='ped'?'selected':''}>Кому: руководителю патруля</option></select>`:''}
+ ${doc=='d9'&&xf?`<button class="btn g" data-act="mxfer">Отметить ${xf} как переданные</button>`:''}
+ <button class="btn" style="margin-left:auto" data-act="prn">${ico('dc')}Распечатать</button></div><div class="paper ${LAND[doc]?'land':''}">${docs()}</div>`}
+function docs(){const day=s=>fdl(s);
+ if(doc=='d1'){const o=D.out.find(x=>x.k==selOut)||[...D.out].sort((a,b)=>b.d.localeCompare(a.d))[0];if(!o)return'<p>Нет документов. Создайте документ во вкладке «Исходящие».</p>';
+  const ad=o.addr=='other'?`<div style="margin-left:52%;line-height:1.35">${e(o.to)}<br><br>от документоведа патруля<br>${e(dok())}</div>`:hdr(o.addr=='boss'?'Начальнику патруля':'Руководителю патруля',o.addr=='boss'?D.set.bossD:D.set.pedD);
+  return ad+`<h2 style="margin-top:26px">${e(o.kind.toUpperCase())}</h2><div class="c"><b>${e(o.subj)}</b></div><div style="margin-top:16px;text-align:justify">${e(o.text).split('\n').map(x=>`<p style="margin:0 0 8px;text-indent:30px">${x}</p>`).join('')}</div>`+dsig(o.d)}
+ if(doc=='d2'){const j=gj(dd),ms=D.mat.filter(m=>m.d==dd);
+  return hdrTo()+`<h2 style="margin-top:24px">РАПОРТ</h2><div class="c">об итогах несения службы патрулём за ${day(dd)}</div><p>Время смены: с ${j.t1||'______'} до ${j.t2||'______'}.</p>
+  <p><b>1. Личный состав и явка</b></p>${tb(['ФИО','Должность','Группа','Пост','Явка'],D.staff.map(x=>[e(x.name),e(x.pos),e(x.grp),e(j.post[x.k]),ATL[j.att[x.k]]||'']),3)}
+  <p><b>2. Итоги патрулирования:</b> ${e(j.sum)||'______________________________'}</p>
+  <p><b>3. Принято материалов о нарушениях: ${ms.length}</b></p>${ms.length?tb(['ФИО','Группа','Нарушение','Место','Принятые меры'],ms.map(m=>[e(m.fio),e(m.grp),e(m.cat),e(m.place),e(m.res)])):''}
+  <p><b>4. Происшествия:</b> ${e(j.inc)||'не было'}</p><p><b>5. Замечания:</b> ${e(j.rem)||'нет'}</p>`+dsig(dd)}
+ if(doc=='d3'){const ms=D.mat.filter(m=>m.d>=p1&&m.d<=p2),js=Object.keys(D.jr).filter(s=>s>=p1&&s<=p2&&(D.jr[s].sum||Object.keys(D.jr[s].att||{}).length)),os=D.out.filter(o=>o.d>=p1&&o.d<=p2&&o.st=='Отправлено').length;
+  return hdrTo()+`<h2 style="margin-top:24px">ОТЧЁТ</h2><div class="c">о работе патрульной службы за период с ${fd(p1)} по ${fd(p2)}</div>
+  <p>Служба фиксировалась в журнале дней: <b>${js.length}</b>. Принято материалов о нарушениях: <b>${ms.length}</b>, из них с полными данными: <b>${ms.filter(m=>!miss(m).length).length}</b>, возвращено на доработку: <b>${ms.filter(m=>m.st=='На доработке').length}</b>, передано руководителю патруля: <b>${ms.filter(m=>m.st=='Передан').length}</b>. Отправлено документов: <b>${os}</b>.</p>
+  <p><b>Нарушения по видам</b></p>${tb(['Вид нарушения','Количество'],cnt(ms,m=>m.cat).map(([a,b])=>[e(a),b]))}
+  <p><b>Нарушения по группам</b></p>${tb(['Группа','Количество'],cnt(ms,m=>m.grp).map(([a,b])=>[e(a),b]))}
+  <p><b>Явка личного состава</b></p>${tb(['ФИО','Явился / опоздал','Отсутствовал','Дней в журнале'],D.staff.map(x=>[e(x.name),js.filter(s=>['+','оп'].includes(D.jr[s].att[x.k])).length,js.filter(s=>['н','у','б'].includes(D.jr[s].att[x.k])).length,js.length]))}`+dsig(today())}
+ if(doc=='d4'){const w0=mon(dd),days=[0,1,2,3,4,5,6].map(i=>add(w0,i));
+  return`<div style="display:flex;justify-content:space-between"><div>СОГЛАСОВАНО<br>Начальник патруля<br><br>_____________ / ${e(D.set.boss)}<br>${fdl(w0)}</div><div>УТВЕРЖДАЮ<br>Руководитель патруля<br><br>_____________ / ${e(D.set.ped)}<br>${fdl(w0)}</div></div><h2 style="margin-top:14px">ГРАФИК ПАТРУЛИРОВАНИЯ И РЕЙДОВ</h2><div class="c">на неделю с ${fd(w0)} по ${fd(days[6])} (проект)</div>
+  <table style="width:100%;border-collapse:collapse"><tr><th>День</th><th>Дата</th><th>Мероприятия</th><th>Состав / посты</th><th>Примечание</th></tr>${days.map(s=>`<tr><td>${DS[wd(s)]}</td><td>${fd(s)}</td><td>${eventsOn(s).map(v=>(v.t?`<b>${v.t}</b> `:'')+e(v.title)).join('<br>')}</td><td>${e(posts().join(', '))}</td><td>&nbsp;</td></tr>`).join('')}</table><div class="sg">Составил: документовед патруля <i></i> / ${e(dok())}</div>`}
+ if(doc=='d5')return`<div style="display:flex;justify-content:space-between"><div>СОГЛАСОВАНО<br>Начальник патруля<br>_____________ / ${e(D.set.boss)}</div><div>УТВЕРЖДАЮ<br>Руководитель патруля<br>_____________ / ${e(D.set.ped)}</div></div><h2 style="margin-top:14px">СПИСОК ЛИЧНОГО СОСТАВА ПАТРУЛЬНОЙ СЛУЖБЫ</h2><div class="c">по состоянию на ${fd(today())} (проект)</div>${tb(['ФИО','Должность','Группа','Телефон','Примечание'],D.staff.map(x=>[e(x.name),e(x.pos),e(x.grp),e(x.tel),x.st!='в строю'?e(x.st):'']),10)}<div class="sg">Составил: документовед патруля <i></i> / ${e(dok())}</div>`;
+ if(doc=='d6'){const j=gj(dd);return`<div style="display:flex;justify-content:space-between"><div>СОГЛАСОВАНО<br>Начальник патруля<br>_____________ / ${e(D.set.boss)}</div><div>УТВЕРЖДАЮ<br>Руководитель патруля<br>_____________ / ${e(D.set.ped)}</div></div><h2 style="margin-top:14px">СХЕМА РАССТАНОВКИ ПО ПОСТАМ</h2><div class="c">на ${day(dd)}, смена с ${j.t1||'______'} до ${j.t2||'______'} (проект)</div>${tb(['Пост','Состав (ФИО)','Количество'],[...posts(),'Резерв'].map(p=>{const a=D.staff.filter(x=>j.post[x.k]==p).map(x=>x.name);return[`<b>${e(p)}</b>`,e(a.join(', ')),a.length||'']}),4)}<div class="sg">Составил: документовед патруля <i></i> / ${e(dok())}</div>`}
+ if(doc=='d7'){const w0=mon(dd),days=[0,1,2,3,4,5,6].map(i=>add(w0,i));return`<h2>ТАБЕЛЬ УЧЁТА ЯВКИ ЛИЧНОГО СОСТАВА</h2><div class="c">за неделю с ${fd(w0)} по ${fd(days[6])}</div><table style="width:100%;border-collapse:collapse"><tr><th>№</th><th>ФИО</th>${days.map(s=>`<th>${DS[wd(s)]}<br>${fd(s).slice(0,5)}</th>`).join('')}<th>Явок</th></tr>${D.staff.map((x,i)=>{const v=days.map(s=>(D.jr[s]||{att:{}}).att[x.k]||'');return`<tr><td>${i+1}</td><td>${e(x.name)}</td>${v.map(c=>`<td style="text-align:center">${e(c)}</td>`).join('')}<td style="text-align:center">${v.filter(c=>c=='+'||c=='оп').length}</td></tr>`}).join('')}</table><p style="font-size:12px">Условные обозначения: «+» явился; «оп» опоздал; «у» отсутствует по уважительной причине; «н» отсутствует; «б» болезнь.</p><div class="sg">Документовед патруля <i></i> / ${e(dok())}</div>`}
+ if(doc=='d8'){const ms=D.mat.filter(m=>m.d>=p1&&m.d<=p2).sort((a,b)=>(a.d+String(a.no).padStart(5,'0')).localeCompare(b.d+String(b.no).padStart(5,'0')));return`<h2>ЖУРНАЛ РЕГИСТРАЦИИ ПАТРУЛЬНОЙ СЛУЖБЫ</h2><div class="c">выписка за период с ${fd(p1)} по ${fd(p2)}</div><table style="width:100%;border-collapse:collapse"><tr><th>№ п/п</th><th>Дата</th><th>ФИО студента</th><th>Группа</th><th>Нарушение</th><th>Результат патрулирования</th><th>Примечание</th><th>Состав патруля</th></tr>${ms.map(m=>`<tr><td>${m.no||''}</td><td>${fd(m.d)}</td><td>${e(m.fio)}</td><td>${e(m.grp)}</td><td>${e(m.cat)}</td><td>${e(m.res)}</td><td>${e(m.note)}</td><td>${e(compOf(m.d))}</td></tr>`).join('')}${Array.from({length:Math.max(0,8-ms.length)},()=>'<tr>'+'<td>&nbsp;</td>'.repeat(8)+'</tr>').join('')}</table><div class="sg">Документовед патруля <i></i> / ${e(dok())}</div>`}
+ if(doc=='d9'){const ms=D.mat.filter(m=>m.st=='Приобщён').sort((a,b)=>a.d.localeCompare(b.d));return hdrTo()+`<h2 style="margin-top:24px">АКТ ПЕРЕДАЧИ МАТЕРИАЛОВ</h2><div class="c">${day(dd)}</div><p>Документовед патруля ${e(dok())} передал, а ${dto=='ped'?'руководитель патруля '+e(D.set.ped):'начальник патруля '+e(D.set.boss)} принял материалы о нарушениях обучающихся в следующем составе:</p>${tb(['№ в журнале','Дата','ФИО','Группа','Нарушение','Вид материала, приложения'],ms.map(m=>[m.no||'',fd(m.d),e(m.fio),e(m.grp),e(m.cat),e(m.kind+(m.att?', '+m.att:''))]),5)}<p>Всего материалов: <b>${ms.length}</b>. Материалы содержат персональные данные обучающихся и не подлежат передаче посторонним лицам.</p><div class="sg">Передал: документовед патруля <i></i> / ${e(dok())}</div><div class="sg">Принял: <i></i> / ${e(dto=='ped'?D.set.ped:D.set.boss)}</div>`}
+ if(doc=='d10'){const q=pc(dgrp),ms=D.mat.filter(m=>m.d>=p1&&m.d<=p2&&q&&pc(m.grp).includes(q)).sort((a,b)=>a.d.localeCompare(b.d));return`<div style="margin-left:52%;line-height:1.35">Куратору группы ${e(dgrp||'______')}<br><br>от документоведа патруля<br>${e(dok())}</div><h2 style="margin-top:24px">ИНФОРМАЦИЯ</h2><div class="c">о нарушениях, выявленных патрульной службой, за период с ${fd(p1)} по ${fd(p2)}</div><p>Сообщаем, что патрульной службой колледжа в отношении обучающихся группы ${e(dgrp||'______')} зафиксированы следующие нарушения:</p>${tb(['Дата','ФИО','Нарушение','Место','Принятые меры'],ms.map(m=>[fd(m.d),e(m.fio),e(m.cat),e(m.place),e(m.res)]),3)}<p>Просим провести профилактическую беседу. Сведения конфиденциальны.</p>`+dsig(today())}
+ return''}
+/* ---------- действия ---------- */
+const nextNo=(a,y)=>Math.max(0,...a.filter(m=>(m.d||'').slice(0,4)==y).map(m=>m.no||0))+1;
+const A={
+ tab:t=>go(t.dataset.v),cl:closeM,bgc:(t,ev)=>{if(ev.target==t)closeM()},undo:()=>{const f=lastUndo;$('#ts').innerHTML='';f&&f()},
+ evnew:t=>evForm(null,t.dataset.d),evedit:t=>evForm(t.dataset.k),
+ evsv:t=>{const k=t.dataset.k,o={title:g('v_title'),type:g('v_type'),who:g('v_who'),d:g('v_d'),rec:g('v_rec'),t:g('v_t'),te:g('v_te'),until:g('v_until'),note:g('v_note')};if(!o.title)return toast('Впишите название');if(!o.d)return toast('Укажите дату');if(k)Object.assign(D.events.find(x=>x.k==k),o);else D.events.push({k:uid(),...o});closeM();draw(1);toast('Сохранено')},
+ evdel:t=>{const i=D.events.findIndex(x=>x.k==t.dataset.k),v=D.events[i];D.events.splice(i,1);closeM();draw(1);toast('Событие удалено',()=>{D.events.splice(i,0,v);draw(1)})},
+ wkn:t=>{wk=add(wk,7*+t.dataset.d);draw(1)},wkt:()=>{wk=mon(today());draw(1)},
+ calm:t=>{const d=P(cm);d.setMonth(d.getMonth()+ +t.dataset.d);d.setDate(1);cm=iso(d);draw(1)},calt:()=>{cm=today().slice(0,7)+'-01';csel=today();draw(1)},calsel:t=>{csel=t.dataset.d;draw(1)},
+ jropen:t=>{jsel=t.dataset.d;go('jr')},jday:t=>{jsel=add(jsel,+t.dataset.d);draw(1)},jtoday:()=>{jsel=today();draw(1)},
+ jall:()=>{const j=gjw();D.staff.filter(x=>x.st=='в строю').forEach(x=>{if(!j.att[x.k])j.att[x.k]='+'});draw(1);toast('Отмечено: явились все, у кого не стояла отметка')},
+ prdoc:t=>{doc=t.dataset.doc;if(doc=='d2'||doc=='d6'||doc=='d4')dd=tab=='jr'?jsel:dd;go('dc')},prn:()=>window.print(),
+ mnew:t=>mForm(null,t.dataset&&t.dataset.d),medit:t=>mForm(t.dataset.k),
+ msv:t=>{const k=t.dataset.k,o={fio:g('m_fio'),grp:g('m_grp'),cat:g('m_cat'),d:g('m_d'),t:g('m_t'),place:g('m_place'),gist:g('m_gist'),kind:g('m_kind'),att:g('m_att'),by:g('m_by'),res:g('m_res'),note:g('m_note'),st:g('m_st')};if(!o.fio&&!o.gist)return toast('Впишите хотя бы ФИО или суть нарушения');if(!o.d)return toast('Укажите дату');if(k)Object.assign(D.mat.find(x=>x.k==k),o);else D.mat.push({k:uid(),no:nextNo(D.mat,o.d.slice(0,4)),...o});closeM();draw(1);const m=miss(o);toast(m.length?'Сохранено. Не хватает: '+m.join(', '):'Сохранено, данные полные')},
+ mdel:t=>{const i=D.mat.findIndex(x=>x.k==t.dataset.k),v=D.mat[i];D.mat.splice(i,1);closeM();draw(1);toast('Запись удалена',()=>{D.mat.splice(i,0,v);draw(1)})},
+ mret:t=>modal(`<h3>Вернуть на доработку</h3><p class="mu" style="margin-top:0">Укажите, что нужно исправить или дополнить. Эта пометка останется в журнале.</p><div class="fg">${F('Что исправить','r_why',(D.mat.find(x=>x.k==t.dataset.k)||{}).ret||(miss(D.mat.find(x=>x.k==t.dataset.k)).length?'Не хватает: '+miss(D.mat.find(x=>x.k==t.dataset.k)).join(', '):''),'text','w')}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="mret2" data-k="${t.dataset.k}">Вернуть</button><button class="btn g" data-act="cl">Отмена</button></div>`),
+ mret2:t=>{const m=D.mat.find(x=>x.k==t.dataset.k);m.st='На доработке';m.ret=g('r_why');closeM();draw(1);toast('Возвращено на доработку')},
+ regf:t=>{mst=t.dataset.v;tab='reg';draw()},
+ mcsv:()=>{dl('zhurnal_registracii_'+today()+'.csv',[['№','Дата','Время','ФИО','Группа','Нарушение','Место','Суть','Вид материала','Приложения','Кто передал','Результат / меры','Примечание','Статус','Состав патруля']].concat(mlist().map(m=>[m.no,fd(m.d),m.t,m.fio,m.grp,m.cat,m.place,m.gist,m.kind,m.att,m.by,m.res,m.note,m.st,compOf(m.d)])));toast('Таблица сохранена')},
+ mxfer:()=>{const a=D.mat.filter(m=>m.st=='Приобщён');a.forEach(m=>{m.st='Передан';m.xd=today()});draw(1);toast('Отмечено переданными: '+a.length,()=>{a.forEach(m=>m.st='Приобщён');draw(1)})},
+ onew:()=>oForm(),oedit:t=>oForm(t.dataset.k),
+ osv:t=>{const k=t.dataset.k,o={kind:g('o_kind'),d:g('o_d'),addr:g('o_addr'),to:g('o_to'),subj:g('o_subj'),text:$('#o_text').value.trim(),st:g('o_st')};if(!o.subj)return toast('Впишите тему');if(k)Object.assign(D.out.find(x=>x.k==k),o);else D.out.push({k:uid(),no:nextNo(D.out,o.d.slice(0,4)),...o});closeM();draw(1);toast('Сохранено')},
+ odel:t=>{const i=D.out.findIndex(x=>x.k==t.dataset.k),v=D.out[i];D.out.splice(i,1);closeM();draw(1);toast('Документ удалён',()=>{D.out.splice(i,0,v);draw(1)})},
+ oprn:t=>{selOut=t.dataset.k;doc='d1';closeM();go('dc')},
+ oweek:()=>{const w0=mon(today()),w1=add(w0,6),ms=D.mat.filter(m=>m.d>=w0&&m.d<=w1),days=Object.keys(D.jr).filter(s=>s>=w0&&s<=w1&&(D.jr[s].sum||Object.keys(D.jr[s].att||{}).length)).length;
+  const o={k:uid(),no:nextNo(D.out,today().slice(0,4)),d:today(),kind:OKD[0],addr:'boss',to:'',subj:'Об итогах работы патруля за неделю '+fd(w0)+' — '+fd(w1),text:`Докладываю, что за период с ${fd(w0)} по ${fd(w1)} в журнале службы зафиксировано дней: ${days}. Принято материалов о нарушениях: ${ms.length}, из них с полными данными: ${ms.filter(m=>!miss(m).length).length}, возвращено на доработку: ${ms.filter(m=>m.st=='На доработке').length}, передано руководителю патруля: ${ms.filter(m=>m.st=='Передан').length}.`,st:'Черновик'};D.out.push(o);draw(1);oForm(o.k)},
+ tknew:()=>tkForm(),tkedit:t=>tkForm(t.dataset.k),tkflt:t=>{tkf=t.dataset.v;draw(1)},
+ tksv:t=>{const k=t.dataset.k,o={text:g('t_text'),src:g('t_src'),due:g('t_due')};if(!o.text)return toast('Впишите поручение');if(k)Object.assign(D.tasks.find(x=>x.k==k),o);else D.tasks.push({k:uid(),st:'Новое',...o});closeM();draw(1);toast('Сохранено')},
+ tkdel:t=>{const i=D.tasks.findIndex(x=>x.k==t.dataset.k),v=D.tasks[i];D.tasks.splice(i,1);closeM();draw(1);toast('Поручение удалено',()=>{D.tasks.splice(i,0,v);draw(1)})},
+ stnew:()=>stForm(),stedit:t=>stForm(t.dataset.k),
+ stsv:t=>{const k=t.dataset.k,o={name:g('s_name'),pos:g('s_pos'),grp:g('s_grp'),tel:g('s_tel'),st:g('s_st')};if(!o.name)return toast('Впишите ФИО');if(k)Object.assign(D.staff.find(x=>x.k==k),o);else D.staff.push({k:uid(),...o});closeM();draw(1);toast('Сохранено')},
+ stdel:t=>{const i=D.staff.findIndex(x=>x.k==t.dataset.k),v=D.staff[i];D.staff.splice(i,1);closeM();draw(1);toast('Удалено',()=>{D.staff.splice(i,0,v);draw(1)})},
+ exp,impb:()=>$('#imp').click(),
+ rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
+ rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
+document.addEventListener('click',ev=>{if(ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
+ if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
+ else if(c=='jr'){setP(gjw(),t.dataset.p,v);save()}
+ else if(c=='jsel'){jsel=v||today();draw(1)}
+ else if(c=='mst'){const m=D.mat.find(x=>x.k==t.dataset.k);m.st=v;if(v=='Передан')m.xd=today();draw(1)}
+ else if(c=='ost'){D.out.find(x=>x.k==t.dataset.k).st=v;draw(1)}
+ else if(c=='tkst'){D.tasks.find(x=>x.k==t.dataset.k).st=v;draw(1)}
+ else if(c=='mper'){mper=v;draw(1)}else if(c=='doc'){doc=v;draw(1)}else if(c=='selOut'){selOut=v;draw(1)}
+ else if(c=='dd'){dd=v||today();draw(1)}else if(c=='p1'){p1=v||p1;draw(1)}else if(c=='p2'){p2=v||p2;draw(1)}else if(c=='dto'){dto=v;draw(1)}else if(c=='dgrp'){dgrp=v;draw(1)}
+ else if(c.startsWith('s_')){D.set[c.slice(2)]=v;draw(1);toast('Сохранено')}});
+document.addEventListener('input',ev=>{if(ev.target.id=='mq'){mq=ev.target.value;$('#mb').innerHTML=mrows()}});
+document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM();if(ev.code=='KeyN'&&!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&!/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)&&!$('#md').innerHTML){ev.preventDefault();evForm(null,tab=='cal'?csel:today())}});
+$('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.set||!j.mat)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит: нужна копия этой программы')}});ev.target.value=''};function dokLines(s){const j=gj(s),pres=D.staff.filter(x=>['+','оп'].includes(j.att[x.k])).length;return['Явка: '+pres+' из '+D.staff.length,'Итоги: '+(j.sum||'—'),'Происшествия: '+(j.inc||'нет'),'Принято материалов: '+D.mat.filter(m=>m.d==s).length]}
+const SXC={role:'dok',name:'Документовед',h1:1,approve:0,sends:'материалы журнала регистрации, документы на согласование, итоги дня и явка, события, поручения',
+ out:()=>{const t=today();return[...D.events.filter(v=>!sxSeedEv(v)).map(v=>({t:'ev',k:v.k,d:v})),...D.tasks.map(v=>({t:'tk',k:v.k,d:v})),...D.mat.filter(m=>m.d>=add(t,-60)).map(m=>({t:'mt',k:m.k,d:m})),...D.out.filter(o=>o.st!='Черновик').map(o=>({t:'ou',k:o.k,d:o})),...[t,add(t,-1)].filter(s=>D.jr[s]).map(s=>({t:'sh',k:'sh_dok_'+s,d:{date:s,role:'Документовед',lines:dokLines(s)}}))]},
+ rpMat:x=>{const d=x.d,o={k:uid(),no:nextNo(D.mat,(d.d||today()).slice(0,4)),d:d.d||today(),t:d.t||'',fio:'',grp:'',cat:d.type=='Нарушение'?VT[0]:'Другое',kind:'Рапорт',by:x.f||'',place:'',gist:d.text||'',att:'',res:'',note:'Из доклада зама',st:'Новый'};D.mat.push(o);draw(1);mForm(o.k)},
+ inn:{ev:sxIEv,tk:sxITk,st:sxISt,ou:(d,it)=>{if(d.from!='nach')return null;const o=D.out.find(x=>x.k==it.k);if(!o)return null;o.st=d.st;o.ans=d.ans||'';return o}}};
+/* ===== ОБМЕН ПАКЕТАМИ МЕЖДУ РОЛЯМИ ===== */
+const SXSEED=['Развод и инструктаж личного состава','Доклад педагогу-организатору об итогах службы','Проверка имущества патруля со старшим мастером','Обход постов','Проверка журналов патруля','Доклад начальнику патруля об итогах','Развод: отметить явку личного состава','Заполнить журнал службы за день','Недельный отчёт начальнику патруля','Передать материалы руководителю патруля'];
+const sxSeedEv=v=>v.rec!='none'&&(SXSEED.includes(v.title)||String(v.note||'').startsWith('Время условное'));
+let SXTXT='',SXNEW=new Set();
+function sxS(){return D.sx||(D.sx={meta:{},in:{},seen:{},tOut:0,tIn:0})}
+function sxStable(o){if(Array.isArray(o))return'['+o.map(sxStable).join(',')+']';if(o&&typeof o=='object')return'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+sxStable(o[k])).join(',')+'}';return JSON.stringify(o)}
+const sxD=s=>s?String(s).slice(8,10)+'.'+String(s).slice(5,7)+'.'+String(s).slice(0,4):'';
+const sxDT=t=>t?new Date(t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'ещё не было';
+function sxB64(b){let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function sxUn64(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b}
+async function sxPack(o){const raw=new TextEncoder().encode(JSON.stringify(o));let z=null;try{z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(x){}
+ return z&&z.length<raw.length?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
+async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZ]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]);if(m[1]=='Z')b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
+function sxCollect(all){const S=sxS(),r=[],now=Date.now();SXC.out().forEach(it=>{const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h})});return r}
+async function sxSend(all){const S=sxS(),it=sxCollect(all);if(!it.length)return toast('Нечего отправлять: после прошлой отправки изменений нет');
+ const code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,...r})=>r)});
+ SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]={h:x._h,u:x.u});S.tOut=Date.now();save();
+ modal(`<h3>Пакет готов</h3><p class="mu" style="margin-top:0">Позиций: ${it.length}. Отправьте текст в общий чат патруля. Остальные нажмут «Принять пакет» и вставят его.</p><textarea readonly rows="4" style="width:100%;font-size:12px">${e(SXTXT)}</textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxshare">Отправить</button><button class="btn g" style="flex:1" data-act="sxcopy">Копировать</button><button class="btn g" data-act="sxfile">Файл</button></div><div class="bar" style="margin:0"><button class="btn g" style="flex:1" data-act="sxcl">Готово</button></div>`);draw(1)}
+async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast('Это не пакет обмена. Скопируйте сообщение целиком')}
+ const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
+  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
+ S.tIn=Date.now();save();closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
+function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
+const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
+function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">новое</span>':'',fr=`${e(x.f||'')}`;let h='',s='',b='',a='';
+ if(t=='rp'){h=d.type;s=sxD(d.d)+' '+(d.t||'')+' · '+fr+(d.st=='Доложено'?' · доложено':'');b=d.text;if(SXC.rpMat&&['Нарушение','Недостаток службы'].includes(d.type))a=`<button class="btn s" data-act="sxmat" data-k="${e(x.k)}">В журнал регистрации</button>`}
+ else if(t=='mt'){h=(d.fio||'—')+(d.grp?' · '+d.grp:'');s=sxD(d.d)+' · '+(d.cat||'')+' · '+fr;b=[d.gist,d.res].filter(Boolean).join('. ')}
+ else if(t=='sh'){h=(d.role||fr)+' · '+sxD(d.date);s='';b=(d.lines||[]).join('\n')}
+ else if(t=='ou'){h=d.subj||d.kind;s=(d.kind||'')+' · '+sxD(d.d)+' · '+fr+' · статус: '+(d.st||'');b=d.text;if(SXC.approve)a=`<button class="btn s" data-act="sxou" data-k="${e(x.k)}" data-v="Согласовано">Согласовать</button><button class="btn s g" data-act="sxou" data-k="${e(x.k)}" data-v="На доработку">На доработку</button>`}
+ else if(t=='tk'){h=d.text;s=(d.who||d.src||'')+(d.due?' · срок '+sxD(d.due):'')+' · '+(d.st||'');}
+ else if(t=='ev'){h=(d.t?d.t+' ':'')+d.title;s=sxD(d.d)+' · '+fr}
+ return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(h)}</b>${nw}</div>${s?`<div class="mu">${e(s)}</div>`:''}${b?`<div style="margin-top:6px;white-space:pre-line">${e(b)}</div>`:''}${a?`<div class="bar" style="margin:10px 0 0">${a}</div>`:''}</div>`}
+function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
+ Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>S.seen[x.k]=x.u));
+ return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
+function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
+ return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: вы отправляете свои изменения одним сообщением, остальные принимают его в программе. Данные идут только в ваш чат.</p>
+ <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><button class="btn s g" data-act="sxall" style="margin-top:10px">Отправить всё заново</button></div>${ib}`}
+const SXA={
+ sxcl:()=>closeM(),sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
+ sxrecv:()=>modal(`<h3>Принять пакет</h3><p class="mu" style="margin-top:0">Скопируйте сообщение с пакетом из чата и вставьте сюда.</p><textarea id="sx_t" rows="5" style="width:100%;font-size:13px"></textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxapply">Принять</button><button class="btn g" data-act="sxpaste">Вставить из буфера</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
+ sxapply:()=>sxApplyTxt($('#sx_t').value),
+ sxpaste:()=>{(navigator.clipboard&&navigator.clipboard.readText?navigator.clipboard.readText():Promise.reject()).then(t=>{$('#sx_t').value=t},()=>toast('Не удалось прочитать буфер: вставьте текст вручную'))},
+ sxcopy:()=>{const a=document.createElement('textarea');a.value=SXTXT;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Скопировано')}catch(x){toast('Не удалось скопировать')}a.remove();if(navigator.clipboard)navigator.clipboard.writeText(SXTXT).catch(()=>{})},
+ sxshare:()=>{if(navigator.share)navigator.share({text:SXTXT}).catch(()=>{});else A.sxcopy()},
+ sxfile:async()=>{const name='patrul_paket_'+today()+'.txt';try{const dl=window.claude&&await window.claude.use('downloads');if(dl)return void await dl.save({filename:name,data:new Blob([SXTXT],{type:'text/plain'})})}catch(x){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([SXTXT],{type:'text/plain'}));a.download=name;document.body.appendChild(a);a.click();a.remove()},
+ sxou:t=>{const x=sxS().in.ou[t.dataset.k];x.d.st=t.dataset.v;x.lc=1;draw(1);toast('Ответ: '+t.dataset.v+'. Нажмите «Отправить пакет»')},
+ sxmat:t=>SXC.rpMat(sxS().in.rp[t.dataset.k])};
+Object.assign(A,SXA);
+function sxIEv(d){if(!TYPES[d.type])d={...d,type:'Прочее'};const i=D.events.findIndex(x=>x.k==d.k);if(i>=0)D.events[i]=d;else D.events.push(d);return d}
+function sxITk(d){const i=D.tasks.findIndex(x=>x.k==d.k);if(i>=0)D.tasks[i]=d;else D.tasks.push(d);return d}
+function sxISt(d){let i=D.staff.findIndex(x=>x.k==d.k);if(i<0)i=D.staff.findIndex(x=>x.name==d.name);if(i>=0){D.staff[i]={...d,k:D.staff[i].k};return D.staff[i]}D.staff.push(d);return d}
+IC.sx='<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>';
+
+draw();
+</script></body></html>

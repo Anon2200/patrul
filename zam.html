@@ -1,0 +1,358 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>Зам. начальника патруля</title>
+<style>
+
+:root{--bg:#eef1f5;--card:#fff;--tx:#18222f;--mu:#667487;--bd:#dce2ea;--nav:#16304f;--nav2:#0f2340;--ac:#1f8a7d;--ac2:#176f64;--acs:rgba(31,138,125,.12);--red:#c93c3c;--reds:rgba(201,60,60,.12);--yl:#a96f00;--yls:rgba(201,138,18,.16);--gr:#1f8a52;--grs:rgba(31,138,82,.13);--hv:rgba(60,90,130,.07);--sh:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05);color-scheme:light}
+:root[data-t=dark]{--bg:#0f151d;--card:#17202b;--tx:#e7ecf2;--mu:#98a5b6;--bd:#283343;--nav:#0b121b;--nav2:#080d14;--ac:#2fb5a5;--ac2:#27a091;--acs:rgba(47,181,165,.16);--red:#ff8a8a;--reds:rgba(255,100,100,.15);--yl:#f0c060;--yls:rgba(240,192,96,.15);--gr:#6fd39a;--grs:rgba(111,211,154,.14);--hv:rgba(150,180,220,.08);--sh:0 2px 12px rgba(0,0,0,.35);color-scheme:dark}
+@media(prefers-color-scheme:dark){:root:not([data-t=light]){--bg:#0f151d;--card:#17202b;--tx:#e7ecf2;--mu:#98a5b6;--bd:#283343;--nav:#0b121b;--nav2:#080d14;--ac:#2fb5a5;--ac2:#27a091;--acs:rgba(47,181,165,.16);--red:#ff8a8a;--reds:rgba(255,100,100,.15);--yl:#f0c060;--yls:rgba(240,192,96,.15);--gr:#6fd39a;--grs:rgba(111,211,154,.14);--hv:rgba(150,180,220,.08);--sh:0 2px 12px rgba(0,0,0,.35);color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+aside{background:linear-gradient(180deg,var(--nav),var(--nav2));color:#fff;padding:18px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow:auto}
+.logo{display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:2px 10px}.logo svg{width:26px;height:26px;color:#5fd3c4}
+.org{padding:2px 10px 16px;opacity:.6;font-size:12px}
+aside button.n{display:flex;gap:11px;align-items:center;border:0;background:transparent;color:#c5d1e2;font:inherit;font-weight:600;padding:10px 12px;border-radius:9px;cursor:pointer;text-align:left;width:100%}
+aside button.n:hover{background:rgba(255,255,255,.08)}aside button.n.on{background:var(--ac);color:#fff}
+.bg{margin-left:auto;background:#d64545;color:#fff;border-radius:10px;font-size:11px;padding:0 7px;line-height:18px;font-weight:700}
+.sp{flex:1}.sv{font-size:12px;opacity:.55;padding:6px 12px}
+main{padding:24px 32px 70px;max-width:1320px;width:100%;min-width:0}
+h1{margin:0 0 2px;font-size:24px}h3{margin:0 0 12px;font-size:16px}.sub{color:var(--mu);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;box-shadow:var(--sh)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:14px}
+.kpi{display:flex;gap:14px;align-items:center;cursor:pointer;text-align:left;font:inherit;color:inherit}.kpi:hover{border-color:var(--ac)}
+.ic{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:var(--acs);color:var(--ac)}.ic svg{width:22px;height:22px}
+.kpi b{display:block;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}.kpi span{color:var(--mu);font-size:12.5px}
+.kpi.w .ic{background:var(--reds);color:var(--red)}.kpi.w b{color:var(--red)}.kpi.y .ic{background:var(--yls);color:var(--yl)}
+.g2{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:14px}.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:14px}.g3 .card{overflow-x:auto}[hidden]{display:none!important}
+.bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+input,select,textarea{font:inherit;padding:9px 12px;border:1px solid var(--bd);border-radius:9px;background:var(--card);color:var(--tx);outline:0;min-height:40px}
+input:focus,select:focus,textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)}
+.btn{display:inline-flex;gap:7px;align-items:center;justify-content:center;background:var(--ac);color:#fff;border:0;border-radius:9px;padding:9px 16px;min-height:40px;font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--ac2)}.btn.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}.btn.g:hover{background:var(--hv)}.btn.r{color:var(--red)}.btn.s{padding:4px 10px;min-height:30px;font-size:13px}
+.btn svg{width:16px;height:16px}
+.search{flex:1;min-width:200px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;padding:5px 13px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.scroll{overflow:auto;max-height:72vh;border-radius:12px;border:1px solid var(--bd);background:var(--card);box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{background:var(--card);color:var(--mu);text-align:left;padding:10px 12px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;border-bottom:2px solid var(--bd);z-index:1;white-space:nowrap}
+th.so{cursor:pointer}th.so:hover{color:var(--ac)}
+td{padding:9px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}tr.r:hover td{background:var(--hv)}.num{text-align:right}.mu{color:var(--mu);font-size:12px}
+a.nm{cursor:pointer;font-weight:600}a.nm:hover{color:var(--ac)}
+td input.in{width:64px;padding:4px 7px;min-height:32px;text-align:right}
+.tag{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;font-weight:600;background:var(--grs);color:var(--gr);margin:1px;white-space:nowrap}
+.tag.b{background:var(--reds);color:var(--red)}.tag.y{background:var(--yls);color:var(--yl)}.tag.m{background:var(--hv);color:var(--mu)}
+.pb{height:8px;border-radius:6px;background:var(--hv);overflow:hidden;margin-top:5px}.pb i{display:block;height:100%;background:var(--ac);border-radius:6px}
+.cr{margin-bottom:13px}.cr div:first-child{display:flex;justify-content:space-between;gap:8px}
+.empty{text-align:center;padding:34px;color:var(--mu)}
+.note{background:var(--yls);color:var(--yl);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hint{background:var(--hv);border-radius:10px;padding:10px 14px;color:var(--mu);font-size:13px;margin-bottom:14px}
+.ov{position:fixed;inset:0;background:rgba(8,16,28,.6);display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto;z-index:30}
+.mod{background:var(--card);border-radius:14px;padding:22px;width:min(620px,100%);box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}.fg label{font-size:12px;color:var(--mu);margin-top:9px;display:block;font-weight:600}.fg input,.fg select{width:100%}.fg .w{grid-column:1/3}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16304f;color:#fff;padding:10px 12px 10px 20px;border-radius:30px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:60;display:flex;gap:12px;align-items:center}
+.toast button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:20px;padding:4px 12px;font:inherit;font-weight:600;cursor:pointer}
+.paper{background:#fff;color:#000;padding:30px 38px;max-width:840px;margin:auto;font:13px/1.45 "Times New Roman",serif;box-shadow:var(--sh);border-radius:4px}
+.paper h2{text-align:center;margin:0;font-size:17px}.paper .c{text-align:center}.paper table{margin:12px 0}.paper th{background:#fff;color:#000;border:1px solid #000;position:static;text-transform:none;letter-spacing:0;font-size:12px;padding:5px}.paper td{border:1px solid #000;padding:5px 7px}
+.sg{margin-top:24px;display:flex;align-items:baseline;gap:8px}.sg i{width:160px;border-bottom:1px solid #000;display:inline-block}
+.donut{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.donut svg{width:130px;height:130px;flex:none}.lg div{display:flex;gap:8px;align-items:center;margin:4px 0}.lg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.top{display:none}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;padding:8px}.logo,.org,.sp,.sv{display:none}aside button.n{width:auto;white-space:nowrap}main{padding:16px 14px 60px}.g2{grid-template-columns:1fr}.fg{grid-template-columns:1fr}.fg .w{grid-column:1}.paper{padding:16px}}
+@media print{aside,.bar,.noprint,.toast,.hint,.note,h1,.sub{display:none!important}.app{display:block}body{background:#fff}main{padding:0;max-width:none}.paper{box-shadow:none;padding:0;max-width:none}}
+
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}body{-webkit-tap-highlight-color:transparent;font-size:15px}
+main{padding:12px 14px calc(86px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;min-width:0}
+#hd{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--nav),var(--nav2));color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;gap:10px}
+#hd .t{flex:1;font-weight:700;font-size:18px;line-height:1.2;min-width:0}#hd small{display:block;font-weight:400;font-size:12px;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#hd .bk{border:0;background:rgba(255,255,255,.12);color:#fff;font-size:26px;line-height:1;width:40px;height:40px;border-radius:10px;cursor:pointer}
+#hd .act{border:1px solid rgba(255,255,255,.3);background:transparent;color:#cfe0f2;border-radius:20px;padding:6px 12px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;max-width:42%}
+#hd .act.on{background:#d64545;border-color:#d64545;color:#fff}
+#bn{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(16,32,56,.08)}
+#bn button{flex:1;border:0;background:none;color:var(--mu);font:inherit;font-size:11px;font-weight:600;padding:8px 0 7px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;position:relative}
+#bn button.on{color:var(--ac)}#bn svg.i{width:23px;height:23px}#bn .bg{position:absolute;top:3px;left:calc(50% + 6px);margin:0}
+.btn{min-height:46px;font-size:15px}.btn.s{min-height:36px;padding:4px 12px}.btn.u{background:var(--red)}
+input,select,textarea{font-size:16px;min-height:46px;max-width:100%}
+.card{margin-bottom:12px;padding:14px}.card.urg{border-color:var(--red);box-shadow:0 0 0 2px var(--reds)}
+.bar.dn{flex-wrap:nowrap}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.qa button{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;text-align:left;font:inherit;color:var(--tx);box-shadow:var(--sh);cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.qa button svg.i{width:26px;height:26px;color:var(--ac);margin-bottom:4px}.qa button b{font-size:15px}.qa button span{font-size:12px;color:var(--mu)}
+.qa button.u{background:var(--reds);border-color:var(--red)}.qa button.u svg.i,.qa button.u b{color:var(--red)}
+.li{display:flex;gap:12px;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--bd);border-radius:12px;margin-bottom:8px;box-shadow:var(--sh);cursor:pointer;width:100%;font:inherit;color:var(--tx)}
+.li.menu{padding:14px}.li .ic{width:40px;height:40px}
+.ck{display:flex;gap:12px;align-items:center;padding:9px 0;font-size:15px;color:var(--tx)!important;font-weight:500!important;margin:0!important}.ck input{width:24px;height:24px;min-height:0;padding:0;flex:none}
+.pr .ph{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:8px}.pr select{width:100%}.tg{display:flex;gap:6px;justify-content:space-between;margin-top:4px}.tg .ck{flex-direction:row}
+.ev{display:flex;gap:10px;align-items:flex-start;padding:10px 10px;border-radius:9px;background:color-mix(in srgb,var(--c) 14%,transparent);border-left:4px solid var(--c);font-size:15px;line-height:1.3;margin-bottom:6px}
+.ev input{min-height:0;width:24px;height:24px;margin:0;flex:none;padding:0}.ev .tt{cursor:pointer;min-width:0;overflow-wrap:break-word;flex:1}.ev .tm{font-weight:700;font-variant-numeric:tabular-nums;margin-right:4px}.ev.dn .tt{text-decoration:line-through;opacity:.55}
+.dchips{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:12px}
+.dc{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:12px;padding:6px 0 2px;font:inherit;display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:0}
+.dc span{font-size:11px;color:var(--mu)}.dc b{font-size:17px}.dc i{font-style:normal;color:var(--ac);height:14px;line-height:10px;font-size:18px}.dc.we span{color:var(--red)}.dc.td{border-color:var(--ac)}.dc.on{background:var(--ac);border-color:var(--ac);color:#fff}.dc.on span,.dc.on i{color:#fff}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.ch{background:var(--card);padding:6px 0;text-align:center;font-size:11px;font-weight:700;color:var(--mu)}
+.cd{background:var(--card);min-height:50px;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}.cd.o{opacity:.4}.cd.sel{outline:2px solid var(--ac);outline-offset:-2px}.cd.today b{background:var(--ac);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center}.cd b{font-size:13px;font-weight:600}
+.dots{display:flex;gap:2px}.dots i{width:6px;height:6px;border-radius:50%}
+.sub{font-size:13px}
+.ov{align-items:flex-end;padding:0}.mod{border-radius:18px 18px 0 0;width:100%;max-width:560px;margin:0 auto;max-height:92vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.fg label{font-size:12px}@media(max-width:380px){.fg{grid-template-columns:1fr}.fg .w{grid-column:auto}}
+.toast{bottom:calc(84px + env(safe-area-inset-bottom));max-width:92vw}
+.paper{padding:18px 16px;max-width:none}
+.note{font-size:14px}
+@media(min-width:700px){#bn{max-width:560px;margin:0 auto;border-radius:14px 14px 0 0;border:1px solid var(--bd)}}
+@media print{#hd,#bn,.noprint,.toast{display:none!important}main{padding:0;max-width:none}.paper{padding:0}@page{size:A4;margin:15mm}}
+</style></head><body>
+<div id="hd"></div><main id="m"></main><nav id="bn"></nav><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json">
+<datalist id="dl_staff"></datalist>
+<script>
+const KEY='zam_v1';
+const TYPES={'Развод':'#78872a','Обход':'#1f8a7d','Учения':'#c0463f','Мероприятие':'#8a52b5','Совещание':'#3b6fb6','Доклад':'#4f6d8f','Проверка':'#1f8a52','Прочее':'#667487'};
+const REC=[['none','Не повторять'],['daily','Каждый день'],['work','По будням'],['week','Каждую неделю']];
+const POS=['Начальник патруля','Заместитель начальника патруля','Старший мастер патруля','Документовед патруля','Старший патруля','Патрульный'];
+const RT=['Нарушение','Происшествие','Насилие','Угроза / ЧС','Недостаток службы','Итоги службы','Другое'];
+const URG=['Насилие','Угроза / ЧС','Происшествие'];
+const TO=['Начальник патруля','Педагог-организатор','Администрация колледжа'];
+const AT=[['+','Явился'],['оп','Опоздал'],['у','Не явился (уваж.)'],['н','Не явился'],['б','Болезнь']];
+const CK=[['on','На месте'],['fm','Форма одежды'],['vw','Опрятный внешний вид'],['ord','Порядок на посту и территории'],['rec','Записи в журнале ведутся']];
+const JN=['Наряд на службу','Журнал службы','Журнал регистрации','Реестр нарушителей'];
+const SRC=['Начальник патруля','Педагог-организатор','Другое'];
+const TT={ov:'Сегодня',br:'Развод и явка',rd:'Обход постов',rp:'Доклады',pl:'План',mr:'Ещё',tk:'Поручения',jc:'Проверка журналов',ps:'Личный состав',sm:'Итоги смены',st:'Настройки',sx:'Обмен'};
+const SUB=['tk','jc','ps','sm','st','sx'];
+
+const DS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],MN=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'],MG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const IC={ov:'<path d="M3 13h7V3H3zM14 21h7V11h-7zM14 3v5h7V3zM3 21h7v-5H3z"/>',wk:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',nr:'<path d="M4 4h12a2 2 0 012 2v14H6a2 2 0 01-2-2zM18 8h2v12h-2M8 8h6M8 12h6"/>',ps:'<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 015-5h4a5 5 0 015 5v2M17 3a4 4 0 010 8M22 21v-2a4 4 0 00-3-3.9"/>',vl:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01"/>',inc:'<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/>',tk:'<path d="M9 11l3 3 8-8M4 6h3M4 12h3M4 18h10"/>',im:'<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/>',dc:'<path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z"/>',st:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',pl:'<path d="M12 5v14M5 12h14"/>',sh:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'};
+const ico=n=>`<svg class="i" viewBox="0 0 24 24">${IC[n]}</svg>`;
+const $=s=>document.querySelector(s);
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>iso(new Date()),P=s=>new Date(s+'T12:00'),add=(s,n)=>{const d=P(s);d.setDate(d.getDate()+n);return iso(d)};
+const wd=s=>(P(s).getDay()+6)%7,mon=s=>add(s,-wd(s)),fd=d=>d?d.split('-').reverse().join('.'):'—';
+const fs=s=>{const d=P(s);return d.getDate()+' '+MG[d.getMonth()]};
+const fl=s=>{const d=P(s);return DS[wd(s)]+', '+d.getDate()+' '+MG[d.getMonth()]+' '+d.getFullYear()};
+const uid=()=>Math.random().toString(36).slice(2,9);
+IC.mr='<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
+function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2200)}
+const pc=s=>String(s||'').replace(/ё/g,'е').toLowerCase();
+const posts=()=>D.set.posts.split(',').map(x=>x.trim()).filter(Boolean);
+const tag=(c,t)=>`<span class="tag ${c}">${e(t)}</span>`;
+const SET0={org:'Патрульная служба',boss:'Борисов М.К.',bossD:'Борисову М.К.',ped:'Лылов Н.А.',pedD:'Лылову Н.А.',zam:'',posts:'КПП, ТЕРРИТОРИЯ, УК-1, УК-2',theme:'auto'};
+function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[{k:uid(),name:'Борисов М.К.',pos:POS[0],grp:'',tel:'',st:'в строю'},{k:uid(),name:'Ипполитов А.Д.',pos:POS[2],grp:'',tel:'',st:'в строю'}],
+ events:[{k:uid(),d:b,t:'08:00',te:'',title:'Развод и инструктаж личного состава',type:'Развод',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
+ {k:uid(),d:b,t:'11:00',te:'',title:'Обход постов',type:'Обход',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
+ {k:uid(),d:b,t:'16:00',te:'',title:'Проверка журналов патруля',type:'Проверка',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'},
+ {k:uid(),d:b,t:'16:30',te:'',title:'Доклад начальнику патруля об итогах',type:'Доклад',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'}],
+ done:{},br:{},rounds:[],rep:[],tasks:[],jchk:[],prop:[],acting:false,bk:0}}
+function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','rounds','rep','tasks','jchk','prop'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.br=j.br||{};j.bk=j.bk||0;j.acting=!!j.acting;return j}
+function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
+let D=load(),tab='ov',wk=mon(today()),cm=today().slice(0,7)+'-01',csel=today(),plm='w',bsel=today(),lastUndo=null,rpf='',tkd='in',ssel=today();
+
+function eventsOn(s){const w=wd(s);return D.events.filter(v=>v.rec=='none'?v.d==s:(v.d<=s&&(!v.until||s<=v.until)&&(v.rec=='daily'||(v.rec=='work'&&w<5)||(v.rec=='week'&&wd(v.d)==w)))).sort((a,b)=>(a.t||'99').localeCompare(b.t||'99'))}
+const isDone=(v,s)=>!!D.done[v.k+'|'+s];
+function evRow(v,s){const c=TYPES[v.type]||'#667487',dn=isDone(v,s);return`<div class="ev ${dn?'dn':''}" style="--c:${c}"><input type="checkbox" data-chg="evdone" data-k="${v.k}" data-d="${s}" ${dn?'checked':''}><span class="tt" data-act="evedit" data-k="${v.k}" data-d="${s}">${v.t?`<span class="tm">${v.t}${v.te?'–'+v.te:''}</span> `:''}${e(v.title)}${v.rec!='none'?' ↻':''}</span></div>`}
+const dueTasks=s=>D.tasks.filter(t=>t.due==s&&t.st!='Выполнено');
+const g=id=>$('#'+id).value.trim();
+const T=(l,id,v,c='w')=>`<div class="${c}"><label>${l}</label><textarea id="${id}" rows="4" style="width:100%">${e(v??'')}</textarea></div>`;
+const zam=()=>D.set.zam||'заместитель начальника патруля';
+const staffIn=()=>D.staff.filter(x=>x.st=='в строю');
+const gb=s=>D.br[s]||{att:{},fm:{},vw:{},rd:{},inst:false,instT:''};const gbw=()=>D.br[bsel]||(D.br[bsel]={att:{},fm:{},vw:{},rd:{},inst:false,instT:''});
+const toDef=()=>D.acting?'Педагог-организатор':'Начальник патруля';
+const bad=r=>CK.filter(c=>!(r.chk||{})[c[0]]).map(c=>c[1]);
+const rtime=()=>new Date().toTimeString().slice(0,5);
+function go(t){tab=t;draw()}
+function nav(){const m=[['ov','Сегодня','ov'],['br','Развод','ps'],['rd','Обход','vl'],['rp','Доклады','inc'],['pl','План','wk'],['mr','Ещё','mr']];const cur=SUB.includes(tab)?'mr':tab;
+ const nr=D.rep.filter(r=>r.st!='Доложено').length;
+ return m.map(x=>`<button class="${x[0]==cur?'on':''}" data-act="tab" data-v="${x[0]}">${ico(x[2])}${x[1]}${x[0]=='rp'&&nr?`<span class="bg">${nr}</span>`:''}${x[0]=='mr'&&sxUnread()?`<span class="bg">${sxUnread()}</span>`:''}</button>`).join('')}
+function draw(keep){save();theme();$('#dl_staff').innerHTML=D.staff.map(s=>`<option value="${e(s.name)}">`).join('');
+ $('#hd').innerHTML=`${SUB.includes(tab)?'<button class="bk" data-act="tab" data-v="mr" aria-label="Назад">‹</button>':''}<div class="t">${TT[tab]}<small>${e(D.set.zam||'Заместитель начальника патруля')}</small></div><button class="act ${D.acting?'on':''}" data-act="acttog">${D.acting?'и.о. начальника':'Замещаю начальника?'}</button>`;
+ $('#bn').innerHTML=nav();
+ $('#m').innerHTML=({ov,br:brv,rd:rdv,rp:rpv,pl:plv,mr,tk:tkv,jc:jcv,ps,sm:smv,st:stt,sx:SXV})[tab]();if(!keep)scrollTo(0,0)}
+/* ---------- сегодня ---------- */
+function ov(){const t=today(),ev=eventsOn(t),dn=ev.filter(v=>isDone(v,t)).length,b=gb(t),st=staffIn(),n=st.filter(x=>['+','оп'].includes(b.att[x.k])).length,R=D.rounds.filter(r=>r.d==t),bd=R.filter(r=>bad(r).length).length,nr=D.rep.filter(r=>r.st!='Доложено'),od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t);
+ return`${D.acting?`<div class="note" style="background:var(--reds);color:var(--red)"><span><b>Вы исполняете обязанности начальника патруля.</b> Доклады по умолчанию идут педагогу-организатору.</span></div>`:''}
+ ${nr.length?`<div class="note" style="background:var(--reds);color:var(--red)"><span><b>Не доложено: ${nr.length}.</b> ${nr.some(r=>URG.includes(r.type))?'Среди них срочные.':''}</span><button class="btn s" data-act="tab" data-v="rp">Открыть</button></div>`:''}
+ ${!b.inst?`<div class="note"><span>Развод сегодня не отмечен.</span><button class="btn s" data-act="bopen" data-d="${t}">Отметить</button></div>`:''}
+ ${bkNote()}
+ <p class="sub" style="margin:0 0 10px">${fl(t)}</p>
+ <div class="qa"><button data-act="tab" data-v="br">${ico('ps')}<b>Развод</b><span>${n}/${st.length} явились</span></button><button data-act="rdnew">${ico('vl')}<b>Проверить пост</b><span>${R.length} обходов${bd?', замечаний '+bd:''}</span></button><button class="u" data-act="rpnew" data-u="1">${ico('inc')}<b>Срочный доклад</b><span>начальнику / администрации</span></button><button data-act="evnew" data-d="${t}">${ico('pl')}<b>Событие</b><span>в планер</span></button></div>
+ <div class="card"><h3>План на сегодня <span class="mu">${dn}/${ev.length}</span></h3>${ev.length?ev.map(v=>evRow(v,t)).join(''):'<div class="empty">На сегодня событий нет</div>'}${dueTasks(t).length?`<h3 style="margin:14px 0 6px">Сроки поручений</h3>${dueTasks(t).map(x=>`<div class="ev" style="--c:#b5423f"><span class="tt" data-act="tkedit" data-k="${x.k}">${e(x.text)}</span></div>`).join('')}`:''}</div>
+ ${od.length?`<div class="card"><h3>Просроченные поручения</h3>${od.slice(0,5).map(x=>`<div class="li" data-act="tkedit" data-k="${x.k}"><div style="flex:1;min-width:0">${e(x.text)}<div class="mu">${e(x.who||x.src||'')}</div></div>${tag('b',fd(x.due))}</div>`).join('')}</div>`:''}
+ <div class="card"><h3>Итоги смены</h3><p class="mu" style="margin:0 0 10px">Рапорт собирается из данных за день: явка, обходы, доклады.</p><button class="btn" style="width:100%" data-act="smopen" data-d="${t}">${ico('dc')}Открыть итоги смены</button></div>`}
+function bkNote(){const d=D.bk?Math.floor((Date.now()-D.bk)/864e5):null;return d==null||d>7?`<div class="note"><span>${d==null?'Копия данных ещё не сохранялась.':'Копия сохранялась '+d+' дн. назад.'}</span><button class="btn s" data-act="exp">Сохранить</button></div>`:''}
+/* ---------- развод и явка ---------- */
+function brv(){const s=bsel,b=gb(s),st=staffIn(),n=st.filter(x=>['+','оп'].includes(b.att[x.k])).length;
+ return`<div class="bar dn"><button class="btn g" data-act="bday" data-d="-1">‹</button><input type="date" value="${s}" data-chg="bsel" style="flex:1;min-width:0"><button class="btn g" data-act="bday" data-d="1">›</button></div>
+ <div class="card"><label class="ck"><input type="checkbox" data-chg="binst" ${b.inst?'checked':''}> Инструктаж и развод проведены</label><div class="fg" style="margin-top:4px"><div><label>Время развода</label><input type="time" value="${e(b.instT||'')}" data-chg="binstT"></div><div><label>Явка</label><input value="${n} из ${st.length}" disabled></div></div><div class="bar" style="margin:12px 0 0"><button class="btn g" style="flex:1" data-act="ball">Все в порядке</button></div></div>
+ ${st.length?st.map(x=>`<div class="card pr"><div class="ph"><b>${e(x.name)}</b><span class="mu">${e(x.pos)}${x.grp?' · '+e(x.grp):''}</span></div><select data-chg="batt" data-k="${x.k}"><option value="">Явка не отмечена</option>${AT.map(a=>`<option value="${a[0]}" ${b.att[x.k]==a[0]?'selected':''}>${a[1]}</option>`).join('')}</select><div class="tg"><label class="ck"><input type="checkbox" data-chg="bck" data-f="fm" data-k="${x.k}" ${b.fm[x.k]?'checked':''}>Форма</label><label class="ck"><input type="checkbox" data-chg="bck" data-f="vw" data-k="${x.k}" ${b.vw[x.k]?'checked':''}>Вид</label><label class="ck"><input type="checkbox" data-chg="bck" data-f="rd" data-k="${x.k}" ${b.rd[x.k]?'checked':''}>Готов</label></div></div>`).join(''):'<div class="empty">Список пуст. Добавьте людей в разделе «Ещё → Личный состав».</div>'}`}
+/* ---------- обход постов ---------- */
+function rdv(){const t=today(),a=D.rounds.filter(r=>r.d>=add(t,-1)).sort((x,y)=>(y.d+(y.t||'')).localeCompare(x.d+(x.t||'')));
+ return`<button class="btn" style="width:100%;margin-bottom:12px" data-act="rdnew">${ico('pl')}Проверить пост</button><p class="sub" style="margin:0 0 10px">Обходы за сегодня и вчера. Замечания можно сразу доложить начальнику.</p>
+ ${a.length?a.map(r=>{const b=bad(r);return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(r.post)}</b><span>${b.length?tag('b','замечаний: '+b.length):tag('','всё в порядке')}</span></div><div class="mu">${fd(r.d)} ${r.t||''}${r.who?' · '+e(r.who):''}</div>${b.length?`<div style="margin-top:6px">${b.map(x=>tag('b',x)).join('')}</div>`:''}${r.note?`<div style="margin-top:6px">${e(r.note)}</div>`:''}<div class="bar" style="margin:10px 0 0">${b.length||r.note?`<button class="btn s" data-act="rdrep" data-k="${r.k}">Доложить</button>`:''}<button class="btn s g" data-act="rdedit" data-k="${r.k}">Изменить</button></div></div>`}).join(''):'<div class="empty">Обходов пока нет</div>'}`}
+function rdForm(k){const v=k?D.rounds.find(x=>x.k==k):{d:today(),t:rtime(),post:posts()[0]||'',who:'',chk:{on:1,fm:1,vw:1,ord:1,rec:1},note:''};
+ modal(`<h3>${k?'Обход поста':'Проверка поста'}</h3><div class="fg">${S('Пост','r_post',posts(),v.post,'w')}${F('Кто на посту','r_who',v.who,'text','w','list="dl_staff"')}</div><div style="margin:8px 0">${CK.map(c=>`<label class="ck"><input type="checkbox" class="r_ck" data-f="${c[0]}" ${v.chk[c[0]]?'checked':''}>${c[1]}</label>`).join('')}</div><div class="fg">${F('Замечание','r_note',v.note,'text','w')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="rdsv" data-k="${k||''}">Записать</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" data-act="rddel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- доклады ---------- */
+const rtxt=r=>`${r.to}.\nДокладывает ${D.set.zam?D.set.zam+', ':''}заместитель начальника патруля.\n${fd(r.d)}${r.t?' в '+r.t:''}. ${r.type}.\n${r.text}`;
+function rpv(){const a=[...D.rep].filter(r=>!rpf||(rpf=='no'?r.st!='Доложено':r.st=='Доложено')).sort((x,y)=>(y.d+(y.t||'')).localeCompare(x.d+(x.t||'')));
+ return`<button class="btn u" style="width:100%;margin-bottom:12px" data-act="rpnew">${ico('pl')}Новый доклад</button>
+ <div class="chips" style="margin-bottom:12px">${[['','Все'],['no','Не доложено'],['ok','Доложено']].map(c=>`<button class="chip ${rpf==c[0]?'on':''}" data-act="rpflt" data-v="${c[0]}">${c[1]}</button>`).join('')}</div>
+ ${a.length?a.map(r=>`<div class="card ${r.st!='Доложено'&&URG.includes(r.type)?'urg':''}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>${tag(URG.includes(r.type)?'b':'m',r.type)}</span><span>${r.st=='Доложено'?tag('','доложено '+(r.rt||'')):tag('y','не доложено')}</span></div><div class="mu" style="margin-top:6px">${fd(r.d)} ${r.t||''} · ${e(r.to)}</div><div style="margin-top:6px">${e(r.text)}</div><div class="bar" style="margin:10px 0 0">${r.st!='Доложено'?`<button class="btn s" data-act="rpdone" data-k="${r.k}">Доложено</button>`:''}<button class="btn s g" data-act="rpcopy" data-k="${r.k}">Копировать</button><button class="btn s g" data-act="rpshare" data-k="${r.k}">Отправить</button><button class="btn s g" data-act="rpedit" data-k="${r.k}">Изменить</button></div></div>`).join(''):'<div class="empty">Докладов нет</div>'}`}
+function rpForm(k,pre){const v=k?D.rep.find(x=>x.k==k):{d:today(),t:rtime(),type:(pre&&pre.type)||RT[0],to:toDef(),text:(pre&&pre.text)||'',st:'Не доложено'};
+ modal(`<h3>${k?'Доклад':'Новый доклад'}</h3><div class="fg">${S('О чём','p_type',RT,v.type,'w')}${S('Кому','p_to',TO,v.to,'w')}${T('Что произошло','p_text',v.text)}${F('Дата','p_d',v.d,'date')}${F('Время','p_t',v.t,'time')}</div><p class="mu" style="margin:8px 0 0">О насилии, угрозе и происшествиях докладывайте сразу. Если не удаётся связаться с начальником патруля, доложите администрации колледжа.</p><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="rpsv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" data-act="rpdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- план ---------- */
+function dayPanel(s){const ev=eventsOn(s),tk=dueTasks(s);return`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">${fl(s)}</h3><button class="btn s" data-act="evnew" data-d="${s}">${ico('pl')}Событие</button></div>${ev.length?ev.map(v=>evRow(v,s)).join(''):'<div class="empty" style="padding:18px">Ничего не запланировано</div>'}${tk.map(x=>`<div class="ev" style="--c:#b5423f"><span class="tt" data-act="tkedit" data-k="${x.k}">${ico('tk')} ${e(x.text)} <span class="mu">срок</span></span></div>`).join('')}</div>`}
+function plv(){const t=today(),sw=`<div class="chips" style="margin-bottom:12px"><button class="chip ${plm=='w'?'on':''}" data-act="plm" data-v="w">Неделя</button><button class="chip ${plm=='m'?'on':''}" data-act="plm" data-v="m">Месяц</button></div>`;
+ if(plm=='w'){const d=[0,1,2,3,4,5,6].map(i=>add(wk,i)),all=d.flatMap(s=>eventsOn(s).map(v=>[s,v])),dn=all.filter(([s,v])=>isDone(v,s)).length,pr=all.length?Math.round(dn/all.length*100):0;if(csel<wk||csel>d[6])csel=t>=wk&&t<=d[6]?t:wk;
+  return sw+`<div class="bar dn"><button class="btn g" data-act="wkn" data-d="-1">‹</button><div style="flex:1;text-align:center"><b>${fs(wk)} — ${fs(d[6])}</b></div><button class="btn g" data-act="wkn" data-d="1">›</button></div>
+  <div class="dchips">${d.map(s=>`<button class="dc ${s==csel?'on':''} ${s==t?'td':''} ${wd(s)>4?'we':''}" data-act="calsel" data-d="${s}"><span>${DS[wd(s)]}</span><b>${+s.slice(8)}</b><i>${eventsOn(s).length+dueTasks(s).length?'•':''}</i></button>`).join('')}</div>
+  <div class="card" style="padding:10px 14px"><div style="display:flex;justify-content:space-between"><b>Неделя: ${dn} из ${all.length}</b><span class="mu">${pr}%</span></div><div class="pb"><i style="width:${pr}%"></i></div></div>${dayPanel(csel)}<div class="bar dn"><button class="btn g" data-act="wkt" style="flex:1">Эта неделя</button></div>`}
+ const first=P(cm),start=mon(cm),days=[];for(let i=0;i<42;i++)days.push(add(start,i));
+ return sw+`<div class="bar dn"><button class="btn g" data-act="calm" data-d="-1">‹</button><div style="flex:1;text-align:center;text-transform:capitalize"><b>${MN[first.getMonth()]} ${first.getFullYear()}</b></div><button class="btn g" data-act="calm" data-d="1">›</button></div>
+ <div class="cal">${DS.map(x=>`<div class="ch">${x}</div>`).join('')}${days.map(s=>{const ev=eventsOn(s);return`<div class="cd ${s.slice(0,7)!=cm.slice(0,7)?'o':''} ${s==t?'today':''} ${s==csel?'sel':''}" data-act="calsel" data-d="${s}"><b>${+s.slice(8)}</b><div class="dots">${ev.slice(0,3).map(v=>`<i style="background:${TYPES[v.type]||'#667487'}"></i>`).join('')}</div></div>`}).join('')}</div>${dayPanel(csel)}<div class="bar dn"><button class="btn g" data-act="calt" style="flex:1">Сегодня</button></div>`}
+/* ---------- ещё ---------- */
+function mr(){const od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<today()).length;const it=[['sx','Обмен данными','sx',sxUnread()?'новых: '+sxUnread():'отправить и принять пакет в чате'],['tk','Поручения','tk',od?od+' просрочено':'от начальника и подчинённым'],['jc','Проверка журналов','nr','наряд, журналы, реестр'],['ps','Личный состав','ps','список, телефоны, предложения'],['sm','Итоги смены','dc','рапорт за день: копировать или печатать'],['st','Настройки','st','имя, начальник, резервная копия']];
+ return it.map(x=>`<button class="li menu" data-act="tab" data-v="${x[0]}"><span class="ic">${ico(x[2])}</span><div style="flex:1;text-align:left"><b>${x[1]}</b><div class="mu">${x[3]}</div></div><span class="mu">›</span></button>`).join('')+`<p class="mu" style="margin:16px 4px">Совет: откройте программу в браузере телефона и добавьте на главный экран. Раз в неделю сохраняйте копию данных в «Настройках».</p>`}
+/* ---------- поручения ---------- */
+function tkv(){const t=today(),a=D.tasks.filter(x=>(x.dir||'in')==tkd&&x.st!='Выполнено').sort((x,y)=>(x.due||'9').localeCompare(y.due||'9')),dn=D.tasks.filter(x=>(x.dir||'in')==tkd&&x.st=='Выполнено').length;
+ return`<div class="chips" style="margin-bottom:12px"><button class="chip ${tkd=='in'?'on':''}" data-act="tkd" data-v="in">Мне</button><button class="chip ${tkd=='out'?'on':''}" data-act="tkd" data-v="out">Подчинённым</button></div><button class="btn" style="width:100%;margin-bottom:12px" data-act="tknew">${ico('pl')}${tkd=='in'?'Новое поручение':'Поставить задачу'}</button>
+ ${a.length?a.map(x=>`<div class="card"><div style="cursor:pointer" data-act="tkedit" data-k="${x.k}"><b>${e(x.text)}</b><div class="mu">${e(x.who||x.src||'')}${x.due?' · срок '+fd(x.due):''} ${x.due&&x.due<t?tag('b','просрочено'):''}</div></div><select data-chg="tkst" data-k="${x.k}" style="margin-top:8px;width:100%">${['Новое','В работе','Выполнено'].map(s=>`<option ${(x.st||'Новое')==s?'selected':''}>${s}</option>`).join('')}</select></div>`).join(''):'<div class="empty">Активных поручений нет</div>'}${dn?`<p class="mu" style="text-align:center">Выполнено: ${dn}</p>`:''}`}
+function tkForm(k){const v=k?D.tasks.find(x=>x.k==k):{text:'',who:'',src:SRC[0],due:'',dir:tkd};modal(`<h3>${k?'Поручение':'Новое поручение'}</h3><div class="fg">${F('Что сделать','t_text',v.text,'text','w')}${v.dir=='out'?F('Кому (исполнитель)','t_who',v.who,'text','w','list="dl_staff"'):S('От кого','t_src',SRC,v.src,'w')}${F('Срок','t_due',v.due,'date','w')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="tksv" data-k="${k||''}" data-dir="${v.dir||'in'}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" data-act="tkdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- проверка журналов ---------- */
+function jcv(){const t=today(),last=n=>[...D.jchk].filter(x=>x.j==n).sort((a,b)=>(b.d+b.k).localeCompare(a.d+a.k))[0];
+ return`<p class="sub" style="margin:0 0 10px">Проверьте полноту и правильность записей и отметьте результат.</p>${JN.map(n=>{const l=last(n);return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${n}</b>${l?(l.d==t?(l.ok?tag('','проверен сегодня'):tag('b','есть замечания')):tag('m','проверен '+fd(l.d))):tag('y','не проверялся')}</div>${l&&l.note?`<div class="mu" style="margin-top:4px">${e(l.note)}</div>`:''}<div class="bar" style="margin:10px 0 0"><button class="btn s" data-act="jcnew" data-j="${e(n)}">Отметить проверку</button></div></div>`}).join('')}
+ <h3 style="margin:18px 0 8px">История</h3>${D.jchk.length?[...D.jchk].reverse().slice(0,15).map(x=>`<div class="li"><div style="flex:1;min-width:0"><b>${e(x.j)}</b><div class="mu">${fd(x.d)}${x.note?' · '+e(x.note):''}</div></div>${x.ok?tag('','без замечаний'):tag('b','замечания')}<button class="btn s g" data-act="jcdel" data-k="${x.k}">×</button></div>`).join(''):'<div class="empty">Проверок пока нет</div>'}`}
+/* ---------- личный состав ---------- */
+function ps(){return`<button class="btn" style="width:100%;margin-bottom:12px" data-act="stnew">${ico('pl')}Добавить человека</button>${D.staff.length?D.staff.map(x=>`<div class="li"><div style="flex:1;min-width:0;cursor:pointer" data-act="stedit" data-k="${x.k}"><b>${e(x.name)}</b><div class="mu">${e(x.pos)}${x.grp?' · '+e(x.grp):''}${x.st!='в строю'?' · '+e(x.st):''}</div></div>${x.tel?`<a class="btn s" href="tel:${e(x.tel.replace(/[^\d+]/g,''))}">${e(x.tel)}</a>`:''}</div>`).join(''):'<div class="empty">Список пуст</div>'}
+ <h3 style="margin:18px 0 8px">Предложения начальнику</h3><p class="mu" style="margin:0 0 8px">О поощрении отличившихся и о мерах в отношении нарушителей дисциплины.</p><button class="btn g" style="width:100%;margin-bottom:10px" data-act="prnew">${ico('pl')}Новое предложение</button>${D.prop.length?[...D.prop].reverse().map(p=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(p.who)}</b>${tag(p.type=='Поощрение'?'':'b',p.type)}</div><div class="mu">${fd(p.d)}</div><div style="margin-top:4px">${e(p.why)}</div><div class="bar" style="margin:10px 0 0"><button class="btn s g" data-act="prcopy" data-k="${p.k}">Копировать</button><button class="btn s g" data-act="prdel" data-k="${p.k}">Удалить</button></div></div>`).join(''):''}`}
+function stForm(k){const v=k?D.staff.find(x=>x.k==k):{name:'',pos:POS[5],grp:'',tel:'',st:'в строю'};modal(`<h3>${k?'Сотрудник патруля':'Новый сотрудник'}</h3><div class="fg">${F('ФИО','s_name',v.name,'text','w')}${S('Должность','s_pos',POS,v.pos,'w')}${F('Группа','s_grp',v.grp)}${F('Телефон','s_tel',v.tel,'tel')}${S('Статус','s_st',['в строю','отстранён','не в составе'],v.st,'w')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="stsv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" data-act="stdel" data-k="${k}">Удалить</button>`:''}</div>`)}
+/* ---------- итоги смены ---------- */
+function smLines(s){const b=gb(s),st=staffIn(),att=a=>st.filter(x=>a.includes(b.att[x.k])),pres=att(['+','оп']),late=att(['оп']),abs=att(['у','н','б']),nof=st.filter(x=>['+','оп'].includes(b.att[x.k])&&(!b.fm[x.k]||!b.vw[x.k])),R=D.rounds.filter(r=>r.d==s),rb=R.filter(r=>bad(r).length),rp=D.rep.filter(r=>r.d==s),jc=D.jchk.filter(x=>x.d==s);
+ const L=[`Докладываю об итогах службы за ${fd(s)}.`,`1. Явка: ${pres.length} из ${st.length}.${late.length?' Опоздали: '+late.map(x=>x.name).join(', ')+'.':''}${abs.length?' Отсутствуют: '+abs.map(x=>x.name+' ('+(AT.find(a=>a[0]==b.att[x.k])||[0,''])[1].toLowerCase()+')').join(', ')+'.':''}`,
+ `2. Инструктаж и развод: ${b.inst?'проведены'+(b.instT?' в '+b.instT:''):'не отмечены'}. Замечания по форме и внешнему виду: ${nof.length?nof.map(x=>x.name).join(', '):'нет'}.`,
+ `3. Проверка несения службы на постах: обходов ${R.length}, с замечаниями ${rb.length}.${rb.map(r=>' '+r.post+': '+bad(r).join(', ').toLowerCase()+(r.note?' ('+r.note+')':'')+'.').join('')}`,
+ `4. Доклады за день: ${rp.length}${rp.length?' ('+rp.map(r=>r.type.toLowerCase()).join(', ')+')':''}${rp.some(r=>r.st!='Доложено')?', есть недоложенные':''}.`,
+ `5. Проверка журналов: ${jc.length?jc.map(x=>x.j+' — '+(x.ok?'замечаний нет':'есть замечания')).join('; ')+'.':'не проводилась.'}`];return L}
+function smv(){const s=ssel,L=smLines(s);return`<div class="bar dn noprint"><button class="btn g" data-act="sday" data-d="-1">‹</button><input type="date" value="${s}" data-chg="ssel" style="flex:1;min-width:0"><button class="btn g" data-act="sday" data-d="1">›</button></div>
+ <div class="bar noprint"><button class="btn" style="flex:1" data-act="smcopy">Копировать</button><button class="btn g" style="flex:1" data-act="smshare">Отправить</button><button class="btn g" style="flex:1" data-act="prn">Печать</button></div>
+ <div class="paper"><div style="margin-left:40%;line-height:1.35">${D.acting?'Педагогу-организатору':'Начальнику патруля'}<br>${e(D.acting?D.set.pedD:D.set.bossD)}<br><br>от заместителя начальника патруля<br>${e(D.set.zam||'______________')}</div><h2 style="margin-top:20px">РАПОРТ</h2>${L.map(x=>`<p style="margin:0 0 7px">${e(x)}</p>`).join('')}<div class="sg" style="justify-content:space-between;margin-top:26px"><span>${fd(s)}</span><span><i style="width:110px"></i> / ${e(D.set.zam||'______')}</span></div></div>`}
+/* ---------- настройки ---------- */
+function stt(){const s=D.set,f=(l,k,c='',p='')=>`<div class="${c}"><label>${l}</label><input value="${e(s[k])}" placeholder="${p}" data-chg="s_${k}"></div>`;
+ return`<div class="card"><h3>Подписи</h3><div class="fg">${f('Ваше ФИО (заместитель начальника)','zam','w','Фамилия И.О.')}${f('Начальник патруля','boss')}${f('Ему (в дательном падеже)','bossD','','Борисову М.К.')}${f('Педагог-организатор','ped')}${f('Ему (в дательном падеже)','pedD','','Лылову Н.А.')}${f('Подразделение','org','w')}${f('Посты (через запятую)','posts','w')}<div class="w"><label>Оформление</label><select data-chg="s_theme"><option value="auto" ${s.theme=='auto'?'selected':''}>Как в системе</option><option value="light" ${s.theme=='light'?'selected':''}>Светлое</option><option value="dark" ${s.theme=='dark'?'selected':''}>Тёмное</option></select></div></div></div>
+ <div class="card"><h3>Резервная копия</h3><p class="mu" style="margin-top:0">Данные хранятся в браузере этого телефона. Раз в неделю сохраняйте копию и отправляйте её себе.${D.bk?`<br>Последняя копия: ${new Date(D.bk).toLocaleString('ru-RU')}`:''}</p><div class="bar"><button class="btn" style="flex:1" data-act="exp">Сохранить копию</button><button class="btn g" style="flex:1" data-act="impb">Загрузить</button></div><div class="bar"><button class="btn g" style="flex:1" data-act="bkcopy">Скопировать копию</button><button class="btn g" style="flex:1" data-act="bkpaste">Вставить копию</button></div><button class="btn g r" style="width:100%" data-act="rst">Сбросить данные</button></div>`}
+async function exp(){D.bk=Date.now();save();const txt=JSON.stringify(D),name='zam_kopiya_'+today()+'.json';let ok=false;try{const dl=window.claude&&await window.claude.use('downloads');if(dl){await dl.save({filename:name,data:new Blob([txt],{type:'application/json'})});ok=true}}catch(x){}
+ if(!ok){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();ok=true}catch(x){}}
+ draw(1);toast(ok?'Копия сохранена':'Не удалось сохранить файл. Нажмите «Скопировать копию»')}
+function copyT(t){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(t).then(()=>toast('Скопировано'),()=>fb());fb();function fb(){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Скопировано')}catch(x){toast('Не удалось скопировать')}a.remove()}}
+function shareT(t){if(navigator.share)navigator.share({text:t}).catch(()=>{});else copyT(t)}
+
+const F=(l,id,v,t='text',c='',x='')=>`<div class="${c}"><label>${l}</label><input id="${id}" type="${t}" value="${e(v??'')}" ${x}></div>`;
+const S=(l,id,o,v,c='')=>`<div class="${c}"><label>${l}</label><select id="${id}">${o.map(x=>Array.isArray(x)?`<option value="${x[0]}" ${x[0]==v?'selected':''}>${e(x[1])}</option>`:`<option ${x==v?'selected':''}>${e(x)}</option>`).join('')}</select></div>`;
+const staffNames=()=>['',...D.staff.map(s=>s.name)];
+function modal(h){$('#md').innerHTML=`<div class="ov" data-act="bgc"><div class="mod">${h}</div></div>`}
+function closeM(){$('#md').innerHTML=''}
+function evForm(k,d){const v=k?D.events.find(x=>x.k==k):{title:'',type:'Служба',d:d||today(),t:'',te:'',rec:'none',until:'',who:'',note:''};
+ modal(`<h3>${k?'Событие':'Новое событие'}</h3><div class="fg">${F('Название','v_title',v.title,'text','w')}${S('Тип','v_type',Object.keys(TYPES),v.type)}${S('Ответственный','v_who',staffNames(),v.who)}${F('Дата','v_d',v.d,'date')}${S('Повторять','v_rec',REC,v.rec)}${F('Начало','v_t',v.t,'time')}${F('Конец','v_te',v.te,'time')}${F('Повторять до (необязательно)','v_until',v.until,'date','w')}${F('Заметка','v_note',v.note,'text','w')}</div><div class="bar" style="margin:16px 0 0"><button class="btn" data-act="evsv" data-k="${k||''}">Сохранить</button><button class="btn g" data-act="cl">Отмена</button>${k?`<button class="btn g r" style="margin-left:auto" data-act="evdel" data-k="${k}">Удалить</button>`:''}</div>${k&&v.rec!='none'?'<p class="mu" style="margin:10px 0 0">Событие повторяющееся: изменения и удаление действуют на все даты.</p>':''}`)}
+function setP(){}
+/* ---------- действия ---------- */
+const A={
+ tab:t=>go(t.dataset.v),cl:closeM,bgc:(t,ev)=>{if(ev.target==t)closeM()},undo:()=>{const f=lastUndo;$('#ts').innerHTML='';f&&f()},
+ acttog:()=>{D.acting=!D.acting;draw(1);toast(D.acting?'Вы исполняете обязанности начальника':'Режим замещения выключен')},
+ evnew:t=>evForm(null,t.dataset.d),evedit:t=>evForm(t.dataset.k),
+ evsv:t=>{const k=t.dataset.k,o={title:g('v_title'),type:g('v_type'),who:g('v_who'),d:g('v_d'),rec:g('v_rec'),t:g('v_t'),te:g('v_te'),until:g('v_until'),note:g('v_note')};if(!o.title)return toast('Впишите название');if(!o.d)return toast('Укажите дату');if(k)Object.assign(D.events.find(x=>x.k==k),o);else D.events.push({k:uid(),...o});closeM();draw(1);toast('Сохранено')},
+ evdel:t=>{const i=D.events.findIndex(x=>x.k==t.dataset.k),v=D.events[i];D.events.splice(i,1);closeM();draw(1);toast('Событие удалено',()=>{D.events.splice(i,0,v);draw(1)})},
+ plm:t=>{plm=t.dataset.v;draw(1)},wkn:t=>{wk=add(wk,7*+t.dataset.d);csel=wk;draw(1)},wkt:()=>{wk=mon(today());csel=today();draw(1)},
+ calm:t=>{const d=P(cm);d.setMonth(d.getMonth()+ +t.dataset.d);d.setDate(1);cm=iso(d);draw(1)},calt:()=>{cm=today().slice(0,7)+'-01';csel=today();draw(1)},calsel:t=>{csel=t.dataset.d;draw(1)},
+ bopen:t=>{bsel=t.dataset.d;go('br')},bday:t=>{bsel=add(bsel,+t.dataset.d);draw(1)},
+ ball:()=>{const b=gbw();staffIn().forEach(x=>{if(!b.att[x.k])b.att[x.k]='+';b.fm[x.k]=1;b.vw[x.k]=1;b.rd[x.k]=1});draw(1);toast('Отмечено: все в порядке')},
+ rdnew:()=>rdForm(),rdedit:t=>rdForm(t.dataset.k),
+ rdsv:t=>{const k=t.dataset.k,o={post:g('r_post'),who:g('r_who'),note:g('r_note'),chk:Object.fromEntries([...document.querySelectorAll('.r_ck')].map(c=>[c.dataset.f,c.checked?1:0]))};if(k)Object.assign(D.rounds.find(x=>x.k==k),o);else D.rounds.push({k:uid(),d:today(),t:rtime(),...o});closeM();tab=tab=='ov'?'ov':'rd';draw(1);toast(bad(o).length?'Записано. Есть замечания: '+bad(o).length:'Записано, всё в порядке')},
+ rddel:t=>{const i=D.rounds.findIndex(x=>x.k==t.dataset.k),v=D.rounds[i];D.rounds.splice(i,1);closeM();draw(1);toast('Обход удалён',()=>{D.rounds.splice(i,0,v);draw(1)})},
+ rdrep:t=>{const r=D.rounds.find(x=>x.k==t.dataset.k);rpForm(null,{type:'Недостаток службы',text:`Пост «${r.post}»${r.who?' ('+r.who+')':''}: ${bad(r).join(', ').toLowerCase()||'замечание'}.${r.note?' '+r.note:''}`})},
+ rpnew:t=>rpForm(null,t.dataset&&t.dataset.u?{type:'Происшествие'}:null),rpedit:t=>rpForm(t.dataset.k),rpflt:t=>{rpf=t.dataset.v;draw(1)},
+ rpsv:t=>{const k=t.dataset.k,o={type:g('p_type'),to:g('p_to'),text:$('#p_text').value.trim(),d:g('p_d'),t:g('p_t')};if(!o.text)return toast('Опишите, что произошло');if(k)Object.assign(D.rep.find(x=>x.k==k),o);else D.rep.push({k:uid(),st:'Не доложено',...o});closeM();if(tab!='ov')tab='rp';draw(1);toast('Сохранено. Не забудьте доложить')},
+ rpdone:t=>{const r=D.rep.find(x=>x.k==t.dataset.k);r.st='Доложено';r.rt=rtime();draw(1);toast('Отмечено: доложено',()=>{r.st='Не доложено';draw(1)})},
+ rpcopy:t=>copyT(rtxt(D.rep.find(x=>x.k==t.dataset.k))),rpshare:t=>shareT(rtxt(D.rep.find(x=>x.k==t.dataset.k))),
+ rpdel:t=>{const i=D.rep.findIndex(x=>x.k==t.dataset.k),v=D.rep[i];D.rep.splice(i,1);closeM();draw(1);toast('Доклад удалён',()=>{D.rep.splice(i,0,v);draw(1)})},
+ tkd:t=>{tkd=t.dataset.v;draw(1)},tknew:()=>tkForm(),tkedit:t=>tkForm(t.dataset.k),
+ tksv:t=>{const k=t.dataset.k,dir=t.dataset.dir||'in',o={text:g('t_text'),due:g('t_due'),dir};if(dir=='out')o.who=g('t_who');else o.src=g('t_src');if(!o.text)return toast('Впишите поручение');if(k)Object.assign(D.tasks.find(x=>x.k==k),o);else D.tasks.push({k:uid(),st:'Новое',...o});closeM();draw(1);toast('Сохранено')},
+ tkdel:t=>{const i=D.tasks.findIndex(x=>x.k==t.dataset.k),v=D.tasks[i];D.tasks.splice(i,1);closeM();draw(1);toast('Поручение удалено',()=>{D.tasks.splice(i,0,v);draw(1)})},
+ jcnew:t=>{const n=t.dataset.j;modal(`<h3>${e(n)}</h3><label class="ck"><input type="checkbox" id="j_ok" checked>Замечаний нет</label><div class="fg">${F('Дата','j_d',today(),'date','w')}${F('Что не так (если есть замечания)','j_n','','text','w')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="jcsv" data-j="${e(n)}">Записать</button><button class="btn g" data-act="cl">Отмена</button></div>`)},
+ jcsv:t=>{D.jchk.push({k:uid(),j:t.dataset.j,d:g('j_d'),ok:$('#j_ok').checked,note:g('j_n')});closeM();draw(1);toast('Проверка записана')},jcdel:t=>{D.jchk=D.jchk.filter(x=>x.k!=t.dataset.k);draw(1)},
+ stnew:()=>stForm(),stedit:t=>stForm(t.dataset.k),
+ stsv:t=>{const k=t.dataset.k,o={name:g('s_name'),pos:g('s_pos'),grp:g('s_grp'),tel:g('s_tel'),st:g('s_st')};if(!o.name)return toast('Впишите ФИО');if(k)Object.assign(D.staff.find(x=>x.k==k),o);else D.staff.push({k:uid(),...o});closeM();draw(1);toast('Сохранено')},
+ stdel:t=>{const i=D.staff.findIndex(x=>x.k==t.dataset.k),v=D.staff[i];D.staff.splice(i,1);closeM();draw(1);toast('Удалено',()=>{D.staff.splice(i,0,v);draw(1)})},
+ prnew:()=>modal(`<h3>Предложение начальнику</h3><div class="fg">${S('Кому','p_who',D.staff.map(s=>s.name),'','w')}${S('Вид','p_type',['Поощрение','Взыскание'],'Поощрение','w')}${F('Дата','p_d',today(),'date','w')}${F('Основание','p_why','','text','w')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="prsv">Сохранить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
+ prsv:()=>{const o={who:g('p_who'),type:g('p_type'),d:g('p_d'),why:g('p_why')};if(!o.who||!o.why)return toast('Заполните «Кому» и основание');D.prop.push({k:uid(),...o});closeM();draw(1);toast('Сохранено')},
+ prcopy:t=>{const p=D.prop.find(x=>x.k==t.dataset.k);copyT(`${D.set.boss}.\nПредлагаю ${p.type=='Поощрение'?'поощрить':'применить меру взыскания к'}: ${p.who}.\nОснование: ${p.why}.\n${fd(p.d)}, ${zam()}`)},
+ prdel:t=>{const i=D.prop.findIndex(x=>x.k==t.dataset.k),v=D.prop[i];D.prop.splice(i,1);draw(1);toast('Удалено',()=>{D.prop.splice(i,0,v);draw(1)})},
+ smopen:t=>{ssel=t.dataset.d;go('sm')},sday:t=>{ssel=add(ssel,+t.dataset.d);draw(1)},smcopy:()=>copyT(smLines(ssel).join('\n')),smshare:()=>shareT(smLines(ssel).join('\n')),prn:()=>window.print(),
+ exp,impb:()=>$('#imp').click(),bkcopy:()=>{D.bk=Date.now();save();copyT(JSON.stringify(D));draw(1)},
+ bkpaste:()=>modal(`<h3>Вставить копию</h3><p class="mu" style="margin-top:0">Вставьте сюда скопированный ранее текст копии. Текущие данные будут заменены.</p><textarea id="bk_t" rows="6" style="width:100%"></textarea><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="bkpaste2">Загрузить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
+ bkpaste2:()=>{try{const j=JSON.parse($('#bk_t').value);if(!j.set||!j.rounds)throw 0;D=norm(j);closeM();draw();toast('Копия загружена')}catch(x){toast('Текст не подходит: нужна копия этой программы')}},
+ rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" style="flex:1" data-act="rst2">Да, сбросить</button><button class="btn" style="flex:1" data-act="cl">Отмена</button></div>`),
+ rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
+document.addEventListener('click',ev=>{if(ev.target.closest('a[href]')||ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
+ if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
+ else if(c=='bsel'){bsel=v||today();draw(1)}else if(c=='ssel'){ssel=v||today();draw(1)}
+ else if(c=='binst'){gbw().inst=v;if(v&&!gbw().instT)gbw().instT=rtime();draw(1)}else if(c=='binstT'){gbw().instT=v;save()}
+ else if(c=='batt'){gbw().att[t.dataset.k]=v;draw(1)}else if(c=='bck'){gbw()[t.dataset.f][t.dataset.k]=v?1:0;save()}
+ else if(c=='tkst'){D.tasks.find(x=>x.k==t.dataset.k).st=v;draw(1)}
+ else if(c.startsWith('s_')){D.set[c.slice(2)]=v;draw(1);toast('Сохранено')}});
+document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM()});
+$('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.set||!j.rounds)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит: нужна копия этой программы')}});ev.target.value=''};const SXC={role:'zam',name:'Заместитель начальника патруля',h1:0,approve:0,sends:'доклады, итоги смены и явка, события, поручения',
+ out:()=>{const t=today();return[...D.events.filter(v=>!sxSeedEv(v)).map(v=>({t:'ev',k:v.k,d:v})),...D.tasks.map(v=>({t:'tk',k:v.k,d:v})),...D.rep.filter(r=>r.d>=add(t,-30)).map(r=>({t:'rp',k:r.k,d:r})),...[t,add(t,-1)].filter(s=>D.br[s]||D.rounds.some(r=>r.d==s)||D.rep.some(r=>r.d==s)).map(s=>({t:'sh',k:'sh_zam_'+s,d:{date:s,role:'Заместитель начальника патруля',lines:smLines(s)}}))]},
+ inn:{ev:sxIEv,tk:sxITk,st:sxISt}};
+/* ===== ОБМЕН ПАКЕТАМИ МЕЖДУ РОЛЯМИ ===== */
+const SXSEED=['Развод и инструктаж личного состава','Доклад педагогу-организатору об итогах службы','Проверка имущества патруля со старшим мастером','Обход постов','Проверка журналов патруля','Доклад начальнику патруля об итогах','Развод: отметить явку личного состава','Заполнить журнал службы за день','Недельный отчёт начальнику патруля','Передать материалы руководителю патруля'];
+const sxSeedEv=v=>v.rec!='none'&&(SXSEED.includes(v.title)||String(v.note||'').startsWith('Время условное'));
+let SXTXT='',SXNEW=new Set();
+function sxS(){return D.sx||(D.sx={meta:{},in:{},seen:{},tOut:0,tIn:0})}
+function sxStable(o){if(Array.isArray(o))return'['+o.map(sxStable).join(',')+']';if(o&&typeof o=='object')return'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+sxStable(o[k])).join(',')+'}';return JSON.stringify(o)}
+const sxD=s=>s?String(s).slice(8,10)+'.'+String(s).slice(5,7)+'.'+String(s).slice(0,4):'';
+const sxDT=t=>t?new Date(t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'ещё не было';
+function sxB64(b){let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function sxUn64(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b}
+async function sxPack(o){const raw=new TextEncoder().encode(JSON.stringify(o));let z=null;try{z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(x){}
+ return z&&z.length<raw.length?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
+async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZ]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]);if(m[1]=='Z')b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
+function sxCollect(all){const S=sxS(),r=[],now=Date.now();SXC.out().forEach(it=>{const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:now,f:SXC.name,d:it.d,_h:h})});return r}
+async function sxSend(all){const S=sxS(),it=sxCollect(all);if(!it.length)return toast('Нечего отправлять: после прошлой отправки изменений нет');
+ const code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,...r})=>r)});
+ SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]={h:x._h,u:x.u});S.tOut=Date.now();save();
+ modal(`<h3>Пакет готов</h3><p class="mu" style="margin-top:0">Позиций: ${it.length}. Отправьте текст в общий чат патруля. Остальные нажмут «Принять пакет» и вставят его.</p><textarea readonly rows="4" style="width:100%;font-size:12px">${e(SXTXT)}</textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxshare">Отправить</button><button class="btn g" style="flex:1" data-act="sxcopy">Копировать</button><button class="btn g" data-act="sxfile">Файл</button></div><div class="bar" style="margin:0"><button class="btn g" style="flex:1" data-act="sxcl">Готово</button></div>`);draw(1)}
+async function sxApplyTxt(txt){let pk;try{pk=await sxUnpack(txt)}catch(x){return toast('Это не пакет обмена. Скопируйте сообщение целиком')}
+ const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
+  if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
+ S.tIn=Date.now();save();closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
+function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
+const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
+function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">новое</span>':'',fr=`${e(x.f||'')}`;let h='',s='',b='',a='';
+ if(t=='rp'){h=d.type;s=sxD(d.d)+' '+(d.t||'')+' · '+fr+(d.st=='Доложено'?' · доложено':'');b=d.text;if(SXC.rpMat&&['Нарушение','Недостаток службы'].includes(d.type))a=`<button class="btn s" data-act="sxmat" data-k="${e(x.k)}">В журнал регистрации</button>`}
+ else if(t=='mt'){h=(d.fio||'—')+(d.grp?' · '+d.grp:'');s=sxD(d.d)+' · '+(d.cat||'')+' · '+fr;b=[d.gist,d.res].filter(Boolean).join('. ')}
+ else if(t=='sh'){h=(d.role||fr)+' · '+sxD(d.date);s='';b=(d.lines||[]).join('\n')}
+ else if(t=='ou'){h=d.subj||d.kind;s=(d.kind||'')+' · '+sxD(d.d)+' · '+fr+' · статус: '+(d.st||'');b=d.text;if(SXC.approve)a=`<button class="btn s" data-act="sxou" data-k="${e(x.k)}" data-v="Согласовано">Согласовать</button><button class="btn s g" data-act="sxou" data-k="${e(x.k)}" data-v="На доработку">На доработку</button>`}
+ else if(t=='tk'){h=d.text;s=(d.who||d.src||'')+(d.due?' · срок '+sxD(d.due):'')+' · '+(d.st||'');}
+ else if(t=='ev'){h=(d.t?d.t+' ':'')+d.title;s=sxD(d.d)+' · '+fr}
+ return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(h)}</b>${nw}</div>${s?`<div class="mu">${e(s)}</div>`:''}${b?`<div style="margin-top:6px;white-space:pre-line">${e(b)}</div>`:''}${a?`<div class="bar" style="margin:10px 0 0">${a}</div>`:''}</div>`}
+function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
+ Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>S.seen[x.k]=x.u));
+ return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
+function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
+ return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: вы отправляете свои изменения одним сообщением, остальные принимают его в программе. Данные идут только в ваш чат.</p>
+ <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><button class="btn s g" data-act="sxall" style="margin-top:10px">Отправить всё заново</button></div>${ib}`}
+const SXA={
+ sxcl:()=>closeM(),sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
+ sxrecv:()=>modal(`<h3>Принять пакет</h3><p class="mu" style="margin-top:0">Скопируйте сообщение с пакетом из чата и вставьте сюда.</p><textarea id="sx_t" rows="5" style="width:100%;font-size:13px"></textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxapply">Принять</button><button class="btn g" data-act="sxpaste">Вставить из буфера</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
+ sxapply:()=>sxApplyTxt($('#sx_t').value),
+ sxpaste:()=>{(navigator.clipboard&&navigator.clipboard.readText?navigator.clipboard.readText():Promise.reject()).then(t=>{$('#sx_t').value=t},()=>toast('Не удалось прочитать буфер: вставьте текст вручную'))},
+ sxcopy:()=>{const a=document.createElement('textarea');a.value=SXTXT;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Скопировано')}catch(x){toast('Не удалось скопировать')}a.remove();if(navigator.clipboard)navigator.clipboard.writeText(SXTXT).catch(()=>{})},
+ sxshare:()=>{if(navigator.share)navigator.share({text:SXTXT}).catch(()=>{});else A.sxcopy()},
+ sxfile:async()=>{const name='patrul_paket_'+today()+'.txt';try{const dl=window.claude&&await window.claude.use('downloads');if(dl)return void await dl.save({filename:name,data:new Blob([SXTXT],{type:'text/plain'})})}catch(x){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([SXTXT],{type:'text/plain'}));a.download=name;document.body.appendChild(a);a.click();a.remove()},
+ sxou:t=>{const x=sxS().in.ou[t.dataset.k];x.d.st=t.dataset.v;x.lc=1;draw(1);toast('Ответ: '+t.dataset.v+'. Нажмите «Отправить пакет»')},
+ sxmat:t=>SXC.rpMat(sxS().in.rp[t.dataset.k])};
+Object.assign(A,SXA);
+function sxIEv(d){if(!TYPES[d.type])d={...d,type:'Прочее'};const i=D.events.findIndex(x=>x.k==d.k);if(i>=0)D.events[i]=d;else D.events.push(d);return d}
+function sxITk(d){const i=D.tasks.findIndex(x=>x.k==d.k);if(i>=0)D.tasks[i]=d;else D.tasks.push(d);return d}
+function sxISt(d){let i=D.staff.findIndex(x=>x.k==d.k);if(i<0)i=D.staff.findIndex(x=>x.name==d.name);if(i>=0){D.staff[i]={...d,k:D.staff[i].k};return D.staff[i]}D.staff.push(d);return d}
+IC.sx='<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>';
+
+draw();
+</script></body></html>
