@@ -145,8 +145,17 @@ test('each role token is limited to its own role (all cross-role combinations)',
     assert.equal(ownResponse.status, 200, `${ownRole} must access its own record`);
     for (const otherRole of roles) {
       if (otherRole === ownRole) continue;
-      const response = await authorizedApi(`/api/data/${otherRole}`, {}, tokens[ownRole]);
-      assert.equal(response.status, 401, `${ownRole} must not access ${otherRole}`);
+      const read = await authorizedApi(`/api/data/${otherRole}`, {}, tokens[ownRole]);
+      assert.equal(read.status, 401, `${ownRole} must not read ${otherRole}`);
+
+      const write = await authorizedApi(`/api/data/${otherRole}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          expectedVersion: 0,
+          data: { marker: 'cross-role-write-must-be-rejected', attemptedBy: ownRole }
+        })
+      }, tokens[ownRole]);
+      assert.equal(write.status, 401, `${ownRole} must not write ${otherRole}`);
     }
   }
 });
