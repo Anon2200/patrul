@@ -120,6 +120,9 @@ test('data endpoints reject requests without a role token', async () => {
 });
 
 test('repeated invalid role tokens are throttled and valid access clears the counter', async () => {
+  const reset = await authorizedApi('/api/data/nachalnik', {}, tokens.nachalnik);
+  assert.equal(reset.status, 200);
+
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const response = await authorizedApi('/api/data/nachalnik', {}, 'definitely-wrong-token');
     assert.equal(response.status, 401, `invalid attempt ${attempt + 1} should be rejected`);
