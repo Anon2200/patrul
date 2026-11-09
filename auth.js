@@ -113,7 +113,7 @@ function createAuth(pool,send,readJson) {
         const passwordMatches=await verifyPassword(suppliedPassword,hashToCheck);
         const ok=!!(u&&u.is_active&&passwordMatches);
         if(!ok){failed(req,name);failedIp(req);send(res,401,{error:'Неверный логин или пароль'});return true;}
-        loginFailures.delete(key);loginFailures.delete(loginIpKey(req)); await audit(u.id,'login_success',u.id);
+        loginFailures.delete(key); await audit(u.id,'login_success',u.id);
         const csrf=await newSession(u,res); send(res,200,{user:publicUser(u),csrfToken:csrf}); return true;
       }
       if(p==='/api/auth/me'&&req.method==='GET') {
