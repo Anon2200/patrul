@@ -138,9 +138,17 @@ test('stale expectedVersion is rejected without overwriting saved data', async (
   });
 });
 
-test('a role token cannot read another role', async () => {
-  const response = await authorizedApi('/api/data/zam', {}, tokens.nachalnik);
-  assert.equal(response.status, 401);
+test('each role token is limited to its own role (all cross-role combinations)', async () => {
+  const roles = Object.keys(tokens);
+  for (const ownRole of roles) {
+    const ownResponse = await authorizedApi(`/api/data/${ownRole}`, {}, tokens[ownRole]);
+    assert.equal(ownResponse.status, 200, `${ownRole} must access its own record`);
+    for (const otherRole of roles) {
+      if (otherRole === ownRole) continue;
+      const response = await authorizedApi(`/api/data/${otherRole}`, {}, tokens[ownRole]);
+      assert.equal(response.status, 401, `${ownRole} must not access ${otherRole}`);
+    }
+  }
 });
 
 test('role records are stored separately', async () => {
