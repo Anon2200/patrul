@@ -211,6 +211,20 @@ test('role records are stored separately', async () => {
   assert.equal(result.version, 0);
 });
 
+test('legacy plaintext database rows are encrypted on first read without changing their contents', async () => {
+  const legacy = { marker: 'legacy-row-to-migrate', nested: { safe: true } };
+  await pool.query(
+    'INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW())',
+    ['dokumentoved', JSON.stringify(legacy)]
+  );
+  const response = await authorizedApi('/api/data/dokumentoved');
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).data, legacy);
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['dokumentoved']);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('legacy-row-to-migrate'), false);
+});
+
 test('unknown roles and malformed write payloads are rejected', async () => {
   const unknownRole = await authorizedApi('/api/data/not_a_role');
   assert.equal(unknownRole.status, 400);
