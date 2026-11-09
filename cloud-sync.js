@@ -156,7 +156,12 @@
       const fetched=await request(api);
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
-      const hadLocalData=(()=>{try{return localStorage.getItem(localDataKey)!==null;}catch(_){return false;}})();
+      let cachedRaw=null;try{cachedRaw=localStorage.getItem(localDataKey);}catch(_){}
+      const hadLocalData=typeof cachedRaw==='string'&&cachedRaw.length>0;
+      if(hadLocalData){
+        try{const cached=JSON.parse(cachedRaw);if(!cached||typeof cached!=='object'||Array.isArray(cached))throw new Error('Некорректный формат');D=norm(cached);}
+        catch(_){throw new Error('Старый локальный кэш не удалось безопасно прочитать; он не удалён.');}
+      }
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
       if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');unlockPage();return;}
       const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
@@ -165,8 +170,8 @@
       const serverChanged=hadLocalData&&!!previous&&Number(previous.version)!==version;
       const firstConflict=hadLocalData&&!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
-        const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать резервную копию этого устройства и загрузить облачную версию.\nОтмена — оставить локальные данные без изменений.');
-        if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Локальные данные не удалены; обновите страницу и выберите серверную версию после сохранения локальной копии.');}
+        const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\\n\\nОК — скачать НЕЗАШИФРОВАННУЮ копию локальных данных и загрузить облачную версию.\\nОтмена — оставить раздел закрытым; локальные данные не удаляются.');
+        if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Раздел оставлен закрытым, локальный кэш сохранён. Повторите вход и выберите серверную версию после сохранения локальной копии.');}
         if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
       }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');unlockPage();return;}
       loadCloudData(data.data);await saveMeta(localSnapshot());clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
