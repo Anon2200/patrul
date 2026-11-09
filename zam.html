@@ -128,7 +128,7 @@ const fs=s=>{const d=P(s);return d.getDate()+' '+MG[d.getMonth()]};
 const fl=s=>{const d=P(s);return DS[wd(s)]+', '+d.getDate()+' '+MG[d.getMonth()]+' '+d.getFullYear()};
 const uid=()=>Math.random().toString(36).slice(2,9);
 IC.mr='<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function save(){}
 function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
 function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2200)}
 const pc=s=>String(s||'').replace(/ё/g,'е').toLowerCase();
