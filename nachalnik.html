@@ -133,7 +133,7 @@ function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[],
 function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','viol','inc','tasks','prop','ichk'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.duty=j.duty||{};j.bk=j.bk||0;return j}
 function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
 let D=load(),tab='ov',wk=mon(today()),cm=today().slice(0,7)+'-01',csel=today(),dsel=today(),lastUndo=null,vper='',vtyp='',vq='',tkf='act',dsrc='',dn='',dd=today(),selInc='',selProp='';
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function save(){}
 function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
 function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2200)}
 const pc=s=>String(s||'').replace(/ё/g,'е').toLowerCase();
