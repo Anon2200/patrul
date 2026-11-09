@@ -303,6 +303,10 @@ test('personal login session, CSRF protection, and role authorization work', asy
 
   const adminRead = await sessionApi('/api/admin/users', {}, adminCookie);
   assert.equal(adminRead.status, 200);
+  const adminOwnRole = await sessionApi('/api/session-data/uchet', {}, adminCookie);
+  assert.equal(adminOwnRole.status, 200);
+  const adminOtherRole = await sessionApi('/api/session-data/nachalnik', {}, adminCookie);
+  assert.equal(adminOtherRole.status, 403);
   const noCsrf = await sessionApi('/api/admin/users', {
     method: 'POST',
     body: JSON.stringify({ username: 'blocked.create', displayName: 'Blocked Create', role: 'zam' })
@@ -345,6 +349,8 @@ test('personal login session, CSRF protection, and role authorization work', asy
 
   const allowed = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(allowed.status, 200);
+  const employeeAdminDenied = await sessionApi('/api/admin/users', {}, employeeCookie);
+  assert.equal(employeeAdminDenied.status, 403);
   const forbidden = await sessionApi('/api/session-data/nachalnik', {}, employeeCookie);
   assert.equal(forbidden.status, 403);
 
