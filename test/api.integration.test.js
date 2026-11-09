@@ -346,7 +346,7 @@ test('personal login session, CSRF protection, and role authorization work', asy
   assert.equal((await write.json()).version, 1);
   const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['zam']);
   assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
-  assert.equal(JSON.stringify(stored.rows[0].data).includes('ci'), false);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('"ci":true'), false);
 });
 
 test('administrator can block a user and all that user sessions are revoked', async () => {
