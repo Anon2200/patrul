@@ -49,6 +49,9 @@ if (cloudSync.includes('originalSave()')) {
 if (!cloudSync.includes("window.addEventListener('beforeunload'")) {
   fail('cloud sync must warn before closing with unsaved in-memory changes');
 }
+if (!cloudSync.includes('const material=JSON.stringify(copy)') || !cloudSync.includes('delete copy.sx.pw')) {
+  fail('sync fingerprints and local conflict backups must not expose the exchange password');
+}
 
 
 for (const [file, role] of Object.entries(rolePages)) {
