@@ -2,12 +2,72 @@
 
 const http = require('node:http');
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.PATRUL_API_TOKEN || '';
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ROLES = new Set(['nachalnik', 'zam', 'uchet', 'dokumentoved']);
+
+// Разрешённые публичные файлы интерфейса. Не отдаём произвольные файлы с диска.
+const PUBLIC_FILES = new Map([
+  ['/', 'index.html'],
+  ['/index.html', 'index.html'],
+  ['/nachalnik.html', 'nachalnik.html'],
+  ['/zam.html', 'zam.html'],
+  ['/uchet.html', 'uchet.html'],
+  ['/dokumentoved.html', 'dokumentoved.html'],
+  ['/cloud-sync.js', 'cloud-sync.js'],
+  ['/sw.js', 'sw.js'],
+  ['/nachalnik.webmanifest', 'nachalnik.webmanifest'],
+  ['/zam.webmanifest', 'zam.webmanifest'],
+  ['/uchet.webmanifest', 'uchet.webmanifest'],
+  ['/dokumentoved.webmanifest', 'dokumentoved.webmanifest'],
+  ['/icon-180.png', 'icon-180.png'],
+  ['/icon-192.png', 'icon-192.png'],
+  ['/icon-512.png', 'icon-512.png']
+]);
+
+const CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.png': 'image/png'
+};
+
+async function servePublicFile(req, res, pathname) {
+  const fileName = PUBLIC_FILES.get(pathname);
+  if (!fileName) return false;
+
+  const filePath = path.join(__dirname, fileName);
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (!stat.isFile()) return false;
+    res.writeHead(200, {
+      'content-type': CONTENT_TYPES[path.extname(fileName)] || 'application/octet-stream',
+      'content-length': stat.size,
+      'cache-control': fileName.endsWith('.html') ? 'no-cache' : 'public, max-age=3600',
+      'x-content-type-options': 'nosniff'
+    });
+    if (req.method === 'HEAD') {
+      res.end();
+    } else {
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (err) => {
+        console.error('Static file read failed:', err.message);
+        if (!res.headersSent) send(res, 500, { error: 'Не удалось прочитать файл' });
+        else res.destroy(err);
+      });
+      stream.pipe(res);
+    }
+    return true;
+  } catch (err) {
+    if (err.code === 'ENOENT') return false;
+    throw err;
+  }
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -78,6 +138,10 @@ const server = http.createServer(async (req, res) => {
     } catch {
       return send(res, 503, { ok: false, database: 'unavailable' });
     }
+  }
+
+  if (['GET', 'HEAD'].includes(req.method) && await servePublicFile(req, res, url.pathname)) {
+    return;
   }
 
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)$/);
