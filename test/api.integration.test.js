@@ -114,6 +114,7 @@ test('all four role pages encrypt exchange packets and reject plaintext', async 
     assert.ok(start >= 0 && end > start, file + ' must contain the exchange crypto functions');
     const sandbox = {
       D: { sx: { pw: strongPassword } },
+      window: { crypto: webcrypto },
       crypto: webcrypto,
       TextEncoder, TextDecoder, Uint8Array, Blob, Response,
       CompressionStream, DecompressionStream, btoa, atob
