@@ -119,6 +119,20 @@ test('data endpoints reject requests without a role token', async () => {
   assert.equal(response.status, 401);
 });
 
+test('repeated invalid role tokens are throttled and valid access clears the counter', async () => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await authorizedApi('/api/data/nachalnik', {}, 'definitely-wrong-token');
+    assert.equal(response.status, 401, `invalid attempt ${attempt + 1} should be rejected`);
+  }
+
+  const blocked = await authorizedApi('/api/data/nachalnik', {}, 'definitely-wrong-token');
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+
+  const allowed = await authorizedApi('/api/data/nachalnik', {}, tokens.nachalnik);
+  assert.equal(allowed.status, 200);
+});
+
 test('first write creates version 1 and GET returns the saved JSON', async () => {
   const data = { marker: 'integration-test', nested: { count: 3 } };
   const write = await authorizedApi('/api/data/nachalnik', {
