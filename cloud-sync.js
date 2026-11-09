@@ -156,13 +156,14 @@
       const fetched=await request(api);
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
+      const hadLocalData=(()=>{try{return localStorage.getItem(localDataKey)!==null;}catch(_){return false;}})();
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
       if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');unlockPage();return;}
       const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
       const remoteSnapshot=JSON.stringify(remote);
-      const localChanged=!!previous&&previous.fingerprint!==localFingerprint;
-      const serverChanged=!!previous&&Number(previous.version)!==version;
-      const firstConflict=!previous&&local!==remoteSnapshot;
+      const localChanged=hadLocalData&&!!previous&&previous.fingerprint!==localFingerprint;
+      const serverChanged=hadLocalData&&!!previous&&Number(previous.version)!==version;
+      const firstConflict=hadLocalData&&!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
         const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать резервную копию этого устройства и загрузить облачную версию.\nОтмена — оставить локальные данные без изменений.');
         if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Локальные данные не удалены; обновите страницу и выберите серверную версию после сохранения локальной копии.');}
