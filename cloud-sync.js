@@ -95,7 +95,7 @@
   save=function(){originalSave();if(ready&&!suppressUpload)scheduleUpload();};
 
   async function adminPanel() {
-    const p=panel('<h3 style="margin-top:0">Управление сотрудниками</h3><p data-msg style="color:#b42318"></p><form data-create><input name="displayName" placeholder="ФИО сотрудника" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><select name="role" style="width:100%;padding:9px;margin:4px 0"><option value="nachalnik">Начальник</option><option value="zam">Заместитель</option><option value="uchet">Старший мастер</option><option value="dokumentoved">Документовед</option></select><button style="padding:10px;background:#167d70;color:white;border:0;border-radius:8px">Создать сотрудника</button></form><hr><div data-users>Загрузка…</div><button type="button" data-close style="margin-top:14px;padding:9px">Закрыть</button>');
+    const p=panel('<h3 style="margin-top:0">Управление сотрудниками</h3><p data-msg style="color:#b42318"></p><form data-create><input name="displayName" placeholder="ФИО сотрудника" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><select name="role" style="width:100%;padding:9px;margin:4px 0"><option value="nachalnik">Начальник</option><option value="zam">Заместитель</option><option value="uchet">Старший мастер</option><option value="dokumentoved">Документовед</option></select><button style="padding:10px;background:#167d70;color:white;border:0;border-radius:8px">Создать сотрудника</button></form><hr><div data-users>Загрузка…</div><button type="button" data-audit style="margin-top:10px;padding:9px">Журнал действий</button><div data-audit-list></div><button type="button" data-close style="margin-top:14px;padding:9px">Закрыть</button>');
     const msg=p.box.querySelector('[data-msg]'), list=p.box.querySelector('[data-users]');
     async function refresh(){
       const r=await request('/api/admin/users');if(!r.response.ok){msg.textContent=r.result.error||'Не удалось загрузить сотрудников';return;}
@@ -116,6 +116,18 @@
       const r=await request('/api/admin/users','POST',b);btn.disabled=false;
       if(!r.response.ok)msg.textContent=r.result.error||'Не удалось создать сотрудника';
       else{msg.textContent='Сотрудник создан. Передайте временный пароль лично: '+r.result.temporaryPassword+' . Он будет показан только сейчас.';e.currentTarget.reset();refresh();}
+    });
+    p.box.querySelector('[data-audit]').addEventListener('click',async()=>{
+      const target=p.box.querySelector('[data-audit-list]');target.textContent='Загрузка журнала…';
+      const r=await request('/api/admin/audit?limit=50');
+      if(!r.response.ok){target.textContent=r.result.error||'Не удалось загрузить журнал';return;}
+      target.replaceChildren();
+      r.result.events.forEach(ev=>{
+        const item=document.createElement('p');item.style.cssText='border-top:1px solid #e5e7eb;padding:7px 0;margin:0;font-size:12px';
+        const date=new Date(ev.created_at).toLocaleString();
+        item.textContent=date+' · '+ev.event_type+' · '+(ev.actor_name||ev.actor_username||'система')+(ev.target_name?' → '+ev.target_name:'');
+        target.appendChild(item);
+      });
     });
     p.box.querySelector('[data-close]').addEventListener('click',()=>p.overlay.remove());
     await refresh();
