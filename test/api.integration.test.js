@@ -361,3 +361,105 @@ test('bootstrap cannot be repeated and administrator can inspect the audit trail
   assert.ok(result.events.some(event => event.event_type === 'user_created'));
   assert.ok(result.events.some(event => event.event_type === 'user_updated'));
 });
+
+
+test('cross-origin login and bootstrap requests are rejected', async () => {
+  for (const route of ['/api/auth/login', '/api/auth/bootstrap']) {
+    const response = await fetch(baseUrl + route, {
+      method: 'POST',
+      headers: {
+        origin: 'https://attacker.example',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ username: 'attacker', password: 'not-a-real-password', bootstrapSecret: 'invalid' })
+    });
+    assert.equal(response.status, 403, route + ' must reject a foreign Origin');
+  }
+});
+
+test('login rate limit blocks repeated invalid credentials', async () => {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'rate.limit.test', password: 'definitely-wrong-password' })
+    });
+    assert.equal(response.status, 401);
+  }
+  const limited = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'rate.limit.test', password: 'definitely-wrong-password' })
+  });
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) > 0);
+});
+
+test('administrator cannot disable or change the role of the last admin account', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+
+  const disableSelf = await sessionApi('/api/admin/users/' + (await pool.query(
+    'SELECT id FROM patrul_users WHERE username = $1', ['senior.master']
+  )).rows[0].id, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: false, role: 'uchet', displayName: 'CI Senior Master' })
+  }, adminCookie, adminCsrf);
+  assert.equal(disableSelf.status, 400);
+
+  const changeOwnRole = await sessionApi('/api/admin/users/' + (await pool.query(
+    'SELECT id FROM patrul_users WHERE username = $1', ['senior.master']
+  )).rows[0].id, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'nachalnik', displayName: 'CI Senior Master' })
+  }, adminCookie, adminCsrf);
+  assert.equal(changeOwnRole.status, 400);
+});
+
+test('password reset issues a temporary password and revokes existing sessions', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+
+  const restore = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'zam', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(restore.status, 200);
+
+  const oldLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: 'CI-Employee-Changed-Password-2026!' })
+  });
+  assert.equal(oldLogin.status, 200);
+  const oldCookie = (oldLogin.headers.get('set-cookie') || '').split(';')[0];
+
+  const reset = await sessionApi('/api/admin/users/' + employeeId + '/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, adminCookie, adminCsrf);
+  assert.equal(reset.status, 200);
+  const temporaryPassword = (await reset.json()).temporaryPassword;
+  assert.ok(temporaryPassword.length >= 20);
+
+  const revoked = await sessionApi('/api/session-data/zam', {}, oldCookie);
+  assert.equal(revoked.status, 401);
+
+  const freshLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: temporaryPassword })
+  });
+  assert.equal(freshLogin.status, 200);
+  const freshBody = await freshLogin.json();
+  assert.equal(freshBody.user.mustChangePassword, true);
+});
+
+test('expired server sessions are rejected', async () => {
+  const cookieValue = adminCookie.split('=').slice(1).join('=');
+  const tokenHash = require('node:crypto').createHash('sha256').update(decodeURIComponent(cookieValue)).digest();
+  await pool.query(
+    "UPDATE patrul_sessions SET expires_at = NOW() - INTERVAL '1 minute' WHERE token_hash = $1",
+    [tokenHash]
+  );
+  const response = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(response.status, 401);
+});
