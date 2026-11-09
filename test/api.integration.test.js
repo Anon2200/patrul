@@ -8,7 +8,12 @@ const { Pool } = require('pg');
 
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
-const token = 'ci-test-token-not-for-production';
+const tokens = {
+  nachalnik: 'ci-token-nachalnik-not-production',
+  zam: 'ci-token-zam-not-production',
+  uchet: 'ci-token-uchet-not-production',
+  dokumentoved: 'ci-token-dokumentoved-not-production'
+};
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@127.0.0.1:5432/patrul_test';
 
 let serverProcess;
@@ -45,7 +50,7 @@ async function authorizedApi(path, options = {}) {
     ...options,
     headers: {
       ...(options.headers || {}),
-      authorization: `Bearer ${token}`
+      authorization: `Bearer ${tokens[path.split('/').pop()] || tokens.nachalnik}`
     }
   });
 }
@@ -58,7 +63,10 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       DATABASE_URL: databaseUrl,
-      PATRUL_API_TOKEN: token
+      PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
+      PATRUL_TOKEN_ZAM: tokens.zam,
+      PATRUL_TOKEN_UCHET: tokens.uchet,
+      PATRUL_TOKEN_DOKUMENTOVED: tokens.dokumentoved
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -91,7 +99,7 @@ test('health endpoint confirms PostgreSQL connectivity', async () => {
   assert.deepEqual(await response.json(), { ok: true, database: 'connected' });
 });
 
-test('data endpoints reject requests without the bearer token', async () => {
+test('data endpoints reject requests without a role token', async () => {
   const response = await api('/api/data/nachalnik');
   assert.equal(response.status, 401);
 });
@@ -127,6 +135,13 @@ test('stale expectedVersion is rejected without overwriting saved data', async (
     marker: 'integration-test',
     nested: { count: 3 }
   });
+});
+
+test('a role token cannot read another role', async () => {
+  const response = await authorizedApi('/api/data/zam', {
+    headers: { authorization: `Bearer ${tokens.nachalnik}` }
+  });
+  assert.equal(response.status, 401);
 });
 
 test('role records are stored separately', async () => {
