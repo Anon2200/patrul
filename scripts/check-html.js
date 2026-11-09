@@ -18,6 +18,7 @@ function fail(message) {
 const server = fs.readFileSync('server.js', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const serviceWorker = fs.readFileSync('sw.js', 'utf8');
+const cacheManifest = serviceWorker.match(/const ASSETS = \\[([\\s\\S]*?)\\];/);
 
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
 
@@ -54,6 +55,16 @@ for (const asset of ['cloud-sync.js', 'sw.js', 'icon-180.png', 'icon-192.png', '
   if (!server.includes("['/" + asset + "', '" + asset + "']")) {
     fail('server public-file allowlist missing ' + asset);
   }
+}
+
+if (!serviceWorker.includes("url.pathname.startsWith('/api/')")) {
+  fail('service worker must bypass all API requests');
+}
+if (!serviceWorker.includes('ASSET_PATHS.has(url.pathname)')) {
+  fail('service worker must cache only explicitly allowlisted static assets');
+}
+if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'")) {
+  fail('service worker static cache must include cloud-sync.js');
 }
 
 if (!serviceWorker.includes('cloud-sync.js')) {
