@@ -5,6 +5,10 @@ const { once } = require('node:events');
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
 process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64url');
 const { encryptData, decryptData, migratePlaintextRows } = require('../data-crypto');
 
@@ -98,6 +102,36 @@ after(async () => {
     if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
   }
   if (pool) await pool.end();
+});
+
+test('all four role pages encrypt exchange packets and reject plaintext', async () => {
+  const strongPassword = 'CI-Shared-Exchange-Password-2026!';
+  const value = { v: 1, roleData: 'encrypted-exchange-fixture' };
+  for (const file of ['nachalnik.html', 'zam.html', 'uchet.html', 'dokumentoved.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    const start = html.indexOf('function sxB64(');
+    const end = html.indexOf('const SXCOL=', start);
+    assert.ok(start >= 0 && end > start, file + ' must contain the exchange crypto functions');
+    const sandbox = {
+      D: { sx: { pw: strongPassword } },
+      crypto: webcrypto,
+      TextEncoder, TextDecoder, Uint8Array, Blob, Response,
+      CompressionStream, DecompressionStream, btoa, atob
+    };
+    sandbox.sxS = () => sandbox.D.sx;
+    vm.runInNewContext(html.slice(start, end), sandbox, { filename: file });
+    const packet = await sandbox.sxPack(value);
+    assert.ok(packet.startsWith('ПАТРУЛЬ1E:'), file + ' must produce an encrypted packet');
+    assert.equal(packet.includes(strongPassword), false);
+    const unpacked = await sandbox.sxUnpack(packet);
+    assert.equal(JSON.stringify(unpacked), JSON.stringify(value));
+
+    sandbox.D.sx.pw = 'short-password';
+    await assert.rejects(sandbox.sxPack(value), error => error.message === 'weakpw');
+    sandbox.D.sx.pw = '';
+    await assert.rejects(sandbox.sxPack(value), error => error.message === 'needpw');
+    await assert.rejects(sandbox.sxUnpack('ПАТРУЛЬ1R:YWJj'), error => error.message === 'unencrypted');
+  }
 });
 
 test('AES-GCM role data encryption authenticates ciphertext and role context', () => {
