@@ -75,13 +75,15 @@
       });
     });
   }
-  async function forcePasswordChange() {
+  function forcePasswordChange() {
+    return new Promise(resolve=>{
     const p=panel('<h3>Смена временного пароля</h3><p>Для продолжения задайте личный пароль длиной не менее 12 символов.</p><p data-msg style="color:#b42318"></p><form><input name="currentPassword" type="password" placeholder="Текущий временный пароль" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0"><input name="newPassword" type="password" minlength="12" placeholder="Новый пароль (12+ символов)" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0"><button style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Сохранить новый пароль</button></form>');
     p.box.querySelector('form').addEventListener('submit',async e=>{
       e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget)),btn=e.currentTarget.querySelector('button');btn.disabled=true;
       try{const r=await request('/api/auth/change-password','POST',b);if(!r.response.ok){p.box.querySelector('[data-msg]').textContent=r.result.error||'Ошибка';btn.disabled=false;}
-        else{currentUser.mustChangePassword=false;p.overlay.remove();}}
+        else{currentUser.mustChangePassword=false;p.overlay.remove();resolve(true);}}
       catch(_){p.box.querySelector('[data-msg]').textContent='Нет связи';btn.disabled=false;}
+    });
     });
   }
   async function upload(snapshot) {
