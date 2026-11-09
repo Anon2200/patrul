@@ -45,12 +45,13 @@ async function api(path, options = {}) {
   });
 }
 
-async function authorizedApi(path, options = {}) {
+async function authorizedApi(path, options = {}, suppliedToken) {
+  const role = path.split('/').pop();
   return api(path, {
     ...options,
     headers: {
       ...(options.headers || {}),
-      authorization: `Bearer ${tokens[path.split('/').pop()] || tokens.nachalnik}`
+      authorization: `Bearer ${suppliedToken || tokens[role] || tokens.nachalnik}`
     }
   });
 }
@@ -138,9 +139,7 @@ test('stale expectedVersion is rejected without overwriting saved data', async (
 });
 
 test('a role token cannot read another role', async () => {
-  const response = await authorizedApi('/api/data/zam', {
-    headers: { authorization: `Bearer ${tokens.nachalnik}` }
-  });
+  const response = await authorizedApi('/api/data/zam', {}, tokens.nachalnik);
   assert.equal(response.status, 401);
 });
 
