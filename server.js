@@ -166,6 +166,12 @@ async function readJson(req) {
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
   validateDataEncryptionKey();
+  const publicOrigin = process.env.PATRUL_PUBLIC_ORIGIN || '';
+  let parsedOrigin;
+  try { parsedOrigin = new URL(publicOrigin); } catch { throw new Error('PATRUL_PUBLIC_ORIGIN must be configured as an exact HTTPS origin'); }
+  if (parsedOrigin.origin !== publicOrigin || (parsedOrigin.protocol !== 'https:' && parsedOrigin.hostname !== '127.0.0.1' && parsedOrigin.hostname !== 'localhost')) {
+    throw new Error('PATRUL_PUBLIC_ORIGIN must be an exact HTTPS origin (HTTP is allowed only for localhost tests)');
+  }
   const configuredTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.entries(ROLE_TOKEN_ENV)
     .map(([role, envName]) => ({ role, envName, value: process.env[envName] || '' }))
     .filter(item => item.value) : [];
