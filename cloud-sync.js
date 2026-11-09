@@ -33,7 +33,8 @@
   }
   const metaKey='patrul_session_meta_'+role;
   function meta(){try{return JSON.parse(localStorage.getItem(metaKey)||'null');}catch(_){return null;}}
-  function saveMeta(snapshot){try{localStorage.setItem(metaKey,JSON.stringify({version,snapshot}));}catch(_){}}
+  async function fingerprint(snapshot){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(snapshot));return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+  async function saveMeta(snapshot){try{localStorage.setItem(metaKey,JSON.stringify({version,fingerprint:await fingerprint(snapshot)}));}catch(_){}}
   async function request(url,method='GET',body=null) {
     const headers={};
     if(body!==null) headers['Content-Type']='application/json';
@@ -88,7 +89,7 @@
       if(r.response.status===409){ready=false;status('конфликт версий — ничего не перезаписано','#9a6700');alert('Данные изменились на другом устройстве. Обновите страницу и проверьте актуальную версию.');}
       else if(r.response.status===401){ready=false;status('сеанс завершён — войдите снова','#9a6700');}
       else if(!r.response.ok){status(r.result.error||'ошибка сохранения','#9a6700');}
-      else{version=Number(r.result.version||version);saveMeta(snapshot);status('подключено · сохранено','#176b50');}
+      else{version=Number(r.result.version||version);await saveMeta(snapshot);status('подключено · сохранено','#176b50');}
     }catch(_){status('нет связи; данные остались на устройстве','#9a6700');}
     finally{busy=false;if(queued&&ready){queued=false;scheduleUpload();}}
   }
@@ -151,11 +152,11 @@
       const fetched=await request(api);
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
-      const local=localSnapshot(),previous=meta();
+      const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
       if(data.data===null){ready=true;await upload(local);unlockPage();return;}
       const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
       const remoteSnapshot=JSON.stringify(remote);
-      const localChanged=!!previous&&previous.snapshot!==local;
+      const localChanged=!!previous&&previous.fingerprint!==localFingerprint;
       const serverChanged=!!previous&&Number(previous.version)!==version;
       const firstConflict=!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
@@ -163,7 +164,7 @@
         if(!useCloud){status('разные версии — локальные данные сохранены','#9a6700');unlockPage();return;}
         if(!backup(local)){status('не удалось создать резервную копию','#9a6700');return;}
       }else if(localChanged&&!serverChanged){ready=true;await upload(local);return;}
-      loadCloudData(data.data);originalSave();saveMeta(localSnapshot());ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
+      loadCloudData(data.data);originalSave();await saveMeta(localSnapshot());ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
       status('подключено · данные загружены','#176b50');unlockPage();
     }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
