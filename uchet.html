@@ -91,7 +91,7 @@ const $=s=>document.querySelector(s),today=()=>{const d=new Date();return d.getF
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const SET0={boss:'',master:'',org:'Караульное помещение',interval:90,coef:2,theme:'auto'};
 function seed(){return{items:S0.map(r=>({id:r[0],name:r[1],cat:PRE[r[0].split('-')[0]],type:TY[r[2]],place:PL[r[3]],state:ST[r[4]],unit:r[5]?'компл.':'шт',book:r[6],fact:r[7],price:r[8],note:r[9],min:null,date:'2026-10-28',inv:0,daily:r[0].startsWith('ПИ-')&&r[0]!='ПИ-019'})),ops:[],set:{...SET0},bk:0}}
-function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}if(!j||!j.items)j=seed();return norm(j)}
+function load(){return norm(seed())}
 function norm(j){j.set=Object.assign({},SET0,j.set);j.ops=j.ops||[];j.ops.forEach(o=>{o.k=o.k||Math.random().toString(36).slice(2);o.ts=o.ts||0});j.items.forEach(i=>{if(i.date===undefined)i.date='2026-10-28';i.inv=i.inv||0;if(i.daily===undefined)i.daily=i.cat=='Патрульный инвентарь'&&i.id!='ПИ-019'});j.bk=j.bk||0;j.checks=j.checks||[];j.rep=j.rep||[];j.audit=j.audit||[];j.items.forEach(i=>{i.sn=i.sn||''});j.notes=j.notes||'';j.items.forEach(i=>{i.to=i.to||''});return j}
 let D=load(),tab='ov',q='',cf='',sf='',sk='id',sd=1,jq='',jo='',doc='d1',dn='',dd=today(),iq='',ic_='',lastUndo=null;
 let dirty=false,ckv={},ckw='',ckd=today(),ckSel='',pf='',sel=new Set(),jf='',jt='',cid='';
