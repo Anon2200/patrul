@@ -153,6 +153,7 @@
         await upload(current);
       } else {
         const remoteCopy = norm(data.data);
+        const remoteHadExchangePassword = !!(remoteCopy.sx && typeof remoteCopy.sx === 'object' && remoteCopy.sx.pw);
         if (remoteCopy.sx && typeof remoteCopy.sx === 'object') delete remoteCopy.sx.pw;
         const remoteSnapshot = JSON.stringify(remoteCopy);
         const localChanged = !!previous && previous.snapshot !== current;
@@ -190,6 +191,7 @@
         suppressUpload = true;
         try { draw(); } finally { suppressUpload = false; }
         status('подключено · данные загружены', '#176b50');
+        if (remoteHadExchangePassword) await upload(localSnapshot());
       }
     } catch (err) {
       status('не удалось подключиться; локальная копия сохранена', '#9a6700');
