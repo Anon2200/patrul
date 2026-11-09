@@ -69,6 +69,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
   if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
   if (!html.includes('delete copy.sx.pw')) fail(file + ' manual backup must not export the shared exchange password');
+  if (!html.includes("if(!pw)throw new Error('needpw')") || !html.includes("throw new Error('unencrypted')") || html.includes("return useZ?'ПАТРУЛЬ1Z'")) fail(file + ' inter-role exchange must reject unencrypted packets');
 
   const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
