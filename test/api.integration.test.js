@@ -125,6 +125,8 @@ test('all four role pages encrypt exchange packets and reject plaintext', async 
     assert.equal(packet.includes(strongPassword), false);
     const unpacked = await sandbox.sxUnpack(packet);
     assert.equal(JSON.stringify(unpacked), JSON.stringify(value));
+    sandbox.D.sx.pw = 'Different-Strong-Password-2026!';
+    await assert.rejects(sandbox.sxUnpack(packet), error => error.message === 'badpw');
 
     sandbox.D.sx.pw = 'short-password';
     await assert.rejects(sandbox.sxPack(value), error => error.message === 'weakpw');
