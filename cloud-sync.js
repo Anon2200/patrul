@@ -37,7 +37,7 @@
   }
   const metaKey='patrul_session_meta_'+role;
   function meta(){try{return JSON.parse(localStorage.getItem(metaKey)||'null');}catch(_){return null;}}
-  async function fingerprint(snapshot){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(snapshot));return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+  async function fingerprint(snapshot){const copy=JSON.parse(snapshot);if(copy.sx&&typeof copy.sx==='object')delete copy.sx.pw;const material=JSON.stringify(copy);const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(material));return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function saveMeta(snapshot){try{localStorage.setItem(metaKey,JSON.stringify({version,fingerprint:await fingerprint(snapshot)}));}catch(_){}}
   async function request(url,method='GET',body=null) {
     const headers={};
