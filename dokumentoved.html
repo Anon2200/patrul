@@ -405,7 +405,7 @@ async function sxApplyTxt(txt,q){let pk;try{pk=await sxUnpack(txt)}catch(x){if(q
   if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u,live:1,t:it.t}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
  S.tIn=Date.now();save();if(q){if(n&&$('#md').innerHTML==''&&!/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName||''))draw(1);if(n)toast('Синхронизация: получено записей '+n);return n}closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
 function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
-const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
+const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События',is:'Сводки по имуществу'};
 function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">новое</span>':'',fr=`${e(x.f||'')}`;let h='',s='',b='',a='';
  if(t=='rp'){h=d.type;s=sxD(d.d)+' '+(d.t||'')+' · '+fr+(d.st=='Доложено'?' · доложено':'');b=d.text;if(SXC.rpMat&&['Нарушение','Недостаток службы'].includes(d.type))a=`<button class="btn s" data-act="sxmat" data-k="${e(x.k)}">В журнал регистрации</button>`}
  else if(t=='mt'){h=(d.fio||'—')+(d.grp?' · '+d.grp:'');s=sxD(d.d)+' · '+(d.cat||'')+' · '+fr;b=[d.gist,d.res].filter(Boolean).join('. ')}
@@ -413,8 +413,9 @@ function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">н�
  else if(t=='ou'){h=d.subj||d.kind;s=(d.kind||'')+' · '+sxD(d.d)+' · '+fr+' · статус: '+(d.st||'');b=d.text;if(SXC.approve)a=`<button class="btn s" data-act="sxou" data-k="${e(x.k)}" data-v="Согласовано">Согласовать</button><button class="btn s g" data-act="sxou" data-k="${e(x.k)}" data-v="На доработку">На доработку</button>`}
  else if(t=='tk'){h=d.text;s=(d.who||d.src||'')+(d.due?' · срок '+sxD(d.due):'')+' · '+(d.st||'');}
  else if(t=='ev'){h=(d.t?d.t+' ':'')+d.title;s=sxD(d.d)+' · '+fr}
+ else if(t=='is'){h='Сводка имущества';s=sxD(d.d)+' · позиций: '+(d.n||0)+' · на руках: '+(d.onh||0)+' · просрочено: '+(d.od||0)+(d.master?' · '+d.master:'');const parts=[];if(d.att&&d.att.length)parts.push('Требуют внимания: '+d.att.join('; '));if(d.rep&&d.rep.length)parts.push('Ремонт: '+d.rep.join('; '));if(d.buy&&d.buy.length)parts.push('Закупка: '+d.buy.join('; '));b=parts.length?parts.join('\\n'):'Замечаний нет'}
  return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(h)}</b>${nw}</div>${s?`<div class="mu">${e(s)}</div>`:''}${b?`<div style="margin-top:6px;white-space:pre-line">${e(b)}</div>`:''}${a?`<div class="bar" style="margin:10px 0 0">${a}</div>`:''}</div>`}
-function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
+function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev','is'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
  Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>S.seen[x.k]=x.u));
  return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
 function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
