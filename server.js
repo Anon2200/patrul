@@ -63,7 +63,7 @@ async function servePublicFile(req, res, pathname) {
       'x-frame-options': 'DENY',
       'referrer-policy': 'strict-origin-when-cross-origin',
       'strict-transport-security': 'max-age=31536000; includeSubDomains',
-      'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+      'permissions-policy': 'camera=(self), microphone=(), geolocation=()'
     });
     if (req.method === 'HEAD') {
       res.end();
@@ -100,7 +100,7 @@ function send(res, status, body, extraHeaders = {}) {
     'x-frame-options': 'DENY',
     'referrer-policy': 'strict-origin-when-cross-origin',
     'strict-transport-security': 'max-age=31536000; includeSubDomains',
-    'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+    'permissions-policy': 'camera=(self), microphone=(), geolocation=()',
     ...extraHeaders
   });
   res.end(JSON.stringify(body));
