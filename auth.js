@@ -96,7 +96,7 @@ function createAuth(pool,send,readJson) {
       }
       if(p==='/api/auth/login'&&req.method==='POST') {
         if(!sameOrigin(req)){send(res,403,{error:'Недопустимый источник'});return true;}
-        const b=await readJson(req), name=typeof b.username==='string'?b.username.trim():'', key=loginKey(req,name), old=loginFailures.get(key);
+        const b=await readJson(req), name=typeof b.username==='string'?b.username.trim().slice(0,100):'', key=loginKey(req,name), old=loginFailures.get(key);
         if(old&&old.until>Date.now()&&old.count>=8){send(res,429,{error:'Слишком много попыток. Повторите позже.'},{'retry-after':String(Math.ceil((old.until-Date.now())/1000))});return true;}
         const q=await pool.query('SELECT * FROM patrul_users WHERE lower(username)=lower($1) LIMIT 1',[name]), u=q.rows[0];
         const hashToCheck=u?u.password_hash:await dummyPasswordHash;
