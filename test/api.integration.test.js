@@ -332,3 +332,27 @@ test('administrator can block a user and all that user sessions are revoked', as
   const revoked = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(revoked.status, 401);
 });
+
+
+test('bootstrap cannot be repeated and administrator can inspect the audit trail', async () => {
+  const replay = await sessionApi('/api/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({
+      bootstrapSecret: 'ci-bootstrap-secret-only-not-production',
+      username: 'second.admin',
+      displayName: 'Second Admin',
+      password: 'CI-Second-Admin-Password-2026!'
+    })
+  });
+  assert.equal(replay.status, 409);
+
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+  const audit = await sessionApi('/api/admin/audit?limit=20', {}, adminCookie, adminCsrf);
+  assert.equal(audit.status, 200);
+  const result = await audit.json();
+  assert.ok(result.events.some(event => event.event_type === 'bootstrap_admin_created'));
+  assert.ok(result.events.some(event => event.event_type === 'user_created'));
+  assert.ok(result.events.some(event => event.event_type === 'user_updated'));
+});
