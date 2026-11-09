@@ -5,6 +5,7 @@
   let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null;
   let csrfToken = '', currentUser = null;
   const originalSave = save;
+  function unlockPage(){const gate=document.getElementById('patrul-auth-gate');if(gate)gate.remove();document.body.style.visibility='';}
 
   const badge = document.createElement('div');
   badge.id = 'patrul-cloud-status';
@@ -43,7 +44,7 @@
   }
   function panel(html) {
     const overlay=document.createElement('div');
-    overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#08101cdd;display:grid;place-items:center;padding:16px;overflow:auto';
+    overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#08101cdd;display:grid;place-items:center;padding:16px;overflow:auto;visibility:visible';
     const box=document.createElement('div');
     box.style.cssText='background:#fff;color:#18222f;padding:22px;border-radius:14px;width:min(440px,100%);max-height:90vh;overflow:auto;font:14px system-ui;box-shadow:0 16px 50px #0005';
     box.innerHTML=html;overlay.appendChild(box);document.body.appendChild(overlay);
@@ -151,7 +152,7 @@
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
       const local=localSnapshot(),previous=meta();
-      if(data.data===null){ready=true;await upload(local);return;}
+      if(data.data===null){ready=true;await upload(local);unlockPage();return;}
       const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
       const remoteSnapshot=JSON.stringify(remote);
       const localChanged=!!previous&&previous.snapshot!==local;
@@ -159,12 +160,12 @@
       const firstConflict=!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
         const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать резервную копию этого устройства и загрузить облачную версию.\nОтмена — оставить локальные данные без изменений.');
-        if(!useCloud){status('разные версии — локальные данные сохранены','#9a6700');return;}
+        if(!useCloud){status('разные версии — локальные данные сохранены','#9a6700');unlockPage();return;}
         if(!backup(local)){status('не удалось создать резервную копию','#9a6700');return;}
       }else if(localChanged&&!serverChanged){ready=true;await upload(local);return;}
       loadCloudData(data.data);originalSave();saveMeta(localSnapshot());ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
-      status('подключено · данные загружены','#176b50');
-    }catch(e){status('ошибка подключения; локальная копия сохранена','#9a6700');console.error('Patrul session sync:',e);}
+      status('подключено · данные загружены','#176b50');unlockPage();
+    }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
   start();
 })();
