@@ -16,7 +16,22 @@
     badge.textContent = 'Облако: ' + s;
     badge.style.background = color || '#16304f';
   }
-  function localSnapshot() { return JSON.stringify(D); }
+  // Пароль шифрования обмена между ролями хранится только в браузере.
+  // Никогда не отправляем его в PostgreSQL вместе с рабочими данными.
+  function localSnapshot() {
+    const copy = JSON.parse(JSON.stringify(D));
+    if (copy.sx && typeof copy.sx === 'object') delete copy.sx.pw;
+    return JSON.stringify(copy);
+  }
+  function loadCloudData(remoteData) {
+    const localExchangePassword = D && D.sx && typeof D.sx.pw === 'string' ? D.sx.pw : '';
+    D = norm(remoteData);
+    if (D.sx && typeof D.sx === 'object') delete D.sx.pw;
+    if (localExchangePassword) {
+      if (!D.sx || typeof D.sx !== 'object') D.sx = {};
+      D.sx.pw = localExchangePassword;
+    }
+  }
   function meta() { try { return JSON.parse(localStorage.getItem(metaKey) || 'null'); } catch (_) { return null; } }
   function saveMeta(snapshot) {
     try { localStorage.setItem(metaKey, JSON.stringify({ version, snapshot })); } catch (_) {}
@@ -123,7 +138,7 @@
         ready = true;
         await upload(current);
       } else {
-        D = norm(data.data);
+        loadCloudData(data.data);
         originalSave();
         saveMeta(localSnapshot());
         ready = true;
