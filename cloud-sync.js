@@ -15,19 +15,21 @@
   document.body.appendChild(badge);
   function status(s,color) { badge.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
   function localSnapshot() {
-    const copy=JSON.parse(JSON.stringify(D));
-    if(copy.sx&&typeof copy.sx==='object') delete copy.sx.pw;
-    return JSON.stringify(copy);
+    return JSON.stringify(D);
   }
   function loadCloudData(data) {
-    const exchange=D&&D.sx&&typeof D.sx.pw==='string'?D.sx.pw:'';
+    const localExchange=D&&D.sx&&typeof D.sx.pw==='string'?D.sx.pw:'';
+    const remoteExchange=data&&data.sx&&typeof data.sx.pw==='string'?data.sx.pw:'';
     D=norm(data);
     if(D.sx&&typeof D.sx==='object') delete D.sx.pw;
+    const exchange=localExchange||remoteExchange;
     if(exchange){if(!D.sx||typeof D.sx!=='object')D.sx={};D.sx.pw=exchange;}
   }
   function backup(snapshot) {
     try {
-      const blob=new Blob([snapshot],{type:'application/json'}), url=URL.createObjectURL(blob);
+      const copy=JSON.parse(snapshot);
+      if(copy.sx&&typeof copy.sx==='object')delete copy.sx.pw;
+      const blob=new Blob([JSON.stringify(copy)],{type:'application/json'}), url=URL.createObjectURL(blob);
       const a=document.createElement('a'), stamp=new Date().toISOString().replace(/[:.]/g,'-');
       a.href=url;a.download='patrul-'+role+'-backup-'+stamp+'.json';document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1500);return true;
@@ -166,7 +168,7 @@
       }
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
       if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');unlockPage();return;}
-      const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
+      const remote=norm(data.data);
       const remoteSnapshot=JSON.stringify(remote);
       const localChanged=hadLocalData&&!!previous&&previous.fingerprint!==localFingerprint;
       const serverChanged=hadLocalData&&!!previous&&Number(previous.version)!==version;
@@ -176,8 +178,8 @@
         if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Раздел оставлен закрытым, локальный кэш сохранён. Повторите вход и выберите серверную версию после сохранения локальной копии.');}
         if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
       }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');unlockPage();return;}
-      loadCloudData(data.data);await saveMeta(localSnapshot());clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
-      status('подключено · данные загружены','#176b50');unlockPage();
+      loadCloudData(data.data);const mergedSnapshot=localSnapshot(),needsUpload=mergedSnapshot!==remoteSnapshot;await saveMeta(mergedSnapshot);clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
+      status('подключено · данные загружены','#176b50');unlockPage();if(needsUpload)scheduleUpload();
     }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
   start();
