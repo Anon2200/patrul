@@ -14,7 +14,8 @@ function readCookie(req) {
 }
 function sameOrigin(req) {
   if (!req.headers.origin) return false;
-  const expected = process.env.PATRUL_PUBLIC_ORIGIN || ((req.headers['x-forwarded-proto']||'https').split(',')[0].trim()+'://'+req.headers.host);
+  const expected = process.env.PATRUL_PUBLIC_ORIGIN || '';
+  if (!expected) return false;
   try { return new URL(req.headers.origin).origin===new URL(expected).origin; } catch { return false; }
 }
 async function hashPassword(password) {
