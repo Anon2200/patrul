@@ -36,6 +36,17 @@ if (cloudSync.includes('Authorization') || cloudSync.includes('Bearer ')) {
   fail('browser client must not send shared bearer tokens');
 }
 
+if (!cloudSync.includes("const localDataKey = role + '_v1'") ||
+    !cloudSync.includes('localStorage.removeItem(localDataKey)')) {
+  fail('cloud sync must remove the plaintext role-data cache after server confirmation');
+}
+if (cloudSync.includes('originalSave()')) {
+  fail('cloud sync must not persist full application data through the legacy localStorage save function');
+}
+if (!cloudSync.includes("window.addEventListener('beforeunload'")) {
+  fail('cloud sync must warn before closing with unsaved in-memory changes');
+}
+
 
 for (const [file, role] of Object.entries(rolePages)) {
   if (!server.includes("['/" + file + "', '" + file + "']")) {
