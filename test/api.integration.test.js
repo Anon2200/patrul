@@ -483,7 +483,7 @@ test('expired server sessions are rejected', async () => {
   const cookieValue = adminCookie.split('=').slice(1).join('=');
   const tokenHash = require('node:crypto').createHash('sha256').update(decodeURIComponent(cookieValue)).digest();
   await pool.query(
-    "UPDATE patrul_sessions SET expires_at = NOW() - INTERVAL '1 minute' WHERE token_hash = $1",
+    "UPDATE patrul_sessions SET created_at = NOW() - INTERVAL '13 days', expires_at = NOW() - INTERVAL '1 minute' WHERE token_hash = $1",
     [tokenHash]
   );
   const response = await sessionApi('/api/auth/me', {}, adminCookie);
