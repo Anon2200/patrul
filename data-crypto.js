@@ -53,6 +53,31 @@ function decryptData(value, role) {
   return JSON.parse(plaintext.toString('utf8'));
 }
 
+async function migratePlaintextRows(pool) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const rows = await client.query('SELECT role, data, version FROM patrul_role_data FOR UPDATE');
+    let migrated = 0;
+    for (const row of rows.rows) {
+      if (isEncryptedData(row.data)) continue;
+      const encrypted = encryptData(row.data, row.role);
+      await client.query(
+        'UPDATE patrul_role_data SET data = $1::jsonb WHERE role = $2 AND version = $3',
+        [JSON.stringify(encrypted), row.role, row.version]
+      );
+      migrated += 1;
+    }
+    await client.query('COMMIT');
+    return migrated;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function readRoleData(pool, role, row) {
   if (isEncryptedData(row.data)) return decryptData(row.data, role);
   const plaintext = row.data;
@@ -70,5 +95,6 @@ module.exports = {
   isEncryptedData,
   encryptData,
   decryptData,
-  readRoleData
+  readRoleData,
+  migratePlaintextRows
 };
