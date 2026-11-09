@@ -5,6 +5,8 @@ const { once } = require('node:events');
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
+process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64url');
+const { encryptData, decryptData } = require('../data-crypto');
 
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -95,6 +97,17 @@ after(async () => {
     if (serverProcess.exitCode === null) serverProcess.kill('SIGKILL');
   }
   if (pool) await pool.end();
+});
+
+test('AES-GCM role data encryption authenticates ciphertext and role context', () => {
+  const value = { privateMarker: 'must-not-leak', nested: { count: 7 } };
+  const encrypted = encryptData(value, 'nachalnik');
+  assert.deepEqual(decryptData(encrypted, 'nachalnik'), value);
+  assert.throws(() => decryptData(encrypted, 'zam'));
+
+  const changedTag = Buffer.from(encrypted.tag, 'base64url');
+  changedTag[0] ^= 1;
+  assert.throws(() => decryptData({ ...encrypted, tag: changedTag.toString('base64url') }, 'nachalnik'));
 });
 
 test('health endpoint confirms PostgreSQL connectivity', async () => {
