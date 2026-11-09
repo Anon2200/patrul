@@ -32,6 +32,23 @@
       D.sx.pw = localExchangePassword;
     }
   }
+  function downloadLocalBackup(snapshot) {
+    try {
+      const blob = new Blob([snapshot], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = 'patrul-' + role + '-backup-' + stamp + '.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
   function meta() { try { return JSON.parse(localStorage.getItem(metaKey) || 'null'); } catch (_) { return null; } }
   function saveMeta(snapshot) {
     try { localStorage.setItem(metaKey, JSON.stringify({ version, snapshot })); } catch (_) {}
@@ -134,10 +151,36 @@
       if (data.data === null) {
         ready = true;
         await upload(current);
-      } else if (previous && previous.snapshot !== current && Number(previous.version) === version) {
-        ready = true;
-        await upload(current);
       } else {
+        const remoteSnapshot = JSON.stringify(norm(data.data));
+        const localChanged = !!previous && previous.snapshot !== current;
+        const serverChanged = !!previous && Number(previous.version) !== version;
+        const firstConnectionConflict = !previous && current !== remoteSnapshot;
+        const concurrentChangeConflict = localChanged && serverChanged;
+
+        if (firstConnectionConflict || concurrentChangeConflict) {
+          const useCloud = window.confirm(
+            'На этом устройстве и в облаке есть разные данные.\\n\\n' +
+            'Нажмите «ОК», чтобы сначала скачать резервную копию данных этого устройства, а затем открыть облачную версию.\\n' +
+            'Нажмите «Отмена», чтобы оставить данные этого устройства без изменений и пока не подключать облако.'
+          );
+          if (!useCloud) {
+            ready = false;
+            status('разные версии — локальные данные сохранены', '#9a6700');
+            return;
+          }
+          if (!downloadLocalBackup(current)) {
+            ready = false;
+            status('не удалось создать резервную копию', '#9a6700');
+            alert('Не удалось скачать резервную копию. Данные не изменены. Освободите место для загрузок и повторите.');
+            return;
+          }
+        } else if (localChanged && !serverChanged) {
+          ready = true;
+          await upload(current);
+          return;
+        }
+
         loadCloudData(data.data);
         originalSave();
         saveMeta(localSnapshot());
