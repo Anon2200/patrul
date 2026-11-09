@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 const { createAuth } = require('./auth');
-const { validateDataEncryptionKey, encryptData, readRoleData } = require('./data-crypto');
+const { validateDataEncryptionKey, encryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROLE_TOKEN_ENV = {
@@ -195,6 +195,7 @@ async function initDatabase() {
   );
   const identitySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '001_identity_schema.sql'), 'utf8');
   await pool.query(identitySchema);
+  await migratePlaintextRows(pool);
 }
 
 const handleAuth = createAuth(pool, send, readJson);
