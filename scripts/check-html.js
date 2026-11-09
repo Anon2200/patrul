@@ -18,7 +18,7 @@ function fail(message) {
 const server = fs.readFileSync('server.js', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const serviceWorker = fs.readFileSync('sw.js', 'utf8');
-const cacheManifest = serviceWorker.match(/const ASSETS = \\[([\\s\\S]*?)\\];/);
+const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
 
