@@ -48,6 +48,9 @@ function encryptData(value, role) {
 }
 
 function decryptData(value, role) {
+  if (value && typeof value === 'object' && value.__patrul_encrypted === 1 && !isEncryptedData(value)) {
+    throw new Error('Malformed encrypted role data envelope');
+  }
   if (!isEncryptedData(value)) return value;
   const key = getKey();
   if (value.kid !== keyId(key)) throw new Error('PATRUL_DATA_ENCRYPTION_KEY does not match stored data');
@@ -68,8 +71,9 @@ async function migratePlaintextRows(pool) {
     const rows = await client.query('SELECT role, data, version FROM patrul_role_data FOR UPDATE');
     let migrated = 0;
     for (const row of rows.rows) {
-      if (isEncryptedData(row.data)) { decryptData(row.data, row.role); continue; }
-      const encrypted = encryptData(row.data, row.role);
+      const plaintext = decryptData(row.data, row.role);
+      if (isEncryptedData(row.data)) continue;
+      const encrypted = encryptData(plaintext, row.role);
       await client.query(
         'UPDATE patrul_role_data SET data = $1::jsonb WHERE role = $2 AND version = $3',
         [JSON.stringify(encrypted), row.role, row.version]
@@ -87,8 +91,8 @@ async function migratePlaintextRows(pool) {
 }
 
 async function readRoleData(pool, role, row) {
-  if (isEncryptedData(row.data)) return decryptData(row.data, role);
-  const plaintext = row.data;
+  const plaintext = decryptData(row.data, role);
+  if (isEncryptedData(row.data)) return plaintext;
   const encrypted = encryptData(plaintext, role);
   // A concurrent write increments version; never overwrite a newer record.
   await pool.query(
