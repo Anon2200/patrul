@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('node:crypto');
+const { encryptData, readRoleData } = require('./data-crypto');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const ROLES = new Set(['nachalnik','zam','uchet','dokumentoved']);
@@ -180,15 +181,15 @@ function createAuth(pool,send,readJson) {
         if(req.method==='GET'){
           const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[role]);
           if(!q.rowCount){send(res,200,{role,data:null,version:0,updatedAt:null});return true;}
-          send(res,200,{role,data:q.rows[0].data,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+          send(res,200,{role,data:await readRoleData(pool,role,q.rows[0]),version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
         }
         if(req.method==='PUT'){
           if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
           const b=await readJson(req);if(!b||typeof b!=='object'||Array.isArray(b)||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<0||!Object.prototype.hasOwnProperty.call(b,'data')){send(res,400,{error:'Некорректные данные'});return true;}
-          const q=await pool.query('INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW() WHERE patrul_role_data.version=$3 RETURNING data,version,updated_at',[role,JSON.stringify(b.data),b.expectedVersion]);
+          const q=await pool.query('INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW() WHERE patrul_role_data.version=$3 RETURNING data,version,updated_at',[role,JSON.stringify(encryptData(b.data,role)),b.expectedVersion]);
           if(!q.rowCount){const v=await pool.query('SELECT version FROM patrul_role_data WHERE role=$1',[role]);send(res,409,{error:'Данные уже изменились',currentVersion:v.rowCount?Number(v.rows[0].version):0});return true;}
           await audit(s.id,'role_data_updated',s.id,{role,version:Number(q.rows[0].version)});
-          send(res,200,{role,data:q.rows[0].data,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+          send(res,200,{role,data:b.data,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
         }
         send(res,404,{error:'Маршрут не найден'});return true;
       }
