@@ -69,6 +69,7 @@ before(async () => {
       PATRUL_LEGACY_ROLE_TOKENS_ENABLED: 'true',
       PATRUL_BOOTSTRAP_SECRET: 'ci-bootstrap-secret-only-not-production',
       PATRUL_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64url'),
+      PATRUL_PUBLIC_ORIGIN: baseUrl,
       PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
       PATRUL_TOKEN_ZAM: tokens.zam,
       PATRUL_TOKEN_UCHET: tokens.uchet,
