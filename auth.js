@@ -22,6 +22,7 @@ async function hashPassword(password) {
   const hash=await scrypt(password,salt,64,{N:32768,r:8,p:1,maxmem:64*1024*1024});
   return 'scrypt$32768$8$1$'+salt.toString('hex')+'$'+hash.toString('hex');
 }
+const dummyPasswordHash = hashPassword(crypto.randomBytes(32).toString('hex'));
 async function verifyPassword(password, encoded) {
   const p=String(encoded||'').split('$');
   if(p.length!==6||p[0]!=='scrypt'||p[1]!=='32768'||p[2]!=='8'||p[3]!=='1'||!/^[a-f0-9]{32}$/.test(p[4])||!/^[a-f0-9]{128}$/.test(p[5])) return false;
@@ -98,7 +99,10 @@ function createAuth(pool,send,readJson) {
         const b=await readJson(req), name=typeof b.username==='string'?b.username.trim():'', key=loginKey(req,name), old=loginFailures.get(key);
         if(old&&old.until>Date.now()&&old.count>=8){send(res,429,{error:'Слишком много попыток. Повторите позже.'},{'retry-after':String(Math.ceil((old.until-Date.now())/1000))});return true;}
         const q=await pool.query('SELECT * FROM patrul_users WHERE lower(username)=lower($1) LIMIT 1',[name]), u=q.rows[0];
-        const ok=u&&u.is_active&&typeof b.password==='string'?await verifyPassword(b.password,u.password_hash):false;
+        const hashToCheck=u?u.password_hash:await dummyPasswordHash;
+        const suppliedPassword=typeof b.password==='string'&&Buffer.byteLength(b.password,'utf8')<=256?b.password:'';
+        const passwordMatches=await verifyPassword(suppliedPassword,hashToCheck);
+        const ok=!!(u&&u.is_active&&passwordMatches);
         if(!ok){failed(req,name);send(res,401,{error:'Неверный логин или пароль'});return true;}
         loginFailures.delete(key); await audit(u.id,'login_success',u.id);
         const csrf=await newSession(u,res); send(res,200,{user:publicUser(u),csrfToken:csrf}); return true;
