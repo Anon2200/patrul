@@ -142,6 +142,13 @@ test('AES-GCM role data encryption authenticates ciphertext and role context', (
   const encrypted = encryptData(value, 'nachalnik');
   assert.deepEqual(decryptData(encrypted, 'nachalnik'), value);
   assert.throws(() => decryptData(encrypted, 'zam'));
+  const configuredKey = process.env.PATRUL_DATA_ENCRYPTION_KEY;
+  try {
+    process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 8).toString('base64url');
+    assert.throws(() => decryptData(encrypted, 'nachalnik'), /does not match stored data/);
+  } finally {
+    process.env.PATRUL_DATA_ENCRYPTION_KEY = configuredKey;
+  }
 
   const changedTag = Buffer.from(encrypted.tag, 'base64url');
   changedTag[0] ^= 1;
