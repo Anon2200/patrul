@@ -91,9 +91,14 @@ test('health endpoint confirms PostgreSQL connectivity', async () => {
   assert.deepEqual(await response.json(), { ok: true, database: 'connected' });
 });
 
-test('data endpoints reject requests without the bearer token', async () => {
-  const response = await api('/api/data/nachalnik');
-  assert.equal(response.status, 401);
+test('data endpoints reject reads and writes without the bearer token', async () => {
+  const read = await api('/api/data/nachalnik');
+  assert.equal(read.status, 401);
+  const write = await api('/api/data/nachalnik', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { marker: 'unauthorized' } })
+  });
+  assert.equal(write.status, 401);
 });
 
 test('first write creates version 1 and GET returns the saved JSON', async () => {
@@ -130,12 +135,22 @@ test('stale expectedVersion is rejected without overwriting saved data', async (
 });
 
 test('role records are stored separately', async () => {
-  const response = await authorizedApi('/api/data/zam');
-  assert.equal(response.status, 200);
-  const result = await response.json();
-  assert.equal(result.role, 'zam');
-  assert.equal(result.data, null);
-  assert.equal(result.version, 0);
+  const write = await authorizedApi('/api/data/zam', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { marker: 'zam-only' } })
+  });
+  assert.equal(write.status, 200);
+  const saved = await write.json();
+  assert.equal(saved.role, 'zam');
+  assert.deepEqual(saved.data, { marker: 'zam-only' });
+
+  const zamRead = await authorizedApi('/api/data/zam');
+  assert.deepEqual((await zamRead.json()).data, { marker: 'zam-only' });
+  const chiefRead = await authorizedApi('/api/data/nachalnik');
+  assert.deepEqual((await chiefRead.json()).data, {
+    marker: 'integration-test',
+    nested: { count: 3 }
+  });
 });
 
 test('unknown roles and malformed write payloads are rejected', async () => {
