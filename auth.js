@@ -73,7 +73,7 @@ function createAuth(pool,send,readJson) {
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
         if(!sameOrigin(req)) {send(res,403,{error:'Недопустимый источник'});return true;}
         const b=await readJson(req), secret=process.env.PATRUL_BOOTSTRAP_SECRET||'';
-        if(!secret||!equal(b.bootstrapSecret,secret)){send(res,403,{error:'Первичная настройка недоступна или секрет неверен'});return true;}
+        if(Buffer.byteLength(secret,'utf8')<32||!equal(b.bootstrapSecret,secret)){send(res,403,{error:'Первичная настройка недоступна или секрет неверен'});return true;}
         const c=await pool.query('SELECT COUNT(*)::int AS n FROM patrul_users');
         if(c.rows[0].n){send(res,409,{error:'Первичная учётная запись уже создана'});return true;}
         if(typeof b.username!=='string'||!/^[a-zA-Z0-9._-]{3,100}$/.test(b.username)||typeof b.displayName!=='string'||!b.displayName.trim()||b.displayName.trim().length>200||!validPassword(b.password)){send(res,400,{error:'Проверьте логин, имя и пароль (минимум 12 символов)'});return true;}
@@ -149,6 +149,14 @@ function createAuth(pool,send,readJson) {
             await c.query("INSERT INTO patrul_audit_log(actor_user_id,event_type,target_user_id,details) VALUES($1,'user_password_reset',$2,'{}'::jsonb)",[s.id,id]);await c.query('COMMIT');send(res,200,{temporaryPassword:temp});}
           catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}return true;
         }
+        if(p==='/api/admin/audit'&&req.method==='GET'){
+          const limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit')||50)));
+          const q=await pool.query(
+            'SELECT a.id,a.event_type,a.details,a.created_at,actor.username AS actor_username,actor.display_name AS actor_name,target.username AS target_username,target.display_name AS target_name '+
+            'FROM patrul_audit_log a LEFT JOIN patrul_users actor ON actor.id=a.actor_user_id LEFT JOIN patrul_users target ON target.id=a.target_user_id '+
+            'ORDER BY a.created_at DESC,a.id DESC LIMIT $1',[limit]);
+          send(res,200,{events:q.rows});return true;
+        }
         const edit=p.match(/^\/api\/admin\/users\/([0-9a-f-]{36})$/i);
         if(edit&&req.method==='PATCH'){
           const id=edit[1],b=await readJson(req),q=await pool.query('SELECT * FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}
@@ -168,7 +176,7 @@ function createAuth(pool,send,readJson) {
         const s=await sessionFor(req);if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
         const role=p.slice('/api/session-data/'.length);if(!ROLES.has(role)){send(res,400,{error:'Неизвестная роль'});return true;}
-        if(s.role!==role&&!s.is_system_admin){send(res,403,{error:'Нет доступа к данным этой роли'});return true;}
+        if(s.role!==role){send(res,403,{error:'Нет доступа к данным этой роли'});return true;}
         if(req.method==='GET'){
           const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[role]);
           if(!q.rowCount){send(res,200,{role,data:null,version:0,updatedAt:null});return true;}
