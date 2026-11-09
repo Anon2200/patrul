@@ -1,202 +1,158 @@
 (() => {
   'use strict';
   const role = window.PATRUL_ROLE;
-  const tokenKey = 'patrul_role_access_' + role;
-  const metaKey = 'patrul_cloud_meta_' + role;
-  const api = '/api/data/' + encodeURIComponent(role);
+  const api = '/api/session-data/' + encodeURIComponent(role);
   let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null;
+  let csrfToken = '', currentUser = null;
   const originalSave = save;
 
   const badge = document.createElement('div');
   badge.id = 'patrul-cloud-status';
-  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10000;padding:7px 11px;border-radius:9px;background:#16304f;color:#fff;font:12px/1.4 system-ui;box-shadow:0 2px 12px #0003;max-width:260px';
-  badge.textContent = 'Облако: не подключено';
+  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10000;padding:7px 11px;border-radius:9px;background:#16304f;color:#fff;font:12px/1.4 system-ui;box-shadow:0 2px 12px #0003;max-width:300px';
   document.body.appendChild(badge);
-  function status(s, color) {
-    badge.textContent = 'Облако: ' + s;
-    badge.style.background = color || '#16304f';
-  }
-  // Пароль шифрования обмена между ролями хранится только в браузере.
-  // Никогда не отправляем его в PostgreSQL вместе с рабочими данными.
+  function status(s,color) { badge.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
   function localSnapshot() {
-    const copy = JSON.parse(JSON.stringify(D));
-    if (copy.sx && typeof copy.sx === 'object') delete copy.sx.pw;
+    const copy=JSON.parse(JSON.stringify(D));
+    if(copy.sx&&typeof copy.sx==='object') delete copy.sx.pw;
     return JSON.stringify(copy);
   }
-  function loadCloudData(remoteData) {
-    const localExchangePassword = D && D.sx && typeof D.sx.pw === 'string' ? D.sx.pw : '';
-    D = norm(remoteData);
-    if (D.sx && typeof D.sx === 'object') delete D.sx.pw;
-    if (localExchangePassword) {
-      if (!D.sx || typeof D.sx !== 'object') D.sx = {};
-      D.sx.pw = localExchangePassword;
-    }
+  function loadCloudData(data) {
+    const exchange=D&&D.sx&&typeof D.sx.pw==='string'?D.sx.pw:'';
+    D=norm(data);
+    if(D.sx&&typeof D.sx==='object') delete D.sx.pw;
+    if(exchange){if(!D.sx||typeof D.sx!=='object')D.sx={};D.sx.pw=exchange;}
   }
-  function downloadLocalBackup(snapshot) {
+  function backup(snapshot) {
     try {
-      const blob = new Blob([snapshot], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      link.href = url;
-      link.download = 'patrul-' + role + '-backup-' + stamp + '.json';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-      return true;
-    } catch (_) {
-      return false;
-    }
+      const blob=new Blob([snapshot],{type:'application/json'}), url=URL.createObjectURL(blob);
+      const a=document.createElement('a'), stamp=new Date().toISOString().replace(/[:.]/g,'-');
+      a.href=url;a.download='patrul-'+role+'-backup-'+stamp+'.json';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);return true;
+    } catch(_){return false;}
   }
-  function meta() { try { return JSON.parse(localStorage.getItem(metaKey) || 'null'); } catch (_) { return null; } }
-  function saveMeta(snapshot) {
-    try { localStorage.setItem(metaKey, JSON.stringify({ version, snapshot })); } catch (_) {}
+  const metaKey='patrul_session_meta_'+role;
+  function meta(){try{return JSON.parse(localStorage.getItem(metaKey)||'null');}catch(_){return null;}}
+  function saveMeta(snapshot){try{localStorage.setItem(metaKey,JSON.stringify({version,snapshot}));}catch(_){}}
+  async function request(url,method='GET',body=null) {
+    const headers={};
+    if(body!==null) headers['Content-Type']='application/json';
+    if(csrfToken) headers['X-Patrul-CSRF']=csrfToken;
+    const response=await fetch(url,{method,credentials:'same-origin',headers,...(body!==null?{body:JSON.stringify(body)}:{})});
+    let result={};try{result=await response.json();}catch(_){}
+    return {response,result};
   }
-  async function request(method, body, token) {
-    const response = await fetch(api, {
-      method,
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        ...(body ? { 'Content-Type': 'application/json' } : {})
-      },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
-    let result = {};
-    try { result = await response.json(); } catch (_) {}
-    return { response, result };
+  function panel(html) {
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#08101cdd;display:grid;place-items:center;padding:16px;overflow:auto';
+    const box=document.createElement('div');
+    box.style.cssText='background:#fff;color:#18222f;padding:22px;border-radius:14px;width:min(440px,100%);max-height:90vh;overflow:auto;font:14px system-ui;box-shadow:0 16px 50px #0005';
+    box.innerHTML=html;overlay.appendChild(box);document.body.appendChild(overlay);
+    return {overlay,box};
   }
   function loginPanel(message) {
-    return new Promise(resolve => {
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;background:#08101ccc;display:grid;place-items:center;padding:16px';
-      overlay.innerHTML = `<form style="background:#fff;color:#18222f;padding:22px;border-radius:14px;width:min(380px,100%);font:14px system-ui;box-shadow:0 16px 50px #0005"><h3 style="margin:0 0 8px">Подключение общей базы</h3><p style="margin:0 0 12px;color:#536174">Введите пароль доступа для раздела «${role}». Он не должен давать доступ к другим ролям.</p><p data-msg style="color:#b42318;margin:0 0 8px"></p><input type="password" autocomplete="current-password" placeholder="Пароль раздела" required style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit"><div style="display:flex;gap:8px;margin-top:14px"><button type="submit" style="flex:1;padding:10px;border:0;border-radius:8px;background:#167d70;color:white;font:600 14px system-ui">Подключить</button><button type="button" data-cancel style="padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#18222f;font:14px system-ui">Позже</button></div></form>`;
-      document.body.appendChild(overlay);
-      const form = overlay.querySelector('form'), input = overlay.querySelector('input'), msg = overlay.querySelector('[data-msg]');
-      if (message) msg.textContent = message;
-      input.focus();
-      form.addEventListener('submit', async ev => {
-        ev.preventDefault();
-        const value = input.value;
-        if (!value) return;
-        const button = form.querySelector('button[type=submit]');
-        button.disabled = true; button.textContent = 'Проверка…';
-        try {
-          const { response, result } = await request('GET', null, value);
-          if (response.status === 401) { msg.textContent = 'Пароль не подошёл. Проверьте его и попробуйте ещё раз.'; }
-          else if (!response.ok) { msg.textContent = result.error || 'Не удалось подключиться.'; }
-          else { overlay.remove(); resolve(value); return; }
-        } catch (_) { msg.textContent = 'Нет связи с сервером. Проверьте интернет и повторите.'; }
-        button.disabled = false; button.textContent = 'Подключить';
+    return new Promise(resolve=>{
+      const p=panel('<h3 style="margin:0 0 8px">Вход в систему</h3><p style="color:#536174">Введите личный логин и пароль сотрудника.</p><p data-msg style="color:#b42318"></p><form data-login><input name="username" autocomplete="username" placeholder="Логин" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px"><input name="password" type="password" autocomplete="current-password" placeholder="Пароль" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px"><button style="width:100%;padding:11px;margin-top:10px;background:#167d70;color:white;border:0;border-radius:8px;font-weight:600">Войти</button></form><details style="margin-top:14px"><summary>Первичная настройка владельца системы</summary><p style="color:#536174">Используйте только если учётных записей ещё нет. Секрет первичной настройки должен быть заранее задан в переменных сервера.</p><form data-bootstrap><input name="bootstrapSecret" type="password" placeholder="Секрет первичной настройки" required style="box-sizing:border-box;width:100%;padding:10px;margin:4px 0"><input name="displayName" placeholder="Ваше имя" required style="box-sizing:border-box;width:100%;padding:10px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:10px;margin:4px 0"><input name="password" type="password" minlength="12" placeholder="Пароль (не менее 12 символов)" required style="box-sizing:border-box;width:100%;padding:10px;margin:4px 0"><button style="width:100%;padding:10px;background:#344054;color:white;border:0;border-radius:8px">Создать учётную запись Старшего мастера</button></form></details>');
+      const msg=p.box.querySelector('[data-msg]');if(message)msg.textContent=message;
+      p.box.querySelector('[data-login]').addEventListener('submit',async e=>{
+        e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget));
+        const btn=e.currentTarget.querySelector('button');btn.disabled=true;btn.textContent='Проверка…';
+        try{const r=await request('/api/auth/login','POST',b);if(!r.response.ok){msg.textContent=r.result.error||'Не удалось войти';}
+          else{csrfToken=r.result.csrfToken;currentUser=r.result.user;p.overlay.remove();resolve(currentUser);return;}}
+        catch(_){msg.textContent='Нет связи с сервером';}
+        btn.disabled=false;btn.textContent='Войти';
       });
-      overlay.querySelector('[data-cancel]').addEventListener('click', () => { overlay.remove(); resolve(null); });
+      p.box.querySelector('[data-bootstrap]').addEventListener('submit',async e=>{
+        e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget));
+        const btn=e.currentTarget.querySelector('button');btn.disabled=true;btn.textContent='Создание…';
+        try{const r=await request('/api/auth/bootstrap','POST',b);if(!r.response.ok){msg.textContent=r.result.error||'Не удалось создать администратора';}
+          else{csrfToken=r.result.csrfToken;currentUser=r.result.user;p.overlay.remove();resolve(currentUser);return;}}
+        catch(_){msg.textContent='Нет связи с сервером';}
+        btn.disabled=false;btn.textContent='Создать учётную запись Старшего мастера';
+      });
+    });
+  }
+  async function forcePasswordChange() {
+    const p=panel('<h3>Смена временного пароля</h3><p>Для продолжения задайте личный пароль длиной не менее 12 символов.</p><p data-msg style="color:#b42318"></p><form><input name="currentPassword" type="password" placeholder="Текущий временный пароль" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0"><input name="newPassword" type="password" minlength="12" placeholder="Новый пароль (12+ символов)" required style="box-sizing:border-box;width:100%;padding:11px;margin:5px 0"><button style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Сохранить новый пароль</button></form>');
+    p.box.querySelector('form').addEventListener('submit',async e=>{
+      e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget)),btn=e.currentTarget.querySelector('button');btn.disabled=true;
+      try{const r=await request('/api/auth/change-password','POST',b);if(!r.response.ok){p.box.querySelector('[data-msg]').textContent=r.result.error||'Ошибка';btn.disabled=false;}
+        else{currentUser.mustChangePassword=false;p.overlay.remove();}}
+      catch(_){p.box.querySelector('[data-msg]').textContent='Нет связи';btn.disabled=false;}
     });
   }
   async function upload(snapshot) {
-    if (!ready || busy) { queued = true; return; }
-    busy = true; queued = false;
-    try {
-      const { response, result } = await request('PUT', { expectedVersion: version, data: JSON.parse(snapshot) }, sessionStorage.getItem(tokenKey));
-      if (response.status === 409) {
-        ready = false;
-        status('конфликт изменений — данные не перезаписаны', '#9a6700');
-        alert('Обнаружены изменения этой роли на другом устройстве. Я не стал перезаписывать данные. Обновите страницу и проверьте актуальную версию.');
-      } else if (response.status === 401) {
-        ready = false; sessionStorage.removeItem(tokenKey);
-        status('пароль изменён — обновите страницу', '#9a6700');
-      } else if (!response.ok) {
-        status('ошибка сохранения; копия осталась на устройстве', '#9a6700');
-      } else {
-        version = Number(result.version || version);
-        saveMeta(snapshot);
-        status('подключено · сохранено', '#176b50');
-      }
-    } catch (_) {
-      status('нет связи; копия сохранена на устройстве', '#9a6700');
-    } finally {
-      busy = false;
-      if (queued && ready) { queued = false; scheduleUpload(); }
-    }
+    if(!ready||busy){queued=true;return;}busy=true;queued=false;
+    try{
+      const r=await request(api,'PUT',{expectedVersion:version,data:JSON.parse(snapshot)});
+      if(r.response.status===409){ready=false;status('конфликт версий — ничего не перезаписано','#9a6700');alert('Данные изменились на другом устройстве. Обновите страницу и проверьте актуальную версию.');}
+      else if(r.response.status===401){ready=false;status('сеанс завершён — войдите снова','#9a6700');}
+      else if(!r.response.ok){status(r.result.error||'ошибка сохранения','#9a6700');}
+      else{version=Number(r.result.version||version);saveMeta(snapshot);status('подключено · сохранено','#176b50');}
+    }catch(_){status('нет связи; данные остались на устройстве','#9a6700');}
+    finally{busy=false;if(queued&&ready){queued=false;scheduleUpload();}}
   }
-  function scheduleUpload() {
-    if (!ready) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => upload(localSnapshot()), 700);
-  }
-  save = function () {
-    originalSave();
-    if (ready && !suppressUpload) scheduleUpload();
-  };
+  function scheduleUpload(){if(!ready)return;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
+  save=function(){originalSave();if(ready&&!suppressUpload)scheduleUpload();};
 
+  async function adminPanel() {
+    const p=panel('<h3 style="margin-top:0">Управление сотрудниками</h3><p data-msg style="color:#b42318"></p><form data-create><input name="displayName" placeholder="ФИО сотрудника" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><select name="role" style="width:100%;padding:9px;margin:4px 0"><option value="nachalnik">Начальник</option><option value="zam">Заместитель</option><option value="uchet">Старший мастер</option><option value="dokumentoved">Документовед</option></select><button style="padding:10px;background:#167d70;color:white;border:0;border-radius:8px">Создать сотрудника</button></form><hr><div data-users>Загрузка…</div><button type="button" data-close style="margin-top:14px;padding:9px">Закрыть</button>');
+    const msg=p.box.querySelector('[data-msg]'), list=p.box.querySelector('[data-users]');
+    async function refresh(){
+      const r=await request('/api/admin/users');if(!r.response.ok){msg.textContent=r.result.error||'Не удалось загрузить сотрудников';return;}
+      list.replaceChildren();
+      r.result.users.forEach(u=>{
+        const card=document.createElement('section');card.style.cssText='border-top:1px solid #e5e7eb;padding:12px 0';
+        const title=document.createElement('strong');title.textContent=u.displayName+' · '+u.username;card.appendChild(title);
+        const info=document.createElement('p');info.textContent=u.role+' · '+(u.active?'активен':'заблокирован')+(u.systemAdmin?' · администратор':'');card.appendChild(info);
+        const roleSelect=document.createElement('select');['nachalnik','zam','uchet','dokumentoved'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;o.selected=v===u.role;roleSelect.appendChild(o);});card.appendChild(roleSelect);
+        const toggle=document.createElement('button');toggle.textContent=u.active?'Заблокировать':'Восстановить';toggle.style.margin='5px';toggle.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id,'PATCH',{role:roleSelect.value,active:!u.active,displayName:u.displayName});if(!x.response.ok)msg.textContent=x.result.error;else refresh();});card.appendChild(toggle);
+        const change=document.createElement('button');change.textContent='Сохранить роль';change.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id,'PATCH',{role:roleSelect.value,active:u.active,displayName:u.displayName});if(!x.response.ok)msg.textContent=x.result.error;else refresh();});card.appendChild(change);
+        const reset=document.createElement('button');reset.textContent='Сбросить пароль';reset.style.margin='5px';reset.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id+'/reset-password','POST',{});if(!x.response.ok)msg.textContent=x.result.error;else{const note=document.createElement('p');note.textContent='Временный пароль (покажется только сейчас): '+x.result.temporaryPassword;card.appendChild(note);}});card.appendChild(reset);
+        list.appendChild(card);
+      });
+    }
+    p.box.querySelector('[data-create]').addEventListener('submit',async e=>{
+      e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget)),btn=e.currentTarget.querySelector('button');btn.disabled=true;
+      const r=await request('/api/admin/users','POST',b);btn.disabled=false;
+      if(!r.response.ok)msg.textContent=r.result.error||'Не удалось создать сотрудника';
+      else{msg.textContent='Сотрудник создан. Передайте временный пароль лично: '+r.result.temporaryPassword+' . Он будет показан только сейчас.';e.currentTarget.reset();refresh();}
+    });
+    p.box.querySelector('[data-close]').addEventListener('click',()=>p.overlay.remove());
+    await refresh();
+  }
+  function addControls() {
+    const row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap';
+    if(currentUser&&currentUser.systemAdmin){const a=document.createElement('button');a.textContent='Сотрудники';a.style.cssText='border:0;border-radius:5px;padding:4px 7px';a.addEventListener('click',adminPanel);row.appendChild(a);}
+    const out=document.createElement('button');out.textContent='Выйти';out.style.cssText='border:0;border-radius:5px;padding:4px 7px';out.addEventListener('click',async()=>{await request('/api/auth/logout','POST',{});location.reload();});row.appendChild(out);
+    badge.appendChild(row);
+  }
   async function start() {
-    status('ожидает пароль');
-    let token = sessionStorage.getItem(tokenKey);
-    let data;
-    if (!token) token = await loginPanel();
-    if (!token) { status('работает только на этом устройстве', '#6b7280'); return; }
-    try {
-      let fetched = await request('GET', null, token);
-      if (fetched.response.status === 401) {
-        sessionStorage.removeItem(tokenKey);
-        token = await loginPanel('Пароль этого раздела неверный или был заменён. Введите действующий пароль.');
-        if (!token) { status('работает только на этом устройстве', '#6b7280'); return; }
-        fetched = await request('GET', null, token);
-      }
-      if (!fetched.response.ok) throw new Error(fetched.result.error || 'Ошибка подключения');
-      sessionStorage.setItem(tokenKey, token);
-      data = fetched.result;
-      version = Number(data.version || 0);
-      const current = localSnapshot();
-      const previous = meta();
-      if (data.data === null) {
-        ready = true;
-        await upload(current);
-      } else {
-        const remoteCopy = norm(data.data);
-        const remoteHadExchangePassword = !!(remoteCopy.sx && typeof remoteCopy.sx === 'object' && remoteCopy.sx.pw);
-        if (remoteCopy.sx && typeof remoteCopy.sx === 'object') delete remoteCopy.sx.pw;
-        const remoteSnapshot = JSON.stringify(remoteCopy);
-        const localChanged = !!previous && previous.snapshot !== current;
-        const serverChanged = !!previous && Number(previous.version) !== version;
-        const firstConnectionConflict = !previous && current !== remoteSnapshot;
-        const concurrentChangeConflict = localChanged && serverChanged;
-
-        if (firstConnectionConflict || concurrentChangeConflict) {
-          const useCloud = window.confirm(
-            'На этом устройстве и в облаке есть разные данные.\\n\\n' +
-            'Нажмите «ОК», чтобы сначала скачать резервную копию данных этого устройства, а затем открыть облачную версию.\\n' +
-            'Нажмите «Отмена», чтобы оставить данные этого устройства без изменений и пока не подключать облако.'
-          );
-          if (!useCloud) {
-            ready = false;
-            status('разные версии — локальные данные сохранены', '#9a6700');
-            return;
-          }
-          if (!downloadLocalBackup(current)) {
-            ready = false;
-            status('не удалось создать резервную копию', '#9a6700');
-            alert('Не удалось скачать резервную копию. Данные не изменены. Освободите место для загрузок и повторите.');
-            return;
-          }
-        } else if (localChanged && !serverChanged) {
-          ready = true;
-          await upload(current);
-          return;
-        }
-
-        loadCloudData(data.data);
-        originalSave();
-        saveMeta(localSnapshot());
-        ready = true;
-        suppressUpload = true;
-        try { draw(); } finally { suppressUpload = false; }
-        status('подключено · данные загружены', '#176b50');
-        if (remoteHadExchangePassword) await upload(localSnapshot());
-      }
-    } catch (err) {
-      status('не удалось подключиться; локальная копия сохранена', '#9a6700');
-      console.error('Patrul cloud sync:', err);
-    }
+    status('проверка входа');
+    try{
+      let auth=await request('/api/auth/me');
+      if(!auth.response.ok){currentUser=await loginPanel();}else{currentUser=auth.result.user;csrfToken=auth.result.csrfToken;}
+      if(!currentUser)return;
+      if(currentUser.role!==role&&!currentUser.systemAdmin){status('учётная запись не имеет доступа к этому разделу','#9a6700');alert('Ваша учётная запись не назначена для этого раздела. Обратитесь к Старшему мастеру.');return;}
+      if(currentUser.mustChangePassword)await forcePasswordChange();
+      addControls();
+      const fetched=await request(api);
+      if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
+      const data=fetched.result;version=Number(data.version||0);
+      const local=localSnapshot(),previous=meta();
+      if(data.data===null){ready=true;await upload(local);return;}
+      const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
+      const remoteSnapshot=JSON.stringify(remote);
+      const localChanged=!!previous&&previous.snapshot!==local;
+      const serverChanged=!!previous&&Number(previous.version)!==version;
+      const firstConflict=!previous&&local!==remoteSnapshot;
+      if(firstConflict||(localChanged&&serverChanged)){
+        const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать резервную копию этого устройства и загрузить облачную версию.\nОтмена — оставить локальные данные без изменений.');
+        if(!useCloud){status('разные версии — локальные данные сохранены','#9a6700');return;}
+        if(!backup(local)){status('не удалось создать резервную копию','#9a6700');return;}
+      }else if(localChanged&&!serverChanged){ready=true;await upload(local);return;}
+      loadCloudData(data.data);originalSave();saveMeta(localSnapshot());ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
+      status('подключено · данные загружены','#176b50');
+    }catch(e){status('ошибка подключения; локальная копия сохранена','#9a6700');console.error('Patrul session sync:',e);}
   }
   start();
 })();
