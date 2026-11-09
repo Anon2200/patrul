@@ -48,6 +48,7 @@ for (const [file, role] of Object.entries(rolePages)) {
     fail(file + ' has an incorrect or missing role identifier');
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
+  if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
 
   const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
