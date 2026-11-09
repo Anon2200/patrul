@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - feature/shared-data-center
+      - launch-hardening
       - shared-password-sync
       - launch-hardening
+      - individual-auth-foundation
   pull_request:
     branches:
       - main
