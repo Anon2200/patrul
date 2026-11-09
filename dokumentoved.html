@@ -152,7 +152,7 @@ function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[],
  {k:uid(),d:add(b,4),t:'16:00',te:'',title:'Передать материалы руководителю патруля',type:'Сдача документов',rec:'week',until:'',who:'',note:''}],
  done:{},jr:{},mat:[],out:[],tasks:[],bk:0}}
 function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','mat','out','tasks'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.jr=j.jr||{};j.bk=j.bk||0;return j}
-function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
+function load(){return norm(seed())}
 let D=load(),tab='ov',wk=mon(today()),cm=today().slice(0,7)+'-01',csel=today(),jsel=today(),lastUndo=null,mper='',mst='',mq='',tkf='act',doc='d1',dd=today(),p1=mon(today()),p2=add(mon(today()),6),dto='boss',selOut='',dgrp='';
 
 function eventsOn(s){const w=wd(s);return D.events.filter(v=>v.rec=='none'?v.d==s:(v.d<=s&&(!v.until||s<=v.until)&&(v.rec=='daily'||(v.rec=='work'&&w<5)||(v.rec=='week'&&wd(v.d)==w)))).sort((a,b)=>(a.t||'99').localeCompare(b.t||'99'))}
