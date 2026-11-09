@@ -441,22 +441,6 @@ test('login rate limit blocks repeated invalid credentials', async () => {
   assert.ok(Number(limited.headers.get('retry-after')) > 0);
 });
 
-test('login rate limit also bounds attempts across different usernames from one IP', async () => {
-  for (let attempt = 0; attempt < 52; attempt += 1) {
-    const response = await sessionApi('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username: 'ip.limit.' + attempt, password: 'definitely-wrong-password' })
-    });
-    assert.equal(response.status, 401, 'attempt ' + (attempt + 1) + ' should be below the IP limit');
-  }
-  const blocked = await sessionApi('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: 'ip.limit.overflow', password: 'definitely-wrong-password' })
-  });
-  assert.equal(blocked.status, 429);
-  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
-});
-
 test('administrator cannot disable or change the role of the last admin account', async () => {
   const me = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(me.status, 200);
@@ -538,6 +522,22 @@ test('password reset issues a temporary password and revokes existing sessions',
   assert.equal(roleRevoked.status, 401);
   const newRoleRevoked = await sessionApi('/api/session-data/dokumentoved', {}, freshCookie);
   assert.equal(newRoleRevoked.status, 401);
+});
+
+test('login rate limit also bounds attempts across different usernames from one IP', async () => {
+  for (let attempt = 0; attempt < 52; attempt += 1) {
+    const response = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'ip.limit.' + attempt, password: 'definitely-wrong-password' })
+    });
+    assert.equal(response.status, 401, 'attempt ' + (attempt + 1) + ' should be below the IP limit');
+  }
+  const blocked = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ip.limit.overflow', password: 'definitely-wrong-password' })
+  });
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
 });
 
 test('expired server sessions are rejected', async () => {
