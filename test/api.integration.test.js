@@ -6,7 +6,7 @@ const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
 process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64url');
-const { encryptData, decryptData } = require('../data-crypto');
+const { encryptData, decryptData, migratePlaintextRows } = require('../data-crypto');
 
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -239,6 +239,19 @@ test('legacy plaintext database rows are encrypted on first read without changin
   const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['dokumentoved']);
   assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
   assert.equal(JSON.stringify(stored.rows[0].data).includes('legacy-row-to-migrate'), false);
+});
+
+test('startup migration encrypts all existing plaintext role rows', async () => {
+  const legacy = { startupMigrationMarker: 'encrypt-before-serving', safe: true };
+  await pool.query(
+    'INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW())',
+    ['uchet', JSON.stringify(legacy)]
+  );
+  const migrated = await migratePlaintextRows(pool);
+  assert.equal(migrated, 1);
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['uchet']);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.deepEqual(decryptData(stored.rows[0].data, 'uchet'), legacy);
 });
 
 test('unknown roles and malformed write payloads are rejected', async () => {
