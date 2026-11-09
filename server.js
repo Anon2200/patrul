@@ -162,6 +162,16 @@ async function readJson(req) {
 
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
+  const configuredTokens = Object.entries(ROLE_TOKEN_ENV)
+    .map(([role, envName]) => ({ role, envName, value: process.env[envName] || '' }))
+    .filter(item => item.value);
+  const weakTokens = configuredTokens.filter(item => Buffer.byteLength(item.value, 'utf8') < 32);
+  if (weakTokens.length) {
+    throw new Error('Role access tokens must contain at least 32 UTF-8 bytes: ' + weakTokens.map(item => item.envName).join(', '));
+  }
+  if (new Set(configuredTokens.map(item => item.value)).size !== configuredTokens.length) {
+    throw new Error('Each configured role must have a different access token');
+  }
   const missingRoleTokens = Object.values(ROLE_TOKEN_ENV).filter(name => !process.env[name]);
   if (missingRoleTokens.length) {
     console.warn('Role data access is disabled for roles without configured tokens:', missingRoleTokens.join(', '));
