@@ -18,9 +18,24 @@ function fail(message) {
 const server = fs.readFileSync('server.js', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const serviceWorker = fs.readFileSync('sw.js', 'utf8');
+const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
+
+if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
+  fail('server must route requests through the individual authentication module');
+}
+if (!server.includes("PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true'")) {
+  fail('legacy shared role-token API must be disabled by default');
+}
+for (const route of ['/api/auth/login', '/api/auth/me', '/api/auth/change-password', '/api/admin/users', '/api/session-data/']) {
+  if (!cloudSync.includes(route)) fail('browser client missing individual-auth route ' + route);
+}
+if (cloudSync.includes('Authorization') || cloudSync.includes('Bearer ')) {
+  fail('browser client must not send shared bearer tokens');
+}
+
 
 for (const [file, role] of Object.entries(rolePages)) {
   if (!server.includes("['/" + file + "', '" + file + "']")) {
