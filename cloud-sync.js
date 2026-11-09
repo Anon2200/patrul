@@ -152,7 +152,9 @@
         ready = true;
         await upload(current);
       } else {
-        const remoteSnapshot = JSON.stringify(norm(data.data));
+        const remoteCopy = norm(data.data);
+        if (remoteCopy.sx && typeof remoteCopy.sx === 'object') delete remoteCopy.sx.pw;
+        const remoteSnapshot = JSON.stringify(remoteCopy);
         const localChanged = !!previous && previous.snapshot !== current;
         const serverChanged = !!previous && Number(previous.version) !== version;
         const firstConnectionConflict = !previous && current !== remoteSnapshot;
