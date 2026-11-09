@@ -262,7 +262,12 @@ test('personal login session, CSRF protection, and role authorization work', asy
   assert.equal(meBody.user.username, 'senior.master');
   adminCsrf = meBody.csrfToken;
 
-  const noCsrf = await sessionApi('/api/admin/users', {}, adminCookie);
+  const adminRead = await sessionApi('/api/admin/users', {}, adminCookie);
+  assert.equal(adminRead.status, 200);
+  const noCsrf = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'blocked.create', displayName: 'Blocked Create', role: 'zam' })
+  }, adminCookie);
   assert.equal(noCsrf.status, 403);
 
   const create = await sessionApi('/api/admin/users', {
