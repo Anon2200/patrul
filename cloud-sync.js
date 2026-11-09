@@ -170,7 +170,7 @@
       const serverChanged=hadLocalData&&!!previous&&Number(previous.version)!==version;
       const firstConflict=hadLocalData&&!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
-        const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\\n\\nОК — скачать НЕЗАШИФРОВАННУЮ копию локальных данных и загрузить облачную версию.\\nОтмена — оставить раздел закрытым; локальные данные не удаляются.');
+        const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать НЕЗАШИФРОВАННУЮ копию локальных данных и загрузить облачную версию.\\nОтмена — оставить раздел закрытым; локальные данные не удаляются.');
         if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Раздел оставлен закрытым, локальный кэш сохранён. Повторите вход и выберите серверную версию после сохранения локальной копии.');}
         if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
       }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');unlockPage();return;}
