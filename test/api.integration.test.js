@@ -9,10 +9,10 @@ const { Pool } = require('pg');
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
 const tokens = {
-  nachalnik: 'ci-token-nachalnik-not-production',
-  zam: 'ci-token-zam-not-production',
-  uchet: 'ci-token-uchet-not-production',
-  dokumentoved: 'ci-token-dokumentoved-not-production'
+  nachalnik: 'ci-only-nachalnik-token-2026-not-production',
+  zam: 'ci-only-zam-token-2026-not-production',
+  uchet: 'ci-only-uchet-token-2026-not-production',
+  dokumentoved: 'ci-only-dokumentoved-token-2026-not-production'
 };
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@127.0.0.1:5432/patrul_test';
 
