@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 const { createAuth } = require('./auth');
+const { validateDataEncryptionKey, encryptData, readRoleData } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROLE_TOKEN_ENV = {
@@ -164,6 +165,7 @@ async function readJson(req) {
 
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
+  validateDataEncryptionKey();
   const configuredTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.entries(ROLE_TOKEN_ENV)
     .map(([role, envName]) => ({ role, envName, value: process.env[envName] || '' }))
     .filter(item => item.value) : [];
@@ -236,7 +238,7 @@ const server = http.createServer(async (req, res) => {
       const row = result.rows[0];
       return send(res, 200, {
         role,
-        data: row.data,
+        data: await readRoleData(pool, role, row),
         version: Number(row.version),
         updatedAt: row.updated_at
       });
@@ -258,7 +260,7 @@ const server = http.createServer(async (req, res) => {
       'version = patrul_role_data.version + 1, updated_at = NOW() ' +
       'WHERE patrul_role_data.version = $3 ' +
       'RETURNING data, version, updated_at',
-      [role, JSON.stringify(body.data), body.expectedVersion]
+      [role, JSON.stringify(encryptData(body.data, role)), body.expectedVersion]
     );
 
     if (result.rowCount === 0) {
@@ -275,7 +277,7 @@ const server = http.createServer(async (req, res) => {
     const row = result.rows[0];
     return send(res, 200, {
       role,
-      data: row.data,
+      data: body.data,
       version: Number(row.version),
       updatedAt: row.updated_at
     });
