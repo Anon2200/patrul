@@ -36,6 +36,13 @@ function publicUser(u) {
     systemAdmin:u.is_system_admin,mustChangePassword:u.must_change_password,createdAt:u.created_at};
 }
 function loginKey(req,name) { return (req.socket.remoteAddress||'unknown')+':'+String(name).toLowerCase().slice(0,100); }
+function loginIpKey(req) { return 'ip:' + (req.socket.remoteAddress || 'unknown'); }
+function failedIp(req) {
+  const now=Date.now(), key=loginIpKey(req); let x=loginFailures.get(key);
+  if(!x||x.until<=now) x={count:0,until:now+900000};
+  x.count++; if(loginFailures.size>10000) loginFailures.delete(loginFailures.keys().next().value); loginFailures.set(key,x);
+  return x.count;
+}
 function failed(req,name) {
   const now=Date.now(), key=loginKey(req,name); let x=loginFailures.get(key);
   if(!x||x.until<=now) x={count:0,until:now+900000};
@@ -97,15 +104,16 @@ function createAuth(pool,send,readJson) {
       }
       if(p==='/api/auth/login'&&req.method==='POST') {
         if(!sameOrigin(req)){send(res,403,{error:'Недопустимый источник'});return true;}
-        const b=await readJson(req), name=typeof b.username==='string'?b.username.trim().slice(0,100):'', key=loginKey(req,name), old=loginFailures.get(key);
+        const b=await readJson(req), name=typeof b.username==='string'?b.username.trim().slice(0,100):'', key=loginKey(req,name), old=loginFailures.get(key), ipState=loginFailures.get(loginIpKey(req));
+        if(ipState&&ipState.until>Date.now()&&ipState.count>=60){send(res,429,{error:'Слишком много попыток с этого адреса. Повторите позже.'},{'retry-after':String(Math.ceil((ipState.until-Date.now())/1000))});return true;}
         if(old&&old.until>Date.now()&&old.count>=8){send(res,429,{error:'Слишком много попыток. Повторите позже.'},{'retry-after':String(Math.ceil((old.until-Date.now())/1000))});return true;}
         const q=await pool.query('SELECT * FROM patrul_users WHERE lower(username)=lower($1) LIMIT 1',[name]), u=q.rows[0];
         const hashToCheck=u?u.password_hash:await dummyPasswordHash;
         const suppliedPassword=typeof b.password==='string'&&Buffer.byteLength(b.password,'utf8')<=256?b.password:'';
         const passwordMatches=await verifyPassword(suppliedPassword,hashToCheck);
         const ok=!!(u&&u.is_active&&passwordMatches);
-        if(!ok){failed(req,name);send(res,401,{error:'Неверный логин или пароль'});return true;}
-        loginFailures.delete(key); await audit(u.id,'login_success',u.id);
+        if(!ok){failed(req,name);failedIp(req);send(res,401,{error:'Неверный логин или пароль'});return true;}
+        loginFailures.delete(key);loginFailures.delete(loginIpKey(req)); await audit(u.id,'login_success',u.id);
         const csrf=await newSession(u,res); send(res,200,{user:publicUser(u),csrfToken:csrf}); return true;
       }
       if(p==='/api/auth/me'&&req.method==='GET') {
