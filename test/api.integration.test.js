@@ -100,6 +100,20 @@ test('health endpoint confirms PostgreSQL connectivity', async () => {
   assert.deepEqual(await response.json(), { ok: true, database: 'connected' });
 });
 
+test('security headers are present on API and static responses', async () => {
+  const apiResponse = await api('/api/health');
+  assert.equal(apiResponse.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(apiResponse.headers.get('x-frame-options'), 'DENY');
+  assert.equal(apiResponse.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.equal(apiResponse.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+  assert.equal(apiResponse.headers.get('cache-control'), 'no-store');
+
+  const pageResponse = await api('/index.html');
+  assert.equal(pageResponse.status, 200);
+  assert.equal(pageResponse.headers.get('x-frame-options'), 'DENY');
+  assert.equal(pageResponse.headers.get('cache-control'), 'no-store');
+});
+
 test('data endpoints reject requests without a role token', async () => {
   const response = await api('/api/data/nachalnik');
   assert.equal(response.status, 401);
