@@ -64,6 +64,7 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       DATABASE_URL: databaseUrl,
+      PATRUL_LEGACY_ROLE_TOKENS_ENABLED: 'true',
       PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
       PATRUL_TOKEN_ZAM: tokens.zam,
       PATRUL_TOKEN_UCHET: tokens.uchet,
