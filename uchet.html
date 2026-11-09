@@ -95,7 +95,7 @@ function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){
 function norm(j){j.set=Object.assign({},SET0,j.set);j.ops=j.ops||[];j.ops.forEach(o=>{o.k=o.k||Math.random().toString(36).slice(2);o.ts=o.ts||0});j.items.forEach(i=>{if(i.date===undefined)i.date='2026-10-28';i.inv=i.inv||0;if(i.daily===undefined)i.daily=i.cat=='Патрульный инвентарь'&&i.id!='ПИ-019'});j.bk=j.bk||0;j.checks=j.checks||[];j.rep=j.rep||[];j.audit=j.audit||[];j.items.forEach(i=>{i.sn=i.sn||''});j.notes=j.notes||'';j.items.forEach(i=>{i.to=i.to||''});return j}
 let D=load(),tab='ov',q='',cf='',sf='',sk='id',sd=1,jq='',jo='',doc='d1',dn='',dd=today(),iq='',ic_='',lastUndo=null;
 let dirty=false,ckv={},ckw='',ckd=today(),ckSel='',pf='',sel=new Set(),jf='',jt='',cid='';
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function save(){}
 function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
 function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2000)}
 /* ---------- расчёты ---------- */
