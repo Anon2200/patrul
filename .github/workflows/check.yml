@@ -5,6 +5,7 @@ on:
     branches:
       - feature/shared-data-center
       - shared-password-sync
+      - security-auth
   pull_request:
     branches:
       - main
