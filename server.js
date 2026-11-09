@@ -15,6 +15,9 @@ const ROLE_TOKEN_ENV = {
 };
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ROLES = new Set(['nachalnik', 'zam', 'uchet', 'dokumentoved']);
+const AUTH_FAILURE_LIMIT = 10;
+const AUTH_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const authFailures = new Map();
 
 // Разрешённые публичные файлы интерфейса. Не отдаём произвольные файлы с диска.
 const PUBLIC_FILES = new Map([
@@ -86,16 +89,42 @@ const pool = new Pool({
 
 pool.on('error', (err) => console.error('Unexpected PostgreSQL client error:', err.message));
 
-function send(res, status, body) {
+function send(res, status, body, extraHeaders = {}) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
     'referrer-policy': 'strict-origin-when-cross-origin',
-    'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+    'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+    ...extraHeaders
   });
   res.end(JSON.stringify(body));
+}
+
+function authFailureKey(req, role) {
+  return (req.socket.remoteAddress || 'unknown') + ':' + role;
+}
+
+function recordAuthFailure(req, role) {
+  const now = Date.now();
+  const key = authFailureKey(req, role);
+  let entry = authFailures.get(key);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + AUTH_FAILURE_WINDOW_MS };
+  }
+  entry.count += 1;
+  authFailures.delete(key);
+  // Keep the in-memory limiter bounded if many client addresses are seen.
+  if (authFailures.size >= 10000) authFailures.delete(authFailures.keys().next().value);
+  authFailures.set(key, entry);
+  return entry.count > AUTH_FAILURE_LIMIT
+    ? Math.max(1, Math.ceil((entry.resetAt - now) / 1000))
+    : 0;
+}
+
+function clearAuthFailures(req, role) {
+  authFailures.delete(authFailureKey(req, role));
 }
 
 function authorized(req, role) {
@@ -166,7 +195,16 @@ const server = http.createServer(async (req, res) => {
   }
   const role = match[1];
   if (!ROLES.has(role)) return send(res, 400, { error: 'Неизвестная роль' });
-  if (!authorized(req, role)) return send(res, 401, { error: 'Нет доступа к данным этой роли' });
+  if (!authorized(req, role)) {
+    const retryAfter = recordAuthFailure(req, role);
+    if (retryAfter) {
+      return send(res, 429, { error: 'Слишком много неверных попыток. Повторите позже.' }, {
+        'retry-after': String(retryAfter)
+      });
+    }
+    return send(res, 401, { error: 'Нет доступа к данным этой роли' });
+  }
+  clearAuthFailures(req, role);
 
   try {
     if (req.method === 'GET') {
