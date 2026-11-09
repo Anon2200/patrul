@@ -129,6 +129,7 @@ test('security headers are present on API and static responses', async () => {
   const pageResponse = await api('/index.html');
   assert.equal(pageResponse.status, 200);
   assert.equal(pageResponse.headers.get('x-frame-options'), 'DENY');
+  assert.equal(pageResponse.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains');
   assert.equal(pageResponse.headers.get('cache-control'), 'no-store');
 });
 
