@@ -4,7 +4,7 @@
   const tokenKey = 'patrul_shared_password';
   const metaKey = 'patrul_cloud_meta_' + role;
   const api = '/api/data/' + encodeURIComponent(role);
-  let version = 0, ready = false, busy = false, queued = false, timer = null;
+  let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null;
   const originalSave = save;
 
   const badge = document.createElement('div');
@@ -125,7 +125,7 @@
   }
   save = function () {
     originalSave();
-    if (ready) scheduleUpload();
+    if (ready && !suppressUpload) scheduleUpload();
   };
 
   async function start() {
@@ -187,7 +187,8 @@
         originalSave();
         saveMeta(localSnapshot());
         ready = true;
-        draw();
+        suppressUpload = true;
+        try { draw(); } finally { suppressUpload = false; }
         status('подключено · данные загружены', '#176b50');
       }
     } catch (err) {
