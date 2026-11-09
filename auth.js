@@ -39,7 +39,7 @@ function failed(req,name) {
   x.count++; if(loginFailures.size>10000) loginFailures.delete(loginFailures.keys().next().value); loginFailures.set(key,x);
   return x.count;
 }
-async function createAuth(pool,send,readJson) {
+function createAuth(pool,send,readJson) {
   async function audit(actor,event,target,details={}) {
     await pool.query('INSERT INTO patrul_audit_log(actor_user_id,event_type,target_user_id,details) VALUES($1,$2,$3,$4::jsonb)',
       [actor,event,target,JSON.stringify(details)]);
