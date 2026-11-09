@@ -65,6 +65,7 @@ before(async () => {
       PORT: String(port),
       DATABASE_URL: databaseUrl,
       PATRUL_LEGACY_ROLE_TOKENS_ENABLED: 'true',
+      PATRUL_BOOTSTRAP_SECRET: 'ci-bootstrap-secret-only-not-production',
       PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
       PATRUL_TOKEN_ZAM: tokens.zam,
       PATRUL_TOKEN_UCHET: tokens.uchet,
@@ -210,4 +211,124 @@ test('unknown roles and malformed write payloads are rejected', async () => {
     body: JSON.stringify({ expectedVersion: -1, data: {} })
   });
   assert.equal(malformed.status, 400);
+});
+
+
+let adminCookie = '';
+let adminCsrf = '';
+let employeeCookie = '';
+let employeeCsrf = '';
+let employeeId = '';
+let employeeTemporaryPassword = '';
+
+async function sessionApi(path, options = {}, cookie = '', csrf = '') {
+  return fetch(baseUrl + path, {
+    ...options,
+    headers: {
+      'origin': baseUrl,
+      'x-forwarded-proto': 'http',
+      ...(cookie ? { cookie } : {}),
+      ...(csrf ? { 'x-patrul-csrf': csrf } : {}),
+      ...(options.body ? { 'content-type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+test('bootstrap creates the first Senior Master admin and establishes a session', async () => {
+  const response = await sessionApi('/api/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({
+      bootstrapSecret: 'ci-bootstrap-secret-only-not-production',
+      username: 'senior.master',
+      displayName: 'CI Senior Master',
+      password: 'CI-Admin-Password-Only-For-Tests-2026!'
+    })
+  });
+  assert.equal(response.status, 201);
+  const result = await response.json();
+  assert.equal(result.user.role, 'uchet');
+  assert.equal(result.user.systemAdmin, true);
+  adminCsrf = result.csrfToken;
+  adminCookie = (response.headers.get('set-cookie') || '').split(';')[0];
+  assert.match(adminCookie, /^__Host-patrul_session=/);
+  assert.ok(adminCsrf.length >= 40);
+});
+
+test('personal login session, CSRF protection, and role authorization work', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  const meBody = await me.json();
+  assert.equal(meBody.user.username, 'senior.master');
+  adminCsrf = meBody.csrfToken;
+
+  const noCsrf = await sessionApi('/api/admin/users', {}, adminCookie);
+  assert.equal(noCsrf.status, 403);
+
+  const create = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', displayName: 'CI Employee', role: 'zam' })
+  }, adminCookie, adminCsrf);
+  assert.equal(create.status, 201);
+  const created = await create.json();
+  employeeId = created.user.id;
+  employeeTemporaryPassword = created.temporaryPassword;
+  assert.ok(employeeTemporaryPassword.length >= 20);
+  assert.equal(created.user.mustChangePassword, true);
+
+  const employeeLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: employeeTemporaryPassword })
+  });
+  assert.equal(employeeLogin.status, 200);
+  const loginBody = await employeeLogin.json();
+  employeeCsrf = loginBody.csrfToken;
+  employeeCookie = (employeeLogin.headers.get('set-cookie') || '').split(';')[0];
+  assert.equal(loginBody.user.role, 'zam');
+  assert.equal(loginBody.user.mustChangePassword, true);
+
+  const blockedUntilPasswordChange = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(blockedUntilPasswordChange.status, 403);
+
+  const changed = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      currentPassword: employeeTemporaryPassword,
+      newPassword: 'CI-Employee-Changed-Password-2026!'
+    })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(changed.status, 200);
+
+  const allowed = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(allowed.status, 200);
+  const forbidden = await sessionApi('/api/session-data/nachalnik', {}, employeeCookie);
+  assert.equal(forbidden.status, 403);
+
+  const writeWithoutCsrf = await sessionApi('/api/session-data/zam', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { ci: true } })
+  }, employeeCookie);
+  assert.equal(writeWithoutCsrf.status, 403);
+
+  const write = await sessionApi('/api/session-data/zam', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { ci: true } })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(write.status, 200);
+  assert.equal((await write.json()).version, 1);
+});
+
+test('administrator can block a user and all that user sessions are revoked', async () => {
+  const adminMe = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(adminMe.status, 200);
+  adminCsrf = (await adminMe.json()).csrfToken;
+
+  const block = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: false, role: 'zam', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(block.status, 200);
+
+  const revoked = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(revoked.status, 401);
 });
