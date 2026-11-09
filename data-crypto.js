@@ -19,14 +19,19 @@ function validateDataEncryptionKey() {
   getKey();
 }
 
+function keyId(key) {
+  return crypto.createHash('sha256').update(key).digest('hex').slice(0, 16);
+}
+
 function isEncryptedData(value) {
   return !!value && typeof value === 'object' && value.__patrul_encrypted === 1 &&
-    value.alg === 'A256GCM' && typeof value.iv === 'string' &&
+    value.alg === 'A256GCM' && typeof value.kid === 'string' && typeof value.iv === 'string' &&
     typeof value.tag === 'string' && typeof value.ciphertext === 'string';
 }
 
 function encryptData(value, role) {
   const key = getKey();
+  const kid = keyId(key);
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   cipher.setAAD(Buffer.from('patrul-role-data:v1:' + role, 'utf8'));
@@ -35,6 +40,7 @@ function encryptData(value, role) {
   return {
     __patrul_encrypted: 1,
     alg: 'A256GCM',
+    kid,
     iv: iv.toString('base64url'),
     tag: cipher.getAuthTag().toString('base64url'),
     ciphertext: ciphertext.toString('base64url')
@@ -43,7 +49,9 @@ function encryptData(value, role) {
 
 function decryptData(value, role) {
   if (!isEncryptedData(value)) return value;
-  const decipher = crypto.createDecipheriv('aes-256-gcm', getKey(), Buffer.from(value.iv, 'base64url'));
+  const key = getKey();
+  if (value.kid !== keyId(key)) throw new Error('PATRUL_DATA_ENCRYPTION_KEY does not match stored data');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(value.iv, 'base64url'));
   decipher.setAAD(Buffer.from('patrul-role-data:v1:' + role, 'utf8'));
   decipher.setAuthTag(Buffer.from(value.tag, 'base64url'));
   const plaintext = Buffer.concat([
@@ -60,7 +68,7 @@ async function migratePlaintextRows(pool) {
     const rows = await client.query('SELECT role, data, version FROM patrul_role_data FOR UPDATE');
     let migrated = 0;
     for (const row of rows.rows) {
-      if (isEncryptedData(row.data)) continue;
+      if (isEncryptedData(row.data)) { decryptData(row.data, row.role); continue; }
       const encrypted = encryptData(row.data, row.role);
       await client.query(
         'UPDATE patrul_role_data SET data = $1::jsonb WHERE role = $2 AND version = $3',
