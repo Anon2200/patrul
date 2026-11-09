@@ -477,6 +477,29 @@ test('password reset issues a temporary password and revokes existing sessions',
   assert.equal(freshLogin.status, 200);
   const freshBody = await freshLogin.json();
   assert.equal(freshBody.user.mustChangePassword, true);
+  const freshCookie = (freshLogin.headers.get('set-cookie') || '').split(';')[0];
+
+  const changed = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      currentPassword: temporaryPassword,
+      newPassword: 'CI-Employee-After-Reset-2026!'
+    })
+  }, freshCookie, freshBody.csrfToken);
+  assert.equal(changed.status, 200);
+
+  const adminAgain = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(adminAgain.status, 200);
+  adminCsrf = (await adminAgain.json()).csrfToken;
+  const roleChange = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'dokumentoved', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(roleChange.status, 200);
+  const roleRevoked = await sessionApi('/api/session-data/zam', {}, freshCookie);
+  assert.equal(roleRevoked.status, 401);
+  const newRoleRevoked = await sessionApi('/api/session-data/dokumentoved', {}, freshCookie);
+  assert.equal(newRoleRevoked.status, 401);
 });
 
 test('expired server sessions are rejected', async () => {
