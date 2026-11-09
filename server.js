@@ -7,7 +7,12 @@ const path = require('node:path');
 const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 3000);
-const API_TOKEN = process.env.PATRUL_API_TOKEN || '';
+const ROLE_TOKEN_ENV = {
+  nachalnik: 'PATRUL_TOKEN_NACHALNIK',
+  zam: 'PATRUL_TOKEN_ZAM',
+  uchet: 'PATRUL_TOKEN_UCHET',
+  dokumentoved: 'PATRUL_TOKEN_DOKUMENTOVED'
+};
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ROLES = new Set(['nachalnik', 'zam', 'uchet', 'dokumentoved']);
 
@@ -87,13 +92,15 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function authorized(req) {
-  if (!API_TOKEN) return false;
+function authorized(req, role) {
+  const envName = ROLE_TOKEN_ENV[role];
+  const expected = envName ? process.env[envName] || '' : '';
+  if (!expected) return false;
   const header = req.headers.authorization || '';
   const supplied = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!supplied) return false;
   const a = Buffer.from(supplied);
-  const b = Buffer.from(API_TOKEN);
+  const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
@@ -120,7 +127,10 @@ async function readJson(req) {
 
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
-  if (!API_TOKEN) console.warn('PATRUL_API_TOKEN is not set; data endpoints are disabled.');
+  const missingRoleTokens = Object.values(ROLE_TOKEN_ENV).filter(name => !process.env[name]);
+  if (missingRoleTokens.length) {
+    console.warn('Role data access is disabled for roles without configured tokens:', missingRoleTokens.join(', '));
+  }
   await pool.query(
     'CREATE TABLE IF NOT EXISTS patrul_role_data (' +
     'role TEXT PRIMARY KEY, data JSONB NOT NULL, ' +
@@ -148,10 +158,9 @@ const server = http.createServer(async (req, res) => {
   if (!match || !['GET', 'PUT'].includes(req.method)) {
     return send(res, 404, { error: 'Маршрут не найден' });
   }
-  if (!authorized(req)) return send(res, 401, { error: 'Требуется авторизация' });
-
   const role = match[1];
   if (!ROLES.has(role)) return send(res, 400, { error: 'Неизвестная роль' });
+  if (!authorized(req, role)) return send(res, 401, { error: 'Нет доступа к данным этой роли' });
 
   try {
     if (req.method === 'GET') {
