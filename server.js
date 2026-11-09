@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { createAuth } = require('./auth');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROLE_TOKEN_ENV = {
@@ -128,6 +129,7 @@ function clearAuthFailures(req, role) {
 }
 
 function authorized(req, role) {
+  if (process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true') return false;
   const envName = ROLE_TOKEN_ENV[role];
   const expected = envName ? process.env[envName] || '' : '';
   if (!expected) return false;
@@ -181,10 +183,16 @@ async function initDatabase() {
     'role TEXT PRIMARY KEY, data JSONB NOT NULL, ' +
     'version BIGINT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())'
   );
+  const identitySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '001_identity_schema.sql'), 'utf8');
+  await pool.query(identitySchema);
 }
+
+const handleAuth = createAuth(pool, send, readJson);
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+
+  if (await handleAuth(req, res, url)) return;
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
     try {
