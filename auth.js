@@ -58,12 +58,12 @@ function createAuth(pool,send,readJson) {
   async function csrfOk(req,s) {
     return sameOrigin(req)&&typeof req.headers['x-patrul-csrf']==='string'&&equal(sha(req.headers['x-patrul-csrf']),s.csrf_token_hash);
   }
-  async function admin(req,res) {
+  async function admin(req,res,needsCsrf) {
     const s=await sessionFor(req);
     if(!s){send(res,401,{error:'Требуется персональный вход'});return null;}
     if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return null;}
     if(!s.is_system_admin){send(res,403,{error:'Недостаточно прав'});return null;}
-    if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return null;}
+    if(needsCsrf&&!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return null;}
     return s;
   }
   return async function handle(req,res,url) {
@@ -126,7 +126,7 @@ function createAuth(pool,send,readJson) {
         send(res,200,{ok:true});return true;
       }
       if(p.startsWith('/api/admin/')) {
-        const s=await admin(req,res);if(!s)return true;
+        const s=await admin(req,res,req.method!=='GET');if(!s)return true;
         if(p==='/api/admin/users'&&req.method==='GET'){
           const q=await pool.query('SELECT id,username,display_name,role,is_active,is_system_admin,must_change_password,created_at FROM patrul_users ORDER BY lower(username)');
           send(res,200,{users:q.rows.map(publicUser)});return true;
