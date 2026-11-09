@@ -5,6 +5,7 @@ on:
     branches:
       - feature/shared-data-center
       - shared-password-sync
+      - launch-hardening
   pull_request:
     branches:
       - main
@@ -32,7 +33,10 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/patrul_test
-      PATRUL_API_TOKEN: ci-test-token-not-for-production
+      PATRUL_TOKEN_NACHALNIK: ci-token-nachalnik-not-production
+      PATRUL_TOKEN_ZAM: ci-token-zam-not-production
+      PATRUL_TOKEN_UCHET: ci-token-uchet-not-production
+      PATRUL_TOKEN_DOKUMENTOVED: ci-token-dokumentoved-not-production
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
