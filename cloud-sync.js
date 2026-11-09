@@ -2,9 +2,11 @@
   'use strict';
   const role = window.PATRUL_ROLE;
   const api = '/api/session-data/' + encodeURIComponent(role);
-  let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null;
+  let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null, unsavedChanges = false;
   let csrfToken = '', currentUser = null;
-  const originalSave = save;
+  const localDataKey = role + '_v1';
+  function clearLocalData(){try{localStorage.removeItem(localDataKey);}catch(_){}}
+  window.addEventListener('beforeunload',event=>{if(unsavedChanges){event.preventDefault();event.returnValue='';}});
   function unlockPage(){const gate=document.getElementById('patrul-auth-gate');if(gate)gate.remove();document.body.style.visibility='';}
 
   const badge = document.createElement('div');
@@ -83,18 +85,20 @@
     });
   }
   async function upload(snapshot) {
-    if(!ready||busy){queued=true;return;}busy=true;queued=false;
+    if(!ready||busy){queued=true;return false;}busy=true;queued=false;
+    let saved=false;
     try{
       const r=await request(api,'PUT',{expectedVersion:version,data:JSON.parse(snapshot)});
-      if(r.response.status===409){ready=false;status('конфликт версий — ничего не перезаписано','#9a6700');alert('Данные изменились на другом устройстве. Обновите страницу и проверьте актуальную версию.');}
+      if(r.response.status===409){ready=false;status('конфликт версий — ничего не перезаписано','#9a6700');alert('Данные изменились на другом устройстве. Ничего не перезаписано. Обновите страницу и повторите проверку.');}
       else if(r.response.status===401){ready=false;status('сеанс завершён — войдите снова','#9a6700');}
       else if(!r.response.ok){status(r.result.error||'ошибка сохранения','#9a6700');}
-      else{version=Number(r.result.version||version);await saveMeta(snapshot);status('подключено · сохранено','#176b50');}
-    }catch(_){status('нет связи; данные остались на устройстве','#9a6700');}
+      else{version=Number(r.result.version||version);await saveMeta(snapshot);clearLocalData();unsavedChanges=false;saved=true;status('подключено · сохранено','#176b50');}
+    }catch(_){status('нет связи; изменения пока не сохранены на сервере','#9a6700');}
     finally{busy=false;if(queued&&ready){queued=false;scheduleUpload();}}
+    return saved;
   }
-  function scheduleUpload(){if(!ready)return;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
-  save=function(){originalSave();if(ready&&!suppressUpload)scheduleUpload();};
+  function scheduleUpload(){if(!ready)return;unsavedChanges=true;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
+  save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();};
 
   async function adminPanel() {
     const p=panel('<h3 style="margin-top:0">Управление сотрудниками</h3><p data-msg style="color:#b42318"></p><form data-create><input name="displayName" placeholder="ФИО сотрудника" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><select name="role" style="width:100%;padding:9px;margin:4px 0"><option value="nachalnik">Начальник</option><option value="zam">Заместитель</option><option value="uchet">Старший мастер</option><option value="dokumentoved">Документовед</option></select><button style="padding:10px;background:#167d70;color:white;border:0;border-radius:8px">Создать сотрудника</button></form><hr><div data-users>Загрузка…</div><button type="button" data-audit style="margin-top:10px;padding:9px">Журнал действий</button><div data-audit-list></div><button type="button" data-close style="margin-top:14px;padding:9px">Закрыть</button>');
@@ -153,7 +157,7 @@
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
-      if(data.data===null){ready=true;await upload(local);unlockPage();return;}
+      if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');unlockPage();return;}
       const remote=norm(data.data);if(remote.sx&&typeof remote.sx==='object')delete remote.sx.pw;
       const remoteSnapshot=JSON.stringify(remote);
       const localChanged=!!previous&&previous.fingerprint!==localFingerprint;
@@ -161,10 +165,10 @@
       const firstConflict=!previous&&local!==remoteSnapshot;
       if(firstConflict||(localChanged&&serverChanged)){
         const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать резервную копию этого устройства и загрузить облачную версию.\nОтмена — оставить локальные данные без изменений.');
-        if(!useCloud){status('разные версии — локальные данные сохранены','#9a6700');unlockPage();return;}
-        if(!backup(local)){status('не удалось создать резервную копию','#9a6700');return;}
-      }else if(localChanged&&!serverChanged){ready=true;await upload(local);return;}
-      loadCloudData(data.data);originalSave();await saveMeta(localSnapshot());ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
+        if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Локальные данные не удалены; обновите страницу и выберите серверную версию после сохранения локальной копии.');}
+        if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
+      }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');unlockPage();return;}
+      loadCloudData(data.data);await saveMeta(localSnapshot());clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
       status('подключено · данные загружены','#176b50');unlockPage();
     }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
