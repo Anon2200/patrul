@@ -53,8 +53,11 @@ async function servePublicFile(req, res, pathname) {
     res.writeHead(200, {
       'content-type': CONTENT_TYPES[path.extname(fileName)] || 'application/octet-stream',
       'content-length': stat.size,
-      'cache-control': fileName.endsWith('.html') ? 'no-cache' : 'public, max-age=3600',
-      'x-content-type-options': 'nosniff'
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'permissions-policy': 'camera=(), microphone=(), geolocation=()'
     });
     if (req.method === 'HEAD') {
       res.end();
@@ -87,7 +90,10 @@ function send(res, status, body) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff'
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=()'
   });
   res.end(JSON.stringify(body));
 }
