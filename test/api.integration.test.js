@@ -66,6 +66,7 @@ before(async () => {
       DATABASE_URL: databaseUrl,
       PATRUL_LEGACY_ROLE_TOKENS_ENABLED: 'true',
       PATRUL_BOOTSTRAP_SECRET: 'ci-bootstrap-secret-only-not-production',
+      PATRUL_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64url'),
       PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
       PATRUL_TOKEN_ZAM: tokens.zam,
       PATRUL_TOKEN_UCHET: tokens.uchet,
@@ -154,6 +155,14 @@ test('first write creates version 1 and GET returns the saved JSON', async () =>
   const loaded = await read.json();
   assert.equal(loaded.version, 1);
   assert.deepEqual(loaded.data, data);
+});
+
+test('role data is encrypted in PostgreSQL rather than stored as plaintext JSON', async () => {
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['nachalnik']);
+  assert.equal(stored.rowCount, 1);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(stored.rows[0].data.alg, 'A256GCM');
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('integration-test'), false);
 });
 
 test('stale expectedVersion is rejected without overwriting saved data', async () => {
