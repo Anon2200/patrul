@@ -123,7 +123,7 @@ test('security headers are present on API and static responses', async () => {
   assert.equal(apiResponse.headers.get('x-frame-options'), 'DENY');
   assert.equal(apiResponse.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains');
   assert.equal(apiResponse.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
-  assert.equal(apiResponse.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+  assert.equal(apiResponse.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=()');
   assert.equal(apiResponse.headers.get('cache-control'), 'no-store');
 
   const pageResponse = await api('/index.html');
