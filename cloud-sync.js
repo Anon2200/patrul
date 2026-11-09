@@ -144,7 +144,7 @@
       let auth=await request('/api/auth/me');
       if(!auth.response.ok){currentUser=await loginPanel();}else{currentUser=auth.result.user;csrfToken=auth.result.csrfToken;}
       if(!currentUser)return;
-      if(currentUser.role!==role&&!currentUser.systemAdmin){status('учётная запись не имеет доступа к этому разделу','#9a6700');alert('Ваша учётная запись не назначена для этого раздела. Обратитесь к Старшему мастеру.');return;}
+      if(currentUser.role!==role){status('учётная запись не имеет доступа к этому разделу','#9a6700');alert('Ваша учётная запись не назначена для этого раздела. Обратитесь к Старшему мастеру.');return;}
       if(currentUser.mustChangePassword)await forcePasswordChange();
       addControls();
       const fetched=await request(api);
