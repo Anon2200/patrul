@@ -26,6 +26,9 @@ if (!server.includes("['/', 'index.html']")) fail('server does not serve / as in
 if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
   fail('server must route requests through the individual authentication module');
 }
+if (!server.includes("require('./data-crypto')") || !server.includes('validateDataEncryptionKey()')) {
+  fail('server must require the application data-encryption key before starting');
+}
 if (!server.includes("PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true'")) {
   fail('legacy shared role-token API must be disabled by default');
 }
@@ -60,6 +63,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
+  if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
 
   const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
