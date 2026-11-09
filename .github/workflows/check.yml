@@ -6,12 +6,12 @@ on:
       - feature/shared-data-center
       - launch-hardening
       - shared-password-sync
-      - launch-hardening
       - individual-auth-foundation
   pull_request:
     branches:
       - main
       - feature/shared-data-center
+      - launch-hardening
 
 permissions:
   contents: read
