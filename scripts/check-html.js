@@ -33,7 +33,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
 
-  const inlineScripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)]
+  const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
     .filter(source => source.trim());
 
