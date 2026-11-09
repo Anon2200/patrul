@@ -64,6 +64,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
+  if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
 
   const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
