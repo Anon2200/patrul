@@ -450,7 +450,7 @@ test('personal login session, CSRF protection, and role authorization work', asy
 });
 
 
-test('internal mail supports role-to-role conversations and participant-only access', async () => {
+test('internal mail supports role-to-role conversations and restricts access to participants', async () => {
   const adminMe = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(adminMe.status, 200);
   adminCsrf = (await adminMe.json()).csrfToken;
@@ -472,6 +472,27 @@ test('internal mail supports role-to-role conversations and participant-only acc
   }, adminCookie, adminCsrf);
   assert.equal(created.status, 201);
   const threadId = (await created.json()).threadId;
+
+  const outsiderCreate = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'mail.outsider', displayName: 'Mail Outsider', role: 'nachalnik' })
+  }, adminCookie, adminCsrf);
+  assert.equal(outsiderCreate.status, 201);
+  const outsiderTemp = (await outsiderCreate.json()).temporaryPassword;
+  const outsiderLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'mail.outsider', password: outsiderTemp })
+  });
+  assert.equal(outsiderLogin.status, 200);
+  const outsiderSession = await outsiderLogin.json();
+  const outsiderCookie = (outsiderLogin.headers.get('set-cookie') || '').split(';')[0];
+  const outsiderChange = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword: outsiderTemp, newPassword: 'CI-Mail-Outsider-Password-2026!' })
+  }, outsiderCookie, outsiderSession.csrfToken);
+  assert.equal(outsiderChange.status, 200);
+  const privateThread = await sessionApi('/api/mail/threads/' + threadId, {}, outsiderCookie);
+  assert.equal(privateThread.status, 404);
 
   const inbox = await sessionApi('/api/mail/threads?box=inbox', {}, employeeCookie);
   assert.equal(inbox.status, 200);
