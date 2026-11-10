@@ -149,5 +149,6 @@ if (!serviceWorker.includes('cloud-sync.js')) {
 
 if (!mailClient.includes("const filtered=items.filter(f=>!query||[f.name,f.mime].join(' ').toLocaleLowerCase('ru-RU').includes(query))")) fail('mail archive must support searching saved attachments by file name and format');
 if (!mailClient.includes("Поиск по названию или формату файла")) fail('mail archive search must explain which file fields are searchable');
+if (!mailClient.includes("copy.textContent='Копировать текст'") || !mailClient.includes('navigator.clipboard.writeText(m.body)') || !mailClient.includes("copy.textContent='✓ Скопировано'")) fail('mail messages must provide a working copy-text action with confirmation');
 
 if (!process.exitCode) console.log('Patrul static checks passed.');
