@@ -427,6 +427,21 @@ test('personal login session, CSRF protection, and role authorization work', asy
   const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['zam']);
   assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
   assert.equal(JSON.stringify(stored.rows[0].data).includes('"ci":true'), false);
+
+  const concurrent = await Promise.all([
+    sessionApi('/api/session-data/zam', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedVersion: 1, data: { winner: 'device-a' } })
+    }, employeeCookie, employeeCsrf),
+    sessionApi('/api/session-data/zam', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedVersion: 1, data: { winner: 'device-b' } })
+    }, employeeCookie, employeeCsrf)
+  ]);
+  assert.deepEqual(concurrent.map(response => response.status).sort(), [200, 409]);
+  const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(latest.status, 200);
+  assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
 });
 
 test('administrator can block a user and all that user sessions are revoked', async () => {
