@@ -113,7 +113,8 @@
   }
   function statusOptions(selected){return ['Новая','В работе','На проверке','Выполнено','Закрыто'].map(x=>'<option'+(selected===x?' selected':'')+'>'+x+'</option>').join('');}
   function searchableText(value){if(value===null||value===undefined)return '';if(Array.isArray(value))return value.map(searchableText).join(' ');if(typeof value==='object')return Object.entries(value).map(([key,item])=>key+' '+searchableText(item)).join(' ');const text=String(value);return text.startsWith('data:image/')?'':text;}
-  function recordText(r){return searchableText([r.title,r.status,r.date,r.fields||{}]).toLowerCase();}
+  function recordText(r){return searchableText([r.title,r.status,r.date,r.fields||{}]).toLocaleLowerCase('ru-RU');}
+  function matchesSearch(value,query){const terms=String(query||'').toLocaleLowerCase('ru-RU').trim().split(/\\s+/).filter(Boolean);const haystack=searchableText(value).toLocaleLowerCase('ru-RU');return terms.every(term=>haystack.includes(term));}
   function deadlineState(record){
     const raw=record.fields&&(record.fields.deadline||record.fields.due);
     if(!raw)return 'Без срока';
@@ -135,8 +136,7 @@
   function globalSearch(query){
     const q=String(query||'').trim().toLowerCase();
     const rows=data().records.filter(record=>{
-      const haystack=recordText(record)+' '+String(record.number||'')+' '+String(record.module||'');
-      return q&&haystack.includes(q);
+      return q&&matchesSearch(record,q);
     }).sort((a,b)=>String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||'')));
     shell('<div class="ops-panel"><div class="ops-panel-head"><div><h2>Результаты общего поиска</h2><p class="ops-muted">Поиск по всем разделам рабочего центра, включая архив</p></div><button type="button" class="ops-secondary" data-ops="home">К рабочему центру</button></div>'+
       '<div class="ops-search"><input id="ops-global-search" value="'+esc(query)+'" placeholder="Номер, ФИО, название или содержание…"><button type="button" class="ops-primary" data-ops="search">Найти</button></div>'+
@@ -151,7 +151,7 @@
   function list(id){
     currentModule=id;const m=moduleById(id);if(!m){home();return;}
     if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}
-    const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||recordText(r).includes(filterText.toLowerCase()))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||matchesSearch(r,filterText))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rows=all.length?all.map(r=>card(r,m)).join(''):'<div class="ops-empty">Записей пока нет. Нажмите «Добавить запись», чтобы создать первую.</div>';
     shell('<div class="ops-toolbar"><button class="ops-primary" data-ops="new">＋ Добавить запись</button><button class="ops-secondary" data-ops="home">Все разделы</button><input id="ops-filter" placeholder="Поиск в разделе…" value="'+esc(filterText)+'"><select id="ops-status"><option>Все записи</option>'+statusOptions(filterStatus)+'</select></div><div class="ops-count">Найдено записей: '+all.length+'</div><div class="ops-list">'+rows+'</div>');
   }
@@ -263,7 +263,7 @@
     shell('<div class="ops-panel"><h2>Поиск по архиву и реестрам</h2><input id="ops-archive-search" placeholder="Введите номер, дату, ФИО или ключевое слово"><div id="ops-archive-results">'+archiveRows(all,'')+'</div></div>');
   }
   function archiveRows(all,q){
-    const found=all.filter(r=>!q||recordText(r).includes(q.toLowerCase())||String(r.number||'').toLowerCase().includes(q.toLowerCase()));
+    const found=all.filter(r=>!q||matchesSearch(r,q));
     return found.length?found.map(r=>'<article class="ops-record"><small>'+dateText(r.date)+' · '+esc(r.number||r.module)+'</small><h3>'+esc(r.title)+'</h3><p>'+esc(r.status)+(r.archived?' · Архив':'')+'</p></article>').join(''):'<p class="ops-muted">Совпадений не найдено.</p>';
   }
   function deadlines(){
@@ -301,8 +301,8 @@
     document.addEventListener('input',e=>{
       if(e.target.id==='ops-filter'){filterText=e.target.value;const p=e.target.selectionStart;list(currentModule);const n=$('#ops-filter');if(n){n.focus();n.setSelectionRange(p,p);}}
       if(e.target.id==='ops-archive-search'){const q=e.target.value;const target=$('#ops-archive-results');if(target)target.innerHTML=archiveRows(data().records.filter(r=>r.archived||r.module==='incoming'||r.module==='numbering'||r.module==='movement'),q);}
-      if(e.target.id==='ops-audit-search'){const q=e.target.value;const rows=data().audit.filter(r=>(String(r.action)+' '+String(r.title)+' '+String(r.module)).toLowerCase().includes(q.toLowerCase()));const target=$('#ops-audit-results');if(target)target.innerHTML=rows.length?rows.map(r=>'<div class="ops-history-row"><span>'+esc(new Date(r.at).toLocaleString())+'</span><b>'+esc(r.action)+'</b><span>'+esc(r.title)+'</span></div>').join(''):'<p class="ops-muted">Совпадений в истории нет.</p>';const count=$('#ops-audit-count');if(count)count.textContent='Записей в журнале: '+rows.length;}
-      if(e.target.id==='ops-global-search'&&$('#ops-search-results')){const q=e.target.value;const rows=q.trim()?data().records.filter(r=>(recordText(r)+' '+String(r.number||'')+' '+String(r.module||'')).includes(q.trim().toLowerCase())).sort((a,b)=>String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||''))):[];const target=$('#ops-search-results');target.innerHTML=rows.length?rows.slice(0,100).map(searchCard).join(''):'<div class="ops-empty">'+(q.trim()?'Совпадений не найдено.':'Введите слово, номер или фамилию для поиска.')+'</div>';}
+      if(e.target.id==='ops-audit-search'){const q=e.target.value;const rows=data().audit.filter(r=>matchesSearch(r,q));const target=$('#ops-audit-results');if(target)target.innerHTML=rows.length?rows.map(r=>'<div class="ops-history-row"><span>'+esc(new Date(r.at).toLocaleString())+'</span><b>'+esc(r.action)+'</b><span>'+esc(r.title)+'</span></div>').join(''):'<p class="ops-muted">Совпадений в истории нет.</p>';const count=$('#ops-audit-count');if(count)count.textContent='Записей в журнале: '+rows.length;}
+      if(e.target.id==='ops-global-search'&&$('#ops-search-results')){const q=e.target.value;const rows=q.trim()?data().records.filter(r=>matchesSearch(r,q)).sort((a,b)=>String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||''))):[];const target=$('#ops-search-results');target.innerHTML=rows.length?rows.slice(0,100).map(searchCard).join(''):'<div class="ops-empty">'+(q.trim()?'Совпадений не найдено.':'Введите слово, номер или фамилию для поиска.')+'</div>';}
     });
     document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ops-global-search'){e.preventDefault();globalSearch(e.target.value);}});
     document.addEventListener('change',e=>{if(e.target.id==='ops-status'){filterStatus=e.target.value;list(currentModule);}});
