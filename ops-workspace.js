@@ -96,7 +96,7 @@
     mountNav();
   }
   function countOpen(){return data().records.filter(r=>!r.archived&&r.status!=='Выполнено'&&r.status!=='Закрыто'&&r.status!=='Исполнено'&&r.status!=='В архиве').length;}
-  function dueRecords(){const t=today();return data().records.filter(r=>!r.archived&&(r.fields.deadline||r.fields.due)&&String(r.fields.deadline||r.fields.due)<t&&r.status!=='Выполнено'&&r.status!=='Закрыто'&&r.status!=='Исполнено'&&r.status!=='В архиве');}
+  function dueRecords(){const t=today();return data().records.filter(r=>{const fields=r.fields||{},raw=fields.deadline||fields.due;return !r.archived&&raw&&String(raw).slice(0,10)<t&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);});}
   function home(){
     const due=dueRecords(),aud=data().audit.slice(0,8),now=today();
     const openTasks=records('personalTasks').filter(r=>!['Выполнено','Закрыто','Исполнено'].includes(r.status))
