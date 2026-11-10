@@ -449,6 +449,54 @@ test('personal login session, CSRF protection, and role authorization work', asy
   assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
 });
 
+
+test('internal mail supports role-to-role conversations and participant-only access', async () => {
+  const adminMe = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(adminMe.status, 200);
+  adminCsrf = (await adminMe.json()).csrfToken;
+
+  const recipients = await sessionApi('/api/mail/recipients', {}, adminCookie);
+  assert.equal(recipients.status, 200);
+  const directory = await recipients.json();
+  assert.ok(directory.users.some(user => user.id === employeeId && user.role === 'zam'));
+
+  const noCsrf = await sessionApi('/api/mail/threads', {
+    method: 'POST',
+    body: JSON.stringify({ toUserId: employeeId, subject: 'Запрос', body: 'Текст запроса' })
+  }, adminCookie);
+  assert.equal(noCsrf.status, 403);
+
+  const created = await sessionApi('/api/mail/threads', {
+    method: 'POST',
+    body: JSON.stringify({ toUserId: employeeId, subject: 'Проверка почты', body: 'Прошу подготовить ответ по вопросу.' })
+  }, adminCookie, adminCsrf);
+  assert.equal(created.status, 201);
+  const threadId = (await created.json()).threadId;
+
+  const inbox = await sessionApi('/api/mail/threads?box=inbox', {}, employeeCookie);
+  assert.equal(inbox.status, 200);
+  assert.ok((await inbox.json()).threads.some(thread => thread.id === threadId && thread.unreadCount === 1));
+
+  const employeeMe = await sessionApi('/api/auth/me', {}, employeeCookie);
+  assert.equal(employeeMe.status, 200);
+  const employeeToken = (await employeeMe.json()).csrfToken;
+  const opened = await sessionApi('/api/mail/threads/' + threadId, {}, employeeCookie);
+  assert.equal(opened.status, 200);
+  assert.equal((await opened.json()).messages.length, 1);
+
+  const reply = await sessionApi('/api/mail/threads/' + threadId + '/messages', {
+    method: 'POST',
+    body: JSON.stringify({ body: 'Ответ подготовлен.' })
+  }, employeeCookie, employeeToken);
+  assert.equal(reply.status, 201);
+
+  const conversation = await sessionApi('/api/mail/threads/' + threadId, {}, adminCookie);
+  assert.equal(conversation.status, 200);
+  const conversationBody = await conversation.json();
+  assert.equal(conversationBody.messages.length, 2);
+  assert.equal(conversationBody.messages[1].body, 'Ответ подготовлен.');
+});
+
 test('administrator can block a user and all that user sessions are revoked', async () => {
   const adminMe = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(adminMe.status, 200);
