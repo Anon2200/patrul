@@ -5,6 +5,12 @@ const { once } = require('node:events');
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
+process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64url');
+const { encryptData, decryptData, migratePlaintextRows } = require('../data-crypto');
 
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -64,6 +70,10 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       DATABASE_URL: databaseUrl,
+      PATRUL_LEGACY_ROLE_TOKENS_ENABLED: 'true',
+      PATRUL_BOOTSTRAP_SECRET: 'ci-bootstrap-secret-only-not-production',
+      PATRUL_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64url'),
+      PATRUL_PUBLIC_ORIGIN: baseUrl,
       PATRUL_TOKEN_NACHALNIK: tokens.nachalnik,
       PATRUL_TOKEN_ZAM: tokens.zam,
       PATRUL_TOKEN_UCHET: tokens.uchet,
@@ -94,6 +104,58 @@ after(async () => {
   if (pool) await pool.end();
 });
 
+test('all four role pages encrypt exchange packets and reject plaintext', async () => {
+  const strongPassword = 'CI-Shared-Exchange-Password-2026!';
+  const value = { v: 1, roleData: 'encrypted-exchange-fixture' };
+  for (const file of ['nachalnik.html', 'zam.html', 'uchet.html', 'dokumentoved.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    const start = html.indexOf('function sxB64(');
+    const end = html.indexOf('const SXCOL=', start);
+    assert.ok(start >= 0 && end > start, file + ' must contain the exchange crypto functions');
+    const sandbox = {
+      D: { sx: { pw: strongPassword } },
+      window: { crypto: webcrypto },
+      crypto: webcrypto,
+      TextEncoder, TextDecoder, Uint8Array, Blob, Response,
+      CompressionStream, DecompressionStream, btoa, atob
+    };
+    sandbox.sxS = () => sandbox.D.sx;
+    vm.runInNewContext(html.slice(start, end), sandbox, { filename: file });
+    const packet = await sandbox.sxPack(value);
+    assert.ok(packet.startsWith('ПАТРУЛЬ1E:'), file + ' must produce an encrypted packet');
+    assert.equal(packet.includes(strongPassword), false);
+    const unpacked = await sandbox.sxUnpack(packet);
+    assert.equal(JSON.stringify(unpacked), JSON.stringify(value));
+    sandbox.D.sx.pw = 'Different-Strong-Password-2026!';
+    await assert.rejects(sandbox.sxUnpack(packet), error => error.message === 'badpw');
+
+    sandbox.D.sx.pw = 'short-password';
+    await assert.rejects(sandbox.sxPack(value), error => error.message === 'weakpw');
+    sandbox.D.sx.pw = '';
+    await assert.rejects(sandbox.sxPack(value), error => error.message === 'needpw');
+    await assert.rejects(sandbox.sxUnpack('ПАТРУЛЬ1R:YWJj'), error => error.message === 'unencrypted');
+  }
+});
+
+test('AES-GCM role data encryption authenticates ciphertext and role context', () => {
+  const value = { privateMarker: 'must-not-leak', nested: { count: 7 } };
+  const encrypted = encryptData(value, 'nachalnik');
+  assert.deepEqual(decryptData(encrypted, 'nachalnik'), value);
+  assert.throws(() => decryptData(encrypted, 'zam'));
+  assert.throws(() => decryptData({ ...encrypted, kid: undefined }, 'nachalnik'), /Malformed encrypted role data envelope/);
+  const configuredKey = process.env.PATRUL_DATA_ENCRYPTION_KEY;
+  try {
+    process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 8).toString('base64url');
+    assert.throws(() => decryptData(encrypted, 'nachalnik'), /does not match stored data/);
+  } finally {
+    process.env.PATRUL_DATA_ENCRYPTION_KEY = configuredKey;
+  }
+
+  const changedTag = Buffer.from(encrypted.tag, 'base64url');
+  changedTag[0] ^= 1;
+  assert.throws(() => decryptData({ ...encrypted, tag: changedTag.toString('base64url') }, 'nachalnik'));
+});
+
 test('health endpoint confirms PostgreSQL connectivity', async () => {
   const response = await api('/api/health');
   assert.equal(response.status, 200);
@@ -104,13 +166,15 @@ test('security headers are present on API and static responses', async () => {
   const apiResponse = await api('/api/health');
   assert.equal(apiResponse.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(apiResponse.headers.get('x-frame-options'), 'DENY');
+  assert.equal(apiResponse.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains');
   assert.equal(apiResponse.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
-  assert.equal(apiResponse.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+  assert.equal(apiResponse.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=()');
   assert.equal(apiResponse.headers.get('cache-control'), 'no-store');
 
   const pageResponse = await api('/index.html');
   assert.equal(pageResponse.status, 200);
   assert.equal(pageResponse.headers.get('x-frame-options'), 'DENY');
+  assert.equal(pageResponse.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains');
   assert.equal(pageResponse.headers.get('cache-control'), 'no-store');
 });
 
@@ -152,6 +216,14 @@ test('first write creates version 1 and GET returns the saved JSON', async () =>
   const loaded = await read.json();
   assert.equal(loaded.version, 1);
   assert.deepEqual(loaded.data, data);
+});
+
+test('role data is encrypted in PostgreSQL rather than stored as plaintext JSON', async () => {
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['nachalnik']);
+  assert.equal(stored.rowCount, 1);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(stored.rows[0].data.alg, 'A256GCM');
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('integration-test'), false);
 });
 
 test('stale expectedVersion is rejected without overwriting saved data', async () => {
@@ -200,6 +272,33 @@ test('role records are stored separately', async () => {
   assert.equal(result.version, 0);
 });
 
+test('legacy plaintext database rows are encrypted on first read without changing their contents', async () => {
+  const legacy = { marker: 'legacy-row-to-migrate', nested: { safe: true } };
+  await pool.query(
+    'INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW())',
+    ['dokumentoved', JSON.stringify(legacy)]
+  );
+  const response = await authorizedApi('/api/data/dokumentoved');
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).data, legacy);
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['dokumentoved']);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('legacy-row-to-migrate'), false);
+});
+
+test('startup migration encrypts all existing plaintext role rows', async () => {
+  const legacy = { startupMigrationMarker: 'encrypt-before-serving', safe: true };
+  await pool.query(
+    'INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW())',
+    ['uchet', JSON.stringify(legacy)]
+  );
+  const migrated = await migratePlaintextRows(pool);
+  assert.equal(migrated, 1);
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['uchet']);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.deepEqual(decryptData(stored.rows[0].data, 'uchet'), legacy);
+});
+
 test('unknown roles and malformed write payloads are rejected', async () => {
   const unknownRole = await authorizedApi('/api/data/not_a_role');
   assert.equal(unknownRole.status, 400);
@@ -209,4 +308,318 @@ test('unknown roles and malformed write payloads are rejected', async () => {
     body: JSON.stringify({ expectedVersion: -1, data: {} })
   });
   assert.equal(malformed.status, 400);
+});
+
+
+let adminCookie = '';
+let adminCsrf = '';
+let employeeCookie = '';
+let employeeCsrf = '';
+let employeeId = '';
+let employeeTemporaryPassword = '';
+
+async function sessionApi(path, options = {}, cookie = '', csrf = '') {
+  return fetch(baseUrl + path, {
+    ...options,
+    headers: {
+      'origin': baseUrl,
+      'x-forwarded-proto': 'http',
+      ...(cookie ? { cookie } : {}),
+      ...(csrf ? { 'x-patrul-csrf': csrf } : {}),
+      ...(options.body ? { 'content-type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
+}
+
+test('bootstrap creates the first Senior Master admin and establishes a session', async () => {
+  const response = await sessionApi('/api/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({
+      bootstrapSecret: 'ci-bootstrap-secret-only-not-production',
+      username: 'senior.master',
+      displayName: 'CI Senior Master',
+      password: 'CI-Admin-Password-Only-For-Tests-2026!'
+    })
+  });
+  assert.equal(response.status, 201);
+  const result = await response.json();
+  assert.equal(result.user.role, 'uchet');
+  assert.equal(result.user.systemAdmin, true);
+  adminCsrf = result.csrfToken;
+  adminCookie = (response.headers.get('set-cookie') || '').split(';')[0];
+  assert.match(adminCookie, /^__Host-patrul_session=/);
+  assert.ok(adminCsrf.length >= 40);
+});
+
+test('personal login session, CSRF protection, and role authorization work', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  const meBody = await me.json();
+  assert.equal(meBody.user.username, 'senior.master');
+  adminCsrf = meBody.csrfToken;
+
+  const adminRead = await sessionApi('/api/admin/users', {}, adminCookie);
+  assert.equal(adminRead.status, 200);
+  const adminOwnRole = await sessionApi('/api/session-data/uchet', {}, adminCookie);
+  assert.equal(adminOwnRole.status, 200);
+  const adminOtherRole = await sessionApi('/api/session-data/nachalnik', {}, adminCookie);
+  assert.equal(adminOtherRole.status, 403);
+  const noCsrf = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'blocked.create', displayName: 'Blocked Create', role: 'zam' })
+  }, adminCookie);
+  assert.equal(noCsrf.status, 403);
+
+  const create = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', displayName: 'CI Employee', role: 'zam' })
+  }, adminCookie, adminCsrf);
+  assert.equal(create.status, 201);
+  const created = await create.json();
+  employeeId = created.user.id;
+  employeeTemporaryPassword = created.temporaryPassword;
+  assert.ok(employeeTemporaryPassword.length >= 20);
+  assert.equal(created.user.mustChangePassword, true);
+
+  const employeeLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: employeeTemporaryPassword })
+  });
+  assert.equal(employeeLogin.status, 200);
+  const loginBody = await employeeLogin.json();
+  employeeCsrf = loginBody.csrfToken;
+  employeeCookie = (employeeLogin.headers.get('set-cookie') || '').split(';')[0];
+  assert.equal(loginBody.user.role, 'zam');
+  assert.equal(loginBody.user.mustChangePassword, true);
+
+  const blockedUntilPasswordChange = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(blockedUntilPasswordChange.status, 403);
+
+  const changed = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      currentPassword: employeeTemporaryPassword,
+      newPassword: 'CI-Employee-Changed-Password-2026!'
+    })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(changed.status, 200);
+
+  const allowed = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(allowed.status, 200);
+  const employeeAdminDenied = await sessionApi('/api/admin/users', {}, employeeCookie);
+  assert.equal(employeeAdminDenied.status, 403);
+  const forbidden = await sessionApi('/api/session-data/nachalnik', {}, employeeCookie);
+  assert.equal(forbidden.status, 403);
+
+  const writeWithoutCsrf = await sessionApi('/api/session-data/zam', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { ci: true } })
+  }, employeeCookie);
+  assert.equal(writeWithoutCsrf.status, 403);
+
+  const write = await sessionApi('/api/session-data/zam', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { ci: true } })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(write.status, 200);
+  assert.equal((await write.json()).version, 1);
+  const stored = await pool.query('SELECT data FROM patrul_role_data WHERE role = $1', ['zam']);
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('"ci":true'), false);
+
+  const concurrent = await Promise.all([
+    sessionApi('/api/session-data/zam', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedVersion: 1, data: { winner: 'device-a' } })
+    }, employeeCookie, employeeCsrf),
+    sessionApi('/api/session-data/zam', {
+      method: 'PUT',
+      body: JSON.stringify({ expectedVersion: 1, data: { winner: 'device-b' } })
+    }, employeeCookie, employeeCsrf)
+  ]);
+  assert.deepEqual(concurrent.map(response => response.status).sort(), [200, 409]);
+  const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(latest.status, 200);
+  assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
+});
+
+test('administrator can block a user and all that user sessions are revoked', async () => {
+  const adminMe = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(adminMe.status, 200);
+  adminCsrf = (await adminMe.json()).csrfToken;
+
+  const block = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: false, role: 'zam', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(block.status, 200);
+
+  const revoked = await sessionApi('/api/session-data/zam', {}, employeeCookie);
+  assert.equal(revoked.status, 401);
+});
+
+
+test('bootstrap cannot be repeated and administrator can inspect the audit trail', async () => {
+  const replay = await sessionApi('/api/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({
+      bootstrapSecret: 'ci-bootstrap-secret-only-not-production',
+      username: 'second.admin',
+      displayName: 'Second Admin',
+      password: 'CI-Second-Admin-Password-2026!'
+    })
+  });
+  assert.equal(replay.status, 409);
+
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+  const audit = await sessionApi('/api/admin/audit?limit=20', {}, adminCookie, adminCsrf);
+  assert.equal(audit.status, 200);
+  const result = await audit.json();
+  assert.ok(result.events.some(event => event.event_type === 'bootstrap_admin_created'));
+  assert.ok(result.events.some(event => event.event_type === 'user_created'));
+  assert.ok(result.events.some(event => event.event_type === 'user_updated'));
+});
+
+
+test('cross-origin login and bootstrap requests are rejected', async () => {
+  for (const route of ['/api/auth/login', '/api/auth/bootstrap']) {
+    const response = await fetch(baseUrl + route, {
+      method: 'POST',
+      headers: {
+        origin: 'https://attacker.example',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ username: 'attacker', password: 'not-a-real-password', bootstrapSecret: 'invalid' })
+    });
+    assert.equal(response.status, 403, route + ' must reject a foreign Origin');
+  }
+});
+
+test('login rate limit blocks repeated invalid credentials', async () => {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'rate.limit.test', password: 'definitely-wrong-password' })
+    });
+    assert.equal(response.status, 401);
+  }
+  const limited = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'rate.limit.test', password: 'definitely-wrong-password' })
+  });
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) > 0);
+});
+
+test('administrator cannot disable or change the role of the last admin account', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+
+  const disableSelf = await sessionApi('/api/admin/users/' + (await pool.query(
+    'SELECT id FROM patrul_users WHERE username = $1', ['senior.master']
+  )).rows[0].id, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: false, role: 'uchet', displayName: 'CI Senior Master' })
+  }, adminCookie, adminCsrf);
+  assert.equal(disableSelf.status, 400);
+
+  const changeOwnRole = await sessionApi('/api/admin/users/' + (await pool.query(
+    'SELECT id FROM patrul_users WHERE username = $1', ['senior.master']
+  )).rows[0].id, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'nachalnik', displayName: 'CI Senior Master' })
+  }, adminCookie, adminCsrf);
+  assert.equal(changeOwnRole.status, 400);
+});
+
+test('password reset issues a temporary password and revokes existing sessions', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+
+  const restore = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'zam', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(restore.status, 200);
+
+  const oldLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: 'CI-Employee-Changed-Password-2026!' })
+  });
+  assert.equal(oldLogin.status, 200);
+  const oldCookie = (oldLogin.headers.get('set-cookie') || '').split(';')[0];
+
+  const reset = await sessionApi('/api/admin/users/' + employeeId + '/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, adminCookie, adminCsrf);
+  assert.equal(reset.status, 200);
+  const temporaryPassword = (await reset.json()).temporaryPassword;
+  assert.ok(temporaryPassword.length >= 20);
+
+  const revoked = await sessionApi('/api/session-data/zam', {}, oldCookie);
+  assert.equal(revoked.status, 401);
+
+  const freshLogin = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'employee.zam', password: temporaryPassword })
+  });
+  assert.equal(freshLogin.status, 200);
+  const freshBody = await freshLogin.json();
+  assert.equal(freshBody.user.mustChangePassword, true);
+  const freshCookie = (freshLogin.headers.get('set-cookie') || '').split(';')[0];
+
+  const changed = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      currentPassword: temporaryPassword,
+      newPassword: 'CI-Employee-After-Reset-2026!'
+    })
+  }, freshCookie, freshBody.csrfToken);
+  assert.equal(changed.status, 200);
+
+  const adminAgain = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(adminAgain.status, 200);
+  adminCsrf = (await adminAgain.json()).csrfToken;
+  const roleChange = await sessionApi('/api/admin/users/' + employeeId, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: true, role: 'dokumentoved', displayName: 'CI Employee' })
+  }, adminCookie, adminCsrf);
+  assert.equal(roleChange.status, 200);
+  const roleRevoked = await sessionApi('/api/session-data/zam', {}, freshCookie);
+  assert.equal(roleRevoked.status, 401);
+  const newRoleRevoked = await sessionApi('/api/session-data/dokumentoved', {}, freshCookie);
+  assert.equal(newRoleRevoked.status, 401);
+});
+
+test('login rate limit also bounds attempts across different usernames from one IP', async () => {
+  for (let attempt = 0; attempt < 52; attempt += 1) {
+    const response = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'ip.limit.' + attempt, password: 'definitely-wrong-password' })
+    });
+    assert.equal(response.status, 401, 'attempt ' + (attempt + 1) + ' should be below the IP limit');
+  }
+  const blocked = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ip.limit.overflow', password: 'definitely-wrong-password' })
+  });
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+});
+
+test('expired server sessions are rejected', async () => {
+  const cookieValue = adminCookie.split('=').slice(1).join('=');
+  const tokenHash = require('node:crypto').createHash('sha256').update(decodeURIComponent(cookieValue)).digest();
+  await pool.query(
+    "UPDATE patrul_sessions SET created_at = NOW() - INTERVAL '13 days', expires_at = NOW() - INTERVAL '1 minute' WHERE token_hash = $1",
+    [tokenHash]
+  );
+  const response = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(response.status, 401);
 });

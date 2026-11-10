@@ -18,9 +18,44 @@ function fail(message) {
 const server = fs.readFileSync('server.js', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const serviceWorker = fs.readFileSync('sw.js', 'utf8');
+const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
+
+if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
+  fail('server must route requests through the individual authentication module');
+}
+if (!server.includes("require('./data-crypto')") || !server.includes('validateDataEncryptionKey()')) {
+  fail('server must require the application data-encryption key before starting');
+}
+if (!server.includes("PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true'")) {
+  fail('legacy shared role-token API must be disabled by default');
+}
+for (const route of ['/api/auth/login', '/api/auth/me', '/api/auth/change-password', '/api/admin/users', '/api/session-data/']) {
+  if (!cloudSync.includes(route)) fail('browser client missing individual-auth route ' + route);
+}
+if (cloudSync.includes('Authorization') || cloudSync.includes('Bearer ')) {
+  fail('browser client must not send shared bearer tokens');
+}
+
+if (!cloudSync.includes("const localDataKey = role + '_v1'") ||
+    !cloudSync.includes('localStorage.removeItem(localDataKey)')) {
+  fail('cloud sync must remove the plaintext role-data cache after server confirmation');
+}
+if (cloudSync.includes('originalSave()')) {
+  fail('cloud sync must not persist full application data through the legacy localStorage save function');
+}
+if (!cloudSync.includes("window.addEventListener('beforeunload'")) {
+  fail('cloud sync must warn before closing with unsaved in-memory changes');
+}
+if (!cloudSync.includes('function forcePasswordChange() {\n    return new Promise(resolve=>') || !cloudSync.includes('await forcePasswordChange()')) {
+  fail('the workspace must wait for a required temporary-password change before loading data');
+}
+if (!cloudSync.includes('const material=JSON.stringify(copy)') || !cloudSync.includes('delete copy.sx.pw')) {
+  fail('sync fingerprints and local conflict backups must not expose the exchange password');
+}
+
 
 for (const [file, role] of Object.entries(rolePages)) {
   if (!server.includes("['/" + file + "', '" + file + "']")) {
@@ -33,6 +68,11 @@ for (const [file, role] of Object.entries(rolePages)) {
     fail(file + ' has an incorrect or missing role identifier');
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
+  if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
+  if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
+  if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
+  if (!html.includes('delete copy.sx.pw')) fail(file + ' manual backup must not export the shared exchange password');
+  if (!html.includes("if(!pw)throw new Error('needpw')") || !html.includes("throw new Error('unencrypted')") || html.includes("return useZ?'ПАТРУЛЬ1Z'")) fail(file + ' inter-role exchange must reject unencrypted packets');
 
   const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])

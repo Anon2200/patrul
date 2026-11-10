@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - feature/shared-data-center
-      - shared-password-sync
       - launch-hardening
+      - shared-password-sync
+      - individual-auth-foundation
   pull_request:
     branches:
       - main
       - feature/shared-data-center
+      - launch-hardening
 
 permissions:
   contents: read
@@ -44,5 +46,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Run static checks
         run: npm run check
+      - name: Validate identity schema on disposable CI PostgreSQL
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_identity_schema.sql
       - name: Run PostgreSQL API integration tests
         run: npm run test:integration

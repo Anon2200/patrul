@@ -5,6 +5,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { createAuth } = require('./auth');
+const { validateDataEncryptionKey, encryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROLE_TOKEN_ENV = {
@@ -60,7 +62,8 @@ async function servePublicFile(req, res, pathname) {
       'x-content-type-options': 'nosniff',
       'x-frame-options': 'DENY',
       'referrer-policy': 'strict-origin-when-cross-origin',
-      'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+      'strict-transport-security': 'max-age=31536000; includeSubDomains',
+      'permissions-policy': 'camera=(self), microphone=(), geolocation=()'
     });
     if (req.method === 'HEAD') {
       res.end();
@@ -96,7 +99,8 @@ function send(res, status, body, extraHeaders = {}) {
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
     'referrer-policy': 'strict-origin-when-cross-origin',
-    'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains',
+    'permissions-policy': 'camera=(self), microphone=(), geolocation=()',
     ...extraHeaders
   });
   res.end(JSON.stringify(body));
@@ -128,6 +132,7 @@ function clearAuthFailures(req, role) {
 }
 
 function authorized(req, role) {
+  if (process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true') return false;
   const envName = ROLE_TOKEN_ENV[role];
   const expected = envName ? process.env[envName] || '' : '';
   if (!expected) return false;
@@ -162,9 +167,16 @@ async function readJson(req) {
 
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
-  const configuredTokens = Object.entries(ROLE_TOKEN_ENV)
+  validateDataEncryptionKey();
+  const publicOrigin = process.env.PATRUL_PUBLIC_ORIGIN || '';
+  let parsedOrigin;
+  try { parsedOrigin = new URL(publicOrigin); } catch { throw new Error('PATRUL_PUBLIC_ORIGIN must be configured as an exact HTTPS origin'); }
+  if (parsedOrigin.origin !== publicOrigin || (parsedOrigin.protocol !== 'https:' && parsedOrigin.hostname !== '127.0.0.1' && parsedOrigin.hostname !== 'localhost')) {
+    throw new Error('PATRUL_PUBLIC_ORIGIN must be an exact HTTPS origin (HTTP is allowed only for localhost tests)');
+  }
+  const configuredTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.entries(ROLE_TOKEN_ENV)
     .map(([role, envName]) => ({ role, envName, value: process.env[envName] || '' }))
-    .filter(item => item.value);
+    .filter(item => item.value) : [];
   const weakTokens = configuredTokens.filter(item => Buffer.byteLength(item.value, 'utf8') < 32);
   if (weakTokens.length) {
     throw new Error('Role access tokens must contain at least 32 UTF-8 bytes: ' + weakTokens.map(item => item.envName).join(', '));
@@ -172,7 +184,7 @@ async function initDatabase() {
   if (new Set(configuredTokens.map(item => item.value)).size !== configuredTokens.length) {
     throw new Error('Each configured role must have a different access token');
   }
-  const missingRoleTokens = Object.values(ROLE_TOKEN_ENV).filter(name => !process.env[name]);
+  const missingRoleTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.values(ROLE_TOKEN_ENV).filter(name => !process.env[name]) : [];
   if (missingRoleTokens.length) {
     console.warn('Role data access is disabled for roles without configured tokens:', missingRoleTokens.join(', '));
   }
@@ -181,10 +193,17 @@ async function initDatabase() {
     'role TEXT PRIMARY KEY, data JSONB NOT NULL, ' +
     'version BIGINT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())'
   );
+  const identitySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '001_identity_schema.sql'), 'utf8');
+  await pool.query(identitySchema);
+  await migratePlaintextRows(pool);
 }
+
+const handleAuth = createAuth(pool, send, readJson);
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+
+  if (await handleAuth(req, res, url)) return;
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
     try {
@@ -228,7 +247,7 @@ const server = http.createServer(async (req, res) => {
       const row = result.rows[0];
       return send(res, 200, {
         role,
-        data: row.data,
+        data: await readRoleData(pool, role, row),
         version: Number(row.version),
         updatedAt: row.updated_at
       });
@@ -250,7 +269,7 @@ const server = http.createServer(async (req, res) => {
       'version = patrul_role_data.version + 1, updated_at = NOW() ' +
       'WHERE patrul_role_data.version = $3 ' +
       'RETURNING data, version, updated_at',
-      [role, JSON.stringify(body.data), body.expectedVersion]
+      [role, JSON.stringify(encryptData(body.data, role)), body.expectedVersion]
     );
 
     if (result.rowCount === 0) {
@@ -267,7 +286,7 @@ const server = http.createServer(async (req, res) => {
     const row = result.rows[0];
     return send(res, 200, {
       role,
-      data: row.data,
+      data: body.data,
       version: Number(row.version),
       updatedAt: row.updated_at
     });
