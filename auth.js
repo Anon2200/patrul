@@ -236,7 +236,7 @@ async function insertMailAttachments(client,threadId,messageId,items) {
             [s.id,box,search,'%'+search+'%']);
           send(res,200,{threads:q.rows});return true;
         }
-        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})
+        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})'+'$','i'));
         if(attachmentMatch&&req.method==='GET'){
           const q=await pool.query('SELECT a.file_name,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
