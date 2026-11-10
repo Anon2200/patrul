@@ -242,7 +242,7 @@ function createAuth(pool,send,readJson) {
           const q=await pool.query('SELECT a.file_name,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
           const file=q.rows[0],fallback='attachment';
-          res.writeHead(200,{'content-type':'application/octet-stream','content-length':file.file_size,'content-disposition':"attachment; filename=\\""+fallback+"\\"; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          res.writeHead(200,{'content-type':'application/octet-stream','content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
           res.end(file.file_data);return true;
         }
         const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);
@@ -325,7 +325,7 @@ module.exports={createAuth,hashPassword,verifyPassword};
           const q=await pool.query('SELECT a.file_name,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
           const file=q.rows[0],fallback=file.file_name.replace(/[^\\x20-\\x7e]/g,'_').replace(/["\\\\]/g,'_');
-          res.writeHead(200,{'content-type':'application/octet-stream','content-length':file.file_size,'content-disposition':"attachment; filename=\\""+fallback+"\\"; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          res.writeHead(200,{'content-type':'application/octet-stream','content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
           res.end(file.file_data);return true;
         }
         const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);
