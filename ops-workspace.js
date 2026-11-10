@@ -72,6 +72,7 @@
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
   const dateText=s=>{if(!s)return '—';const p=s.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:s};
+  const calendarDay=value=>{const day=String(value||'').slice(0,10);if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day))return '';const [y,m,d]=day.split('-').map(Number),date=new Date(y,m-1,d);return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d?day:'';};
   const uid=()=>window.crypto&&crypto.randomUUID?crypto.randomUUID():'ops-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   let active=false, currentModule='', editingId='', filterText='', filterStatus='Все записи', reportFrom=today().slice(0,8)+'01', reportTo=today();
   let drawOriginal=draw;
@@ -96,16 +97,16 @@
     mountNav();
   }
   function countOpen(){return data().records.filter(r=>!r.archived&&r.status!=='Выполнено'&&r.status!=='Закрыто'&&r.status!=='Исполнено'&&r.status!=='В архиве').length;}
-  function dueRecords(){const t=today();return data().records.filter(r=>{const fields=r.fields||{},raw=fields.deadline||fields.due;return !r.archived&&raw&&String(raw).slice(0,10)<t&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);});}
+  function dueRecords(){const t=today();return data().records.filter(r=>{const fields=r.fields||{},raw=calendarDay(fields.deadline||fields.due);return !r.archived&&raw&&raw<t&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);});}
   function home(){
     const due=dueRecords(),aud=data().audit.slice(0,8),now=today();
-    const taskDeadline=r=>String((r.fields||{}).deadline||'').slice(0,10);
+    const taskDeadline=r=>calendarDay((r.fields||{}).deadline);
     const openTasks=records('personalTasks').filter(r=>!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status))
       .sort((a,b)=>(taskDeadline(a)||'9999-12-31').localeCompare(taskDeadline(b)||'9999-12-31'));
     const lateTasks=openTasks.filter(r=>taskDeadline(r)&&taskDeadline(r)<now).slice(0,5);
     const nextTasks=openTasks.filter(r=>!taskDeadline(r)||taskDeadline(r)>=now).slice(0,5);
     const cards=config.modules.map(m=>'<button type="button" class="ops-card" data-ops="module" data-id="'+m.id+'"><span class="ops-card-icon">✧</span><b>'+esc(m.name)+'</b><span>'+esc(m.desc)+'</span><small>'+records(m.id).length+' активных записей</small></button>').join('');
-    const dueToday=data().records.filter(r=>{const due=r.fields&&(r.fields.deadline||r.fields.due);return !r.archived&&due&&String(due).slice(0,10)===now&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);}).length;const alerts=due.length||dueToday?'<div class="ops-alert"><b>Требуют внимания: '+due.length+' просрочено · '+dueToday+' на сегодня</b><span>Откройте контроль сроков, чтобы посмотреть записи и ответственных.</span><button type="button" class="ops-secondary" data-ops="module" data-id="deadlines">Открыть контроль сроков</button></div>':'<div class="ops-good">Просроченных записей и сроков на сегодня нет.</div>';
+    const dueToday=data().records.filter(r=>{const due=calendarDay(r.fields&&(r.fields.deadline||r.fields.due));return !r.archived&&due===now&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);}).length;const alerts=due.length||dueToday?'<div class="ops-alert"><b>Требуют внимания: '+due.length+' просрочено · '+dueToday+' на сегодня</b><span>Откройте контроль сроков, чтобы посмотреть записи и ответственных.</span><button type="button" class="ops-secondary" data-ops="module" data-id="deadlines">Открыть контроль сроков</button></div>':'<div class="ops-good">Просроченных записей и сроков на сегодня нет.</div>';
     const taskPanel='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Ближайшие личные задачи</h2><p class="ops-muted">Личный список текущей учётной записи</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="personalTasks">Открыть задачи</button></div>'+
       (lateTasks.length?'<h3>Просроченные задачи</h3>'+lateTasks.map(r=>'<div class="ops-task-row"><div><b>'+esc(r.title)+'</b><span>Просрочено · '+dateText(r.fields.deadline)+' · '+esc(r.fields.priority||'Обычный приоритет')+'</span></div><div class="ops-task-actions"><span class="ops-deadline-tag is-late">Просрочено</span><button type="button" class="ops-task-done" data-ops="complete" data-id="'+r.id+'">Готово</button></div></div>').join(''):'')+(nextTasks.length?'<h3>Ближайшие задачи</h3>'+nextTasks.map(r=>'<div class="ops-task-row"><div><b>'+esc(r.title)+'</b><span>'+esc(r.fields.priority||'Обычный приоритет')+' · '+(taskDeadline(r)?dateText(r.fields.deadline):'Без срока')+'</span></div><div class="ops-task-actions"><span class="ops-status">'+esc(r.status)+'</span><button type="button" class="ops-task-done" data-ops="complete" data-id="'+r.id+'">Готово</button></div></div>').join(''):(!lateTasks.length?'<p class="ops-muted">Ближайших задач пока нет. Добавьте задачу, чтобы не забыть о важном.</p>':''))+'</div>';
     const recent=aud.length?aud.map(a=>'<div class="ops-history-row"><span>'+esc(new Date(a.at).toLocaleString())+'</span><b>'+esc(a.action)+'</b><span>'+esc(a.title)+'</span></div>').join(''):'<p class="ops-muted">История новых операций появится после добавления записей.</p>';
@@ -118,7 +119,7 @@
   function deadlineState(record){
     const raw=record.fields&&(record.fields.deadline||record.fields.due);
     if(!raw)return 'Без срока';
-    const value=String(raw).slice(0,10),now=today();
+    const value=calendarDay(raw);if(!value)return 'Без срока';const now=today();
     if(value<now)return 'Просрочено';
     if(value===now)return 'Сегодня';
     return 'Предстоит';
@@ -214,7 +215,7 @@
     const issued=issuance.filter(r=>!(r.fields||{}).returnedAt);
     const currentDay=today(),limitDate=new Date(currentDay+'T00:00:00');limitDate.setDate(limitDate.getDate()+30);const limitDay=[limitDate.getFullYear(),String(limitDate.getMonth()+1).padStart(2,'0'),String(limitDate.getDate()).padStart(2,'0')].join('-');
     const activeMaintenance=maintenance.filter(r=>!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status));
-    const maintenanceDay=r=>String((r.fields||{}).deadline||'').slice(0,10);
+    const maintenanceDay=r=>calendarDay((r.fields||{}).deadline);
     const overdue=activeMaintenance.filter(r=>maintenanceDay(r)&&maintenanceDay(r)<currentDay);
     const upcomingMaintenance=activeMaintenance.filter(r=>maintenanceDay(r)&&maintenanceDay(r)>=currentDay&&maintenanceDay(r)<=limitDay);
     const pendingPurchases=purchases.filter(r=>!['Одобрено','Отклонено','Приобретено'].includes((r.fields||{}).approval));
@@ -243,8 +244,8 @@
     const rows=data().records.filter(r=>!r.archived&&r.date>=reportFrom&&r.date<=reportTo).sort((a,b)=>a.date.localeCompare(b.date));
     const closed=['Выполнено','Закрыто','Исполнено','В архиве'];
     const completed=rows.filter(r=>closed.includes(r.status)).length;
-    const overdue=rows.filter(r=>{const fields=r.fields||{},due=fields.deadline||fields.due;return !closed.includes(r.status)&&due&&String(due).slice(0,10)<today();}).length;
-    const dueToday=rows.filter(r=>{const fields=r.fields||{},due=fields.deadline||fields.due;return !closed.includes(r.status)&&due&&String(due).slice(0,10)===today();}).length;
+    const overdue=rows.filter(r=>{const fields=r.fields||{},due=calendarDay(fields.deadline||fields.due);return !closed.includes(r.status)&&due&&due<today();}).length;
+    const dueToday=rows.filter(r=>{const fields=r.fields||{},due=calendarDay(fields.deadline||fields.due);return !closed.includes(r.status)&&due&&due===today();}).length;
     const open=rows.length-completed;
     const grouped={};rows.forEach(r=>{const key=r.module||'other';grouped[key]=(grouped[key]||0)+1;});
     const breakdown=Object.keys(grouped).sort((a,b)=>grouped[b]-grouped[a]).map(key=>'<tr><td>'+esc(moduleById(key)?.name||key)+'</td><td>'+grouped[key]+'</td></tr>').join('');
@@ -268,7 +269,7 @@
   }
   function deadlines(){
     const closedStatuses=['Выполнено','Закрыто','Исполнено','В архиве'];
-    const rows=data().records.filter(r=>!r.archived&&!closedStatuses.includes(r.status)&&r.fields&&(r.fields.deadline||r.fields.due)).sort((a,b)=>String(a.fields.deadline||a.fields.due).localeCompare(String(b.fields.deadline||b.fields.due)));
+    const rows=data().records.filter(r=>!r.archived&&!closedStatuses.includes(r.status)&&calendarDay(r.fields&&(r.fields.deadline||r.fields.due))).sort((a,b)=>calendarDay(a.fields.deadline||a.fields.due).localeCompare(calendarDay(b.fields.deadline||b.fields.due)));
     const late=rows.filter(r=>deadlineState(r)==='Просрочено'),todayRows=rows.filter(r=>deadlineState(r)==='Сегодня'),upcoming=rows.filter(r=>deadlineState(r)==='Предстоит');
     const row=r=>'<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.fields.deadline||r.fields.due)+' · '+esc(moduleById(r.module)?.name||r.module)+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-deadline-tag '+(deadlineState(r)==='Просрочено'?'is-late':deadlineState(r)==='Сегодня'?'is-today':'')+'">'+esc(deadlineState(r))+'</span></div><p>'+esc(r.status)+' · '+esc(r.fields.responsible||r.fields.recipient||r.fields.assignedBy||'Ответственный не указан')+'</p><div class="ops-actions"><button type="button" data-ops="edit" data-id="'+r.id+'">Открыть запись</button></div></article>';
     shell('<div class="ops-stats"><div><b>'+late.length+'</b><span>просрочено</span></div><div><b>'+todayRows.length+'</b><span>срок сегодня</span></div><div><b>'+upcoming.length+'</b><span>предстоит</span></div></div><div class="ops-panel"><h2>Календарь сроков</h2><p class="ops-muted">Сроки из записей всех разделов текущего рабочего центра.</p>'+
