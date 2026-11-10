@@ -99,10 +99,11 @@
   function dueRecords(){const t=today();return data().records.filter(r=>{const fields=r.fields||{},raw=fields.deadline||fields.due;return !r.archived&&raw&&String(raw).slice(0,10)<t&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);});}
   function home(){
     const due=dueRecords(),aud=data().audit.slice(0,8),now=today();
-    const openTasks=records('personalTasks').filter(r=>!['Выполнено','Закрыто','Исполнено'].includes(r.status))
-      .sort((a,b)=>String(a.fields.deadline||'9999-12-31').localeCompare(String(b.fields.deadline||'9999-12-31')));
-    const lateTasks=openTasks.filter(r=>r.fields.deadline&&r.fields.deadline<now).slice(0,5);
-    const nextTasks=openTasks.filter(r=>r.fields.deadline&&r.fields.deadline>=now).slice(0,5);
+    const taskDeadline=r=>String((r.fields||{}).deadline||'').slice(0,10);
+    const openTasks=records('personalTasks').filter(r=>!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status))
+      .sort((a,b)=>(taskDeadline(a)||'9999-12-31').localeCompare(taskDeadline(b)||'9999-12-31'));
+    const lateTasks=openTasks.filter(r=>taskDeadline(r)&&taskDeadline(r)<now).slice(0,5);
+    const nextTasks=openTasks.filter(r=>taskDeadline(r)&&taskDeadline(r)>=now).slice(0,5);
     const cards=config.modules.map(m=>'<button type="button" class="ops-card" data-ops="module" data-id="'+m.id+'"><span class="ops-card-icon">✧</span><b>'+esc(m.name)+'</b><span>'+esc(m.desc)+'</span><small>'+records(m.id).length+' активных записей</small></button>').join('');
     const dueToday=data().records.filter(r=>{const due=r.fields&&(r.fields.deadline||r.fields.due);return !r.archived&&due&&String(due).slice(0,10)===now&&!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status);}).length;const alerts=due.length||dueToday?'<div class="ops-alert"><b>Требуют внимания: '+due.length+' просрочено · '+dueToday+' на сегодня</b><span>Откройте контроль сроков, чтобы посмотреть записи и ответственных.</span><button type="button" class="ops-secondary" data-ops="module" data-id="deadlines">Открыть контроль сроков</button></div>':'<div class="ops-good">Просроченных записей и сроков на сегодня нет.</div>';
     const taskPanel='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Ближайшие личные задачи</h2><p class="ops-muted">Личный список текущей учётной записи</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="personalTasks">Открыть задачи</button></div>'+
