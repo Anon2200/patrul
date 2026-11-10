@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/shared-data-center
+      - feature/internal-mail
       - launch-hardening
       - shared-password-sync
       - individual-auth-foundation
