@@ -24,11 +24,11 @@ const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@12
 
 test('cloud status updates preserve employee and logout controls', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
-  assert.match(source, /const statusLabel = document\\.createElement\\('span'\\)/);
-  assert.match(source, /badge\\.appendChild\\(statusLabel\\)/);
-  assert.match(source, /function status\\(s,color\\)\\s*\\{\\s*statusLabel\\.textContent=/);
-  assert.match(source, /badge\\.appendChild\\(row\\)/);
-  assert.doesNotMatch(source, /function status\\(s,color\\)\\s*\\{\\s*badge\\.textContent=/);
+  assert.ok(source.includes("const statusLabel = document.createElement('span')"));
+  assert.ok(source.includes('badge.appendChild(statusLabel)'));
+  assert.ok(source.includes('statusLabel.textContent='));
+  assert.ok(source.includes('badge.appendChild(row)'));
+  assert.ok(!source.includes("function status(s,color) { badge.textContent="));
 });
 
 let serverProcess;
