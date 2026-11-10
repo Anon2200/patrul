@@ -1,0 +1,52 @@
+name: Patrul checks
+
+on:
+  push:
+    branches:
+      - feature/shared-data-center
+      - launch-hardening
+      - shared-password-sync
+      - individual-auth-foundation
+  pull_request:
+    branches:
+      - main
+      - feature/shared-data-center
+      - launch-hardening
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-page-checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: patrul_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d patrul_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/patrul_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run static checks
+        run: npm run check
+      - name: Validate identity schema on disposable CI PostgreSQL
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_identity_schema.sql
+      - name: Run PostgreSQL API integration tests
+        run: npm run test:integration
