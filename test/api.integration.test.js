@@ -516,6 +516,41 @@ test('internal mail supports role-to-role conversations and restricts access to 
   assert.match(attachmentDownload.headers.get('content-disposition'),/attachment/);
   assert.equal(await attachmentDownload.text(),'Test attachment');
 
+  const archiveNoCsrf = await sessionApi('/api/mail/archive', {
+    method: 'POST',
+    body: JSON.stringify({ attachmentId: openedBody.messages[0].attachments[0].id })
+  }, employeeCookie);
+  assert.equal(archiveNoCsrf.status, 403);
+
+  const archiveSave = await sessionApi('/api/mail/archive', {
+    method: 'POST',
+    body: JSON.stringify({ attachmentId: openedBody.messages[0].attachments[0].id })
+  }, employeeCookie, employeeToken);
+  assert.equal(archiveSave.status, 201);
+  const archiveSaved = await archiveSave.json();
+  assert.ok(archiveSaved.id);
+
+  const archiveList = await sessionApi('/api/mail/archive', {}, employeeCookie);
+  assert.equal(archiveList.status, 200);
+  const archiveItems = (await archiveList.json()).items;
+  assert.equal(archiveItems.length, 1);
+  assert.equal(archiveItems[0].name, 'test.txt');
+
+  const archivedDownload = await sessionApi('/api/mail/archive/' + archiveSaved.id, {}, employeeCookie);
+  assert.equal(archivedDownload.status, 200);
+  assert.match(archivedDownload.headers.get('content-type'), /text\\/plain/);
+  assert.equal(await archivedDownload.text(), 'Test attachment');
+
+  const duplicateArchive = await sessionApi('/api/mail/archive', {
+    method: 'POST',
+    body: JSON.stringify({ attachmentId: openedBody.messages[0].attachments[0].id })
+  }, employeeCookie, employeeToken);
+  assert.equal(duplicateArchive.status, 201);
+  assert.equal((await duplicateArchive.json()).id, archiveSaved.id);
+
+  const outsiderArchive = await sessionApi('/api/mail/archive/' + archiveSaved.id, {}, outsiderCookie);
+  assert.equal(outsiderArchive.status, 404);
+
   const reply = await sessionApi('/api/mail/threads/' + threadId + '/messages', {
     method: 'POST',
     body: JSON.stringify({ body: 'Ответ подготовлен.', attachments: [{ name: 'reply.txt', data: 'UmVwbHkgZmlsZQ==' }] })
@@ -531,6 +566,13 @@ test('internal mail supports role-to-role conversations and restricts access to 
   const replyDownload=await sessionApi('/api/mail/attachments/'+conversationBody.messages[1].attachments[0].id,{},adminCookie);
   assert.equal(replyDownload.status,200);
   assert.equal(await replyDownload.text(),'Reply file');
+
+  const archiveDelete = await sessionApi('/api/mail/archive/' + archiveSaved.id, {
+    method: 'DELETE'
+  }, employeeCookie, employeeToken);
+  assert.equal(archiveDelete.status, 200);
+  const emptyArchive = await sessionApi('/api/mail/archive', {}, employeeCookie);
+  assert.deepEqual((await emptyArchive.json()).items, []);
 });
 
 test('administrator can block a user and all that user sessions are revoked', async () => {
