@@ -512,6 +512,8 @@ test('internal mail supports role-to-role conversations and restricts access to 
   assert.equal(openedBody.messages[0].attachments.length,1);
   const attachmentDownload=await sessionApi('/api/mail/attachments/'+openedBody.messages[0].attachments[0].id,{},employeeCookie);
   assert.equal(attachmentDownload.status,200);
+  assert.match(attachmentDownload.headers.get('content-type'),/text\\/plain/);
+  assert.match(attachmentDownload.headers.get('content-disposition'),/attachment/);
   assert.equal(await attachmentDownload.text(),'Test attachment');
 
   const reply = await sessionApi('/api/mail/threads/' + threadId + '/messages', {
