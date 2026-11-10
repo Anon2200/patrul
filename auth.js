@@ -237,12 +237,41 @@ function createAuth(pool,send,readJson) {
             [s.id,box,search,'%'+search+'%']);
           send(res,200,{threads:q.rows});return true;
         }
-        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})'+'$','i'));
+        if(mailPath==='/archive'&&req.method==='GET'){
+          const q=await pool.query('SELECT id,file_name AS "name",file_size AS "size",mime_type AS "mime",created_at AS "savedAt" FROM patrul_mail_archive WHERE owner_user_id=$1 ORDER BY created_at DESC,id DESC LIMIT 500',[s.id]);
+          send(res,200,{items:q.rows});return true;
+        }
+        if(mailPath==='/archive'&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req,16000),attachmentId=String(b.attachmentId||'');
+          if(!/^[0-9a-f-]{36}$/i.test(attachmentId)){send(res,400,{error:'Некорректное вложение'});return true;}
+          const source=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data,a.sha256 FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentId,s.id]);
+          if(!source.rowCount){send(res,404,{error:'Вложение не найдено или у вас нет доступа'});return true;}
+          const file=source.rows[0];
+          const saved=await pool.query('INSERT INTO patrul_mail_archive(owner_user_id,source_attachment_id,file_name,mime_type,file_size,file_data,sha256) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_user_id,source_attachment_id) DO NOTHING RETURNING id',[s.id,attachmentId,file.file_name,file.mime_type,file.file_size,file.file_data,file.sha256]);
+          const id=saved.rowCount?saved.rows[0].id:(await pool.query('SELECT id FROM patrul_mail_archive WHERE owner_user_id=$1 AND source_attachment_id=$2',[s.id,attachmentId])).rows[0].id;
+          send(res,201,{id,alreadySaved:!saved.rowCount});return true;
+        }
+        const archiveMatch=mailPath.match(/^\/archive\/([0-9a-f-]{36})$/i);
+        if(archiveMatch&&req.method==='GET'){
+          const q=await pool.query('SELECT file_name,mime_type,file_size,file_data FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2',[archiveMatch[1],s.id]);
+          if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
+          const file=q.rows[0];
+          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          res.end(file.file_data);return true;
+        }
+        if(archiveMatch&&req.method==='DELETE'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const q=await pool.query('DELETE FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2 RETURNING id',[archiveMatch[1],s.id]);
+          if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
+          send(res,200,{ok:true});return true;
+        }
+        const attachmentMatch=mailPath.match(/^\/attachments\/([0-9a-f-]{36})$/i);
         if(attachmentMatch&&req.method==='GET'){
-          const q=await pool.query('SELECT a.file_name,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
+          const q=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
-          const file=q.rows[0],fallback='attachment';
-          res.writeHead(200,{'content-type':'application/octet-stream','content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          const file=q.rows[0];
+          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
           res.end(file.file_data);return true;
         }
         const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);

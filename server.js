@@ -32,6 +32,8 @@ const PUBLIC_FILES = new Map([
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/mail.html', 'mail.html'],
   ['/mail.js', 'mail.js'],
+  ['/mail-viewer.html', 'mail-viewer.html'],
+  ['/mail-viewer.js', 'mail-viewer.js'],
   ['/sw.js', 'sw.js'],
   ['/nachalnik.webmanifest', 'nachalnik.webmanifest'],
   ['/zam.webmanifest', 'zam.webmanifest'],
@@ -201,6 +203,8 @@ async function initDatabase() {
   await pool.query(mailSchema);
   const mailAttachmentsSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '003_mail_attachments.sql'), 'utf8');
   await pool.query(mailAttachmentsSchema);
+  const mailArchiveSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '004_mail_archive.sql'), 'utf8');
+  await pool.query(mailArchiveSchema);
   await migratePlaintextRows(pool);
 }
 

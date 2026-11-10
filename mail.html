@@ -27,7 +27,7 @@ textarea{resize:vertical;min-height:120px}
 .messagehead{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-bottom:6px;font-size:12px;color:#627286}
 .empty{padding:30px 12px;text-align:center;color:#6b7a8c}
 .hidden{display:none!important}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-@media(max-width:700px){.wrap{margin:12px auto}.layout{grid-template-columns:1fr}.nav{grid-template-columns:repeat(3,1fr)}.nav button{text-align:center;padding:8px 4px}.message{max-width:96%}.top{padding:13px 16px}}
+@media(max-width:700px){.wrap{margin:12px auto}.layout{grid-template-columns:1fr}.nav{grid-template-columns:repeat(4,1fr)}.nav button{text-align:center;padding:8px 4px}.message{max-width:96%}.top{padding:13px 16px}}
 </style>
 </head>
 <body>
@@ -41,6 +41,7 @@ textarea{resize:vertical;min-height:120px}
 <button data-box="inbox" class="active">Входящие <span id="inboxCount"></span></button>
 <button data-box="sent">Отправленные</button>
 <button data-box="all">Все письма</button>
+<button data-box="archive">Архив</button>
 </nav>
 <div class="field"><label for="search">Поиск по теме и тексту</label><input id="search" placeholder="Введите запрос"></div>
 <div class="muted" id="identity"></div>
