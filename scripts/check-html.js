@@ -21,6 +21,16 @@ const serviceWorker = fs.readFileSync('sw.js', 'utf8');
 const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
+function countMatches(source, pattern) {
+  return (source.match(pattern) || []).length;
+}
+
+if (countMatches(index, /name="theme-color"/g) !== 1 ||
+    countMatches(index, /rel="apple-touch-icon"/g) !== 1) {
+  fail('index.html must contain one theme-color and one apple-touch-icon declaration');
+}
+
+
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
 
 if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
