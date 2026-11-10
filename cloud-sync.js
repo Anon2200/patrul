@@ -11,17 +11,38 @@
 
   const badge = document.createElement('div');
   badge.id = 'patrul-cloud-status';
-  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10000;padding:8px 11px;border-radius:9px;background:#16304f;color:#fff;font:12px/1.4 system-ui;box-shadow:0 2px 12px #0003;max-width:300px;display:flex;flex-direction:column;gap:6px';
+  badge.className = 'patrul-menu-status';
+  badge.style.cssText = 'display:flex;flex-direction:column;gap:5px;min-width:0;color:inherit';
   const statusLabel = document.createElement('span');
   statusLabel.textContent = 'Система: проверка входа';
   badge.appendChild(statusLabel);
-  document.body.appendChild(badge);
-  // Floating account/sync controls are useful on screen but must never appear on printed documents.
-  const printControlsStyle = document.createElement('style');
-  printControlsStyle.textContent = '@media print { #patrul-cloud-status, #patrul-mail-button { display: none !important; visibility: hidden !important; } }';
-  document.head.appendChild(printControlsStyle);
-  // Update only the status text so persistent employee/logout controls remain available.
-  function status(s,color) { statusLabel.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
+  const menuControlsStyle = document.createElement('style');
+  menuControlsStyle.textContent = `
+    .patrul-menu-link{display:flex;gap:8px;align-items:center;box-sizing:border-box;text-decoration:none;cursor:pointer}
+    #nv .patrul-menu-link{width:100%;border:0;background:transparent;color:#c5d1e2;font:inherit;font-weight:600;padding:10px 12px;border-radius:9px;text-align:left}
+    #nv .patrul-menu-link:hover{background:rgba(255,255,255,.08)}
+    #bn{overflow-x:auto;scrollbar-width:none}
+    #bn button:not(.patrul-menu-link){flex:0 0 58px}
+    #bn::-webkit-scrollbar{display:none}
+    #bn .patrul-menu-link{flex:0 0 66px;min-width:66px;max-width:90px;justify-content:center;flex-direction:column;gap:3px;padding:7px 3px;color:var(--mu);font:600 10px/1.1 system-ui;text-align:center;white-space:normal}
+    #bn .patrul-menu-link svg{width:22px;height:22px}
+    .patrul-menu-link .patrul-unread{display:inline-block;min-width:16px;padding:1px 4px;border-radius:10px;background:#d64545;color:#fff;font-size:10px;line-height:16px}
+    #patrul-cloud-status{margin-top:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.16);font:12px/1.35 system-ui}
+    #patrul-cloud-status button{align-self:flex-start;border:0;border-radius:6px;padding:4px 8px;cursor:pointer}
+    #bn #patrul-cloud-status{flex:0 0 116px;min-width:116px;max-width:140px;margin:0;padding:5px 4px;border-top:0;border-left:1px solid var(--bd);justify-content:center;gap:3px;color:var(--mu);font:9px/1.2 system-ui;text-align:center}
+    #bn #patrul-cloud-status span{overflow-wrap:anywhere}
+    #bn #patrul-cloud-status button{align-self:center;font-size:9px;padding:2px 5px}
+    @media(max-width:760px){
+      #nv .patrul-menu-link{flex-direction:column;gap:3px;justify-content:center;text-align:center;white-space:normal;flex:1 0 auto;min-width:68px;max-width:84px;width:auto;padding:8px 4px 7px;font-size:10px;line-height:1.1}
+      #nv .patrul-menu-link svg{width:22px;height:22px}
+      #nv #patrul-cloud-status{flex:0 0 116px;min-width:116px;max-width:140px;margin:0;padding:5px 4px;border-top:0;border-left:1px solid rgba(255,255,255,.16);justify-content:center;gap:3px;text-align:center;font:9px/1.2 system-ui}
+      #nv #patrul-cloud-status button{align-self:center;font-size:9px;padding:2px 5px}
+    }
+    #nv #patrul-admin-users{margin-top:4px}
+    @media print{#patrul-cloud-status,#patrul-mail-button,#patrul-mail-link,#patrul-admin-users{display:none!important;visibility:hidden!important}}
+  `;
+  document.head.appendChild(menuControlsStyle);
+  function status(s,color) { statusLabel.textContent='Система: '+s; statusLabel.style.color=color||'inherit'; }
   function localSnapshot() {
     return JSON.stringify(D);
   }
@@ -257,11 +278,51 @@
     await refresh();
   }
   function addControls() {
-    const mail=document.createElement('a');mail.id='patrul-mail-button';mail.href='/mail.html';mail.textContent='Почта';mail.setAttribute('aria-label','Открыть внутреннюю почту');mail.style.cssText='position:fixed;right:14px;bottom:52px;z-index:10001;padding:11px 16px;border-radius:10px;background:#16304f;color:#fff;text-decoration:none;font:600 14px system-ui;box-shadow:0 4px 18px #0004';
-    const unread=document.createElement('span');unread.style.cssText='display:inline-block;margin-left:7px;min-width:18px;padding:1px 5px;border-radius:10px;background:#d64545;color:#fff;text-align:center;font-size:11px';unread.hidden=true;mail.appendChild(unread);document.body.appendChild(mail);
+    const menu = document.querySelector(role==='zam'?'#bn':'#nv');
+    const mail=document.createElement('a');
+    mail.id='patrul-mail-button';
+    mail.className='patrul-menu-link';
+    mail.href='/mail.html';
+    mail.setAttribute('aria-label','Открыть внутреннюю почту');
+    mail.innerHTML='<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>Почта</span>';
+    const unread=document.createElement('span');
+    unread.className='patrul-unread';
+    unread.hidden=true;
+    mail.appendChild(unread);
     async function refreshMailCount(){try{const r=await request('/api/mail/unread');if(r.response.ok&&r.result.count>0){unread.hidden=false;unread.textContent=String(r.result.count>99?'99+':r.result.count)}else unread.hidden=true}catch(_){}}
-    refreshMailCount();setInterval(()=>{if(!document.hidden)refreshMailCount()},30000);
-    const mobile=document.createElement('style');mobile.textContent='@media(max-width:760px){#patrul-mail-link{bottom:88px!important;right:10px!important}}';mail.id='patrul-mail-link';document.head.appendChild(mobile);
+    refreshMailCount();
+    setInterval(()=>{if(!document.hidden)refreshMailCount()},30000);
+
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap';
+    const out=document.createElement('button');
+    out.type='button';
+    out.textContent='Выйти';
+    out.addEventListener('click',async()=>{await request('/api/auth/logout','POST',{});location.reload();});
+    row.appendChild(out);
+    badge.appendChild(row);
+
+    let adminButton=null;
+    if(currentUser&&currentUser.systemAdmin&&currentUser.role==='uchet'){
+      adminButton=document.createElement('button');
+      adminButton.type='button';
+      adminButton.id='patrul-admin-users';
+      adminButton.className='n patrul-menu-link';
+      adminButton.innerHTML='<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>Управление сотрудниками</span>';
+      adminButton.addEventListener('click',adminPanel);
+    }
+
+    function mountMenuControls(){
+      const target=document.querySelector(role==='zam'?'#bn':'#nv');
+      if(!target)return;
+      if(!mail.isConnected||mail.parentElement!==target)target.appendChild(mail);
+      if(adminButton&&(!adminButton.isConnected||adminButton.parentElement!==target))target.appendChild(adminButton);
+      if(!badge.isConnected||badge.parentElement!==target)target.appendChild(badge);
+    }
+    mountMenuControls();
+    const menuObserver=new MutationObserver(mountMenuControls);
+    if(menu)menuObserver.observe(menu,{childList:true});
+
     function addDocumentShareButton(){
       const paper=document.querySelector('.paper');
       if(!paper||!paper.isConnected)return;
@@ -288,10 +349,6 @@
     addDocumentShareButton();
     const documentObserver=new MutationObserver(()=>addDocumentShareButton());
     documentObserver.observe(document.getElementById('m')||document.body,{childList:true,subtree:true});
-    const row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap';
-    if(currentUser&&currentUser.systemAdmin&&currentUser.role==='uchet'){const a=document.createElement('button');a.type='button';a.textContent='Управление сотрудниками';a.setAttribute('aria-label','Открыть управление сотрудниками');a.style.cssText='position:fixed;left:14px;bottom:14px;z-index:10002;padding:12px 16px;border:0;border-radius:10px;background:#167d70;color:#fff;font:600 14px system-ui;box-shadow:0 4px 18px #0004;cursor:pointer';a.addEventListener('click',adminPanel);document.body.appendChild(a);const mobile=document.createElement('style');mobile.textContent='@media(max-width:760px){#patrul-admin-users{bottom:88px!important;left:10px!important}}';a.id='patrul-admin-users';document.head.appendChild(mobile);}
-    const out=document.createElement('button');out.textContent='Выйти';out.style.cssText='border:0;border-radius:5px;padding:4px 7px';out.addEventListener('click',async()=>{await request('/api/auth/logout','POST',{});location.reload();});row.appendChild(out);
-    badge.appendChild(row);
   }
   async function start() {
     status('проверка входа');
