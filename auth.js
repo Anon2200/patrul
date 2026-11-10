@@ -266,9 +266,11 @@ function createAuth(pool,send,readJson) {
           if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
           send(res,200,{ok:true});return true;
         }
-        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})'+'
+        const attachmentMatch=mailPath.match(/^\\/attachments\\/([0-9a-f-]{36})$/i);
+        if(attachmentMatch&&req.method==='GET'){
+          const q=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
-          const file=q.rows[0],fallback='attachment';
+          const file=q.rows[0];
           res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
           res.end(file.file_data);return true;
         }
