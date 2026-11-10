@@ -1,6 +1,6 @@
 -- Identity schema foundation for Patrul.
--- This file is intentionally NOT executed by server startup.
--- Apply only to an isolated test database after review and a verified backup.
+-- This idempotent schema migration is applied automatically during server startup.
+-- Do not run it manually against a database unless following the documented recovery procedure.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS patrul_users (
