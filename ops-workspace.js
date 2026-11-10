@@ -73,7 +73,7 @@
   }
   function shell(content){
     const root=$('#m');if(!root)return;
-    root.innerHTML='<section class="ops-shell"><div class="ops-top"><div><div class="ops-eyebrow">ПАТРУЛЬНАЯ СЛУЖБА · ИНСТРУМЕНТЫ</div><h1>'+esc(config.title)+'</h1><p>Новые записи хранятся вместе с данными вашей учётной записи и синхронизируются с сервером.</p></div><button type="button" class="ops-secondary" data-ops="home">К обзору кабинета</button></div>'+content+'</section>';
+    root.innerHTML='<section class="ops-shell"><div class="ops-top"><div><div class="ops-eyebrow">ПАТРУЛЬНАЯ СЛУЖБА · ИНСТРУМЕНТЫ</div><h1>'+esc(config.title)+'</h1><p>Новые записи хранятся вместе с данными вашей учётной записи и синхронизируются с сервером.</p></div><button type="button" class="ops-secondary" data-ops="exit">К обзору кабинета</button></div>'+content+'</section>';
     mountNav();
   }
   function countOpen(){return data().records.filter(r=>!r.archived&&r.status!=='Выполнено'&&r.status!=='Закрыто'&&r.status!=='Исполнено'&&r.status!=='В архиве').length;}
@@ -196,10 +196,11 @@
       const b=e.target.closest('[data-ops]');if(!b)return;
       const action=b.dataset.ops,id=b.dataset.id;
       if(action==='home'){home();return;}
+      if(action==='exit'){goHome();return;}
       if(action==='module'){filterText='';filterStatus='Все записи';list(id);return;}
       if(action==='new'){form(currentModule||'numbering',null);return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
-      if(action==='cancel'){delete data().drafts[currentModule];list(currentModule);return;}
+      if(action==='cancel'){list(currentModule);return;}
       if(action==='archive'){const r=data().records.find(x=>x.id===id);if(r){r.archived=true;r.updatedAt=new Date().toISOString();log('Перемещена в архив',r);persist();list(r.module);}return;}
       if(action==='status'){const r=data().records.find(x=>x.id===id);if(r){const next=prompt('Новый статус: Новая, В работе, На проверке, Выполнено или Закрыто',r.status);if(next&&['Новая','В работе','На проверке','Выполнено','Закрыто','Исполнено','В архиве'].includes(next)){r.status=next;r.updatedAt=new Date().toISOString();log('Изменён статус',r);persist();list(r.module);}}return;}
       if(action==='search'){const q=$('#ops-global-search')?.value||'';filterText=q;const found=data().records.filter(r=>recordText(r).includes(q.toLowerCase())||String(r.number||'').toLowerCase().includes(q.toLowerCase()));shell('<div class="ops-panel"><h2>Результаты поиска</h2><p>Найдено: '+found.length+'</p>'+found.map(r=>card(r,moduleById(r.module)||{fields:[]})).join('')+'</div>');return;}
