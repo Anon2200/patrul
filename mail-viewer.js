@@ -13,10 +13,11 @@ function showPreview(blob,name,type){
  $('#status').classList.add('hidden');root.classList.remove('hidden')
 }
 (async()=>{
- const id=new URLSearchParams(location.search).get('id');
- if(!id||!/^[0-9a-f-]{36}$/i.test(id)){message('Некорректная ссылка на вложение.');return}
+ const params=new URLSearchParams(location.search),id=params.get('id'),archiveId=params.get('archive');
+ const targetId=archiveId||id;
+ if(!targetId||!/^[0-9a-f-]{36}$/i.test(targetId)){message('Некорректная ссылка на документ.');return}
  try{
-  const response=await fetch('/api/mail/attachments/'+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store'});
+  const response=await fetch((archiveId?'/api/mail/archive/':'/api/mail/attachments/')+encodeURIComponent(targetId),{credentials:'same-origin',cache:'no-store'});
   if(!response.ok){let e={};try{e=await response.json()}catch(_){}throw new Error(e.error||'Файл недоступен. Возможно, у вашей учётной записи нет доступа к этой переписке.')}
   const blob=await response.blob(),disposition=response.headers.get('content-disposition')||'',encoded=disposition.match(/filename\*=UTF-8''([^;]+)/i);
   let name='Вложение';if(encoded){try{name=decodeURIComponent(encoded[1])}catch(_){name=encoded[1]}}
