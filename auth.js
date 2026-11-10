@@ -252,7 +252,7 @@ function createAuth(pool,send,readJson) {
           const id=saved.rowCount?saved.rows[0].id:(await pool.query('SELECT id FROM patrul_mail_archive WHERE owner_user_id=$1 AND source_attachment_id=$2',[s.id,attachmentId])).rows[0].id;
           send(res,201,{id,alreadySaved:!saved.rowCount});return true;
         }
-        const archiveMatch=mailPath.match(/^\\/archive\\/([0-9a-f-]{36})$/i);
+        const archiveMatch=mailPath.match(/^\/archive\/([0-9a-f-]{36})$/i);
         if(archiveMatch&&req.method==='GET'){
           const q=await pool.query('SELECT file_name,mime_type,file_size,file_data FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2',[archiveMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
