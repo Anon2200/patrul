@@ -5,11 +5,21 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { createAuth } = require('./auth');
+const { validateDataEncryptionKey, encryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
-const API_TOKEN = process.env.PATRUL_API_TOKEN || '';
+const ROLE_TOKEN_ENV = {
+  nachalnik: 'PATRUL_TOKEN_NACHALNIK',
+  zam: 'PATRUL_TOKEN_ZAM',
+  uchet: 'PATRUL_TOKEN_UCHET',
+  dokumentoved: 'PATRUL_TOKEN_DOKUMENTOVED'
+};
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ROLES = new Set(['nachalnik', 'zam', 'uchet', 'dokumentoved']);
+const AUTH_FAILURE_LIMIT = 10;
+const AUTH_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const authFailures = new Map();
 
 // Разрешённые публичные файлы интерфейса. Не отдаём произвольные файлы с диска.
 const PUBLIC_FILES = new Map([
@@ -48,8 +58,12 @@ async function servePublicFile(req, res, pathname) {
     res.writeHead(200, {
       'content-type': CONTENT_TYPES[path.extname(fileName)] || 'application/octet-stream',
       'content-length': stat.size,
-      'cache-control': fileName.endsWith('.html') ? 'no-cache' : 'public, max-age=3600',
-      'x-content-type-options': 'nosniff'
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains',
+      'permissions-policy': 'camera=(self), microphone=(), geolocation=()'
     });
     if (req.method === 'HEAD') {
       res.end();
@@ -78,22 +92,55 @@ const pool = new Pool({
 
 pool.on('error', (err) => console.error('Unexpected PostgreSQL client error:', err.message));
 
-function send(res, status, body) {
+function send(res, status, body, extraHeaders = {}) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff'
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains',
+    'permissions-policy': 'camera=(self), microphone=(), geolocation=()',
+    ...extraHeaders
   });
   res.end(JSON.stringify(body));
 }
 
-function authorized(req) {
-  if (!API_TOKEN) return false;
+function authFailureKey(req, role) {
+  return (req.socket.remoteAddress || 'unknown') + ':' + role;
+}
+
+function recordAuthFailure(req, role) {
+  const now = Date.now();
+  const key = authFailureKey(req, role);
+  let entry = authFailures.get(key);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + AUTH_FAILURE_WINDOW_MS };
+  }
+  entry.count += 1;
+  authFailures.delete(key);
+  // Keep the in-memory limiter bounded if many client addresses are seen.
+  if (authFailures.size >= 10000) authFailures.delete(authFailures.keys().next().value);
+  authFailures.set(key, entry);
+  return entry.count > AUTH_FAILURE_LIMIT
+    ? Math.max(1, Math.ceil((entry.resetAt - now) / 1000))
+    : 0;
+}
+
+function clearAuthFailures(req, role) {
+  authFailures.delete(authFailureKey(req, role));
+}
+
+function authorized(req, role) {
+  if (process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED !== 'true') return false;
+  const envName = ROLE_TOKEN_ENV[role];
+  const expected = envName ? process.env[envName] || '' : '';
+  if (!expected) return false;
   const header = req.headers.authorization || '';
   const supplied = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!supplied) return false;
   const a = Buffer.from(supplied);
-  const b = Buffer.from(API_TOKEN);
+  const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
@@ -120,16 +167,43 @@ async function readJson(req) {
 
 async function initDatabase() {
   if (!process.env.DATABASE_URL) throw new Error('Не задана переменная DATABASE_URL');
-  if (!API_TOKEN) console.warn('PATRUL_API_TOKEN is not set; data endpoints are disabled.');
+  validateDataEncryptionKey();
+  const publicOrigin = process.env.PATRUL_PUBLIC_ORIGIN || '';
+  let parsedOrigin;
+  try { parsedOrigin = new URL(publicOrigin); } catch { throw new Error('PATRUL_PUBLIC_ORIGIN must be configured as an exact HTTPS origin'); }
+  if (parsedOrigin.origin !== publicOrigin || (parsedOrigin.protocol !== 'https:' && parsedOrigin.hostname !== '127.0.0.1' && parsedOrigin.hostname !== 'localhost')) {
+    throw new Error('PATRUL_PUBLIC_ORIGIN must be an exact HTTPS origin (HTTP is allowed only for localhost tests)');
+  }
+  const configuredTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.entries(ROLE_TOKEN_ENV)
+    .map(([role, envName]) => ({ role, envName, value: process.env[envName] || '' }))
+    .filter(item => item.value) : [];
+  const weakTokens = configuredTokens.filter(item => Buffer.byteLength(item.value, 'utf8') < 32);
+  if (weakTokens.length) {
+    throw new Error('Role access tokens must contain at least 32 UTF-8 bytes: ' + weakTokens.map(item => item.envName).join(', '));
+  }
+  if (new Set(configuredTokens.map(item => item.value)).size !== configuredTokens.length) {
+    throw new Error('Each configured role must have a different access token');
+  }
+  const missingRoleTokens = process.env.PATRUL_LEGACY_ROLE_TOKENS_ENABLED === 'true' ? Object.values(ROLE_TOKEN_ENV).filter(name => !process.env[name]) : [];
+  if (missingRoleTokens.length) {
+    console.warn('Role data access is disabled for roles without configured tokens:', missingRoleTokens.join(', '));
+  }
   await pool.query(
     'CREATE TABLE IF NOT EXISTS patrul_role_data (' +
     'role TEXT PRIMARY KEY, data JSONB NOT NULL, ' +
     'version BIGINT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())'
   );
+  const identitySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '001_identity_schema.sql'), 'utf8');
+  await pool.query(identitySchema);
+  await migratePlaintextRows(pool);
 }
+
+const handleAuth = createAuth(pool, send, readJson);
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+
+  if (await handleAuth(req, res, url)) return;
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
     try {
@@ -148,10 +222,18 @@ const server = http.createServer(async (req, res) => {
   if (!match || !['GET', 'PUT'].includes(req.method)) {
     return send(res, 404, { error: 'Маршрут не найден' });
   }
-  if (!authorized(req)) return send(res, 401, { error: 'Требуется авторизация' });
-
   const role = match[1];
   if (!ROLES.has(role)) return send(res, 400, { error: 'Неизвестная роль' });
+  if (!authorized(req, role)) {
+    const retryAfter = recordAuthFailure(req, role);
+    if (retryAfter) {
+      return send(res, 429, { error: 'Слишком много неверных попыток. Повторите позже.' }, {
+        'retry-after': String(retryAfter)
+      });
+    }
+    return send(res, 401, { error: 'Нет доступа к данным этой роли' });
+  }
+  clearAuthFailures(req, role);
 
   try {
     if (req.method === 'GET') {
@@ -165,7 +247,7 @@ const server = http.createServer(async (req, res) => {
       const row = result.rows[0];
       return send(res, 200, {
         role,
-        data: row.data,
+        data: await readRoleData(pool, role, row),
         version: Number(row.version),
         updatedAt: row.updated_at
       });
@@ -187,7 +269,7 @@ const server = http.createServer(async (req, res) => {
       'version = patrul_role_data.version + 1, updated_at = NOW() ' +
       'WHERE patrul_role_data.version = $3 ' +
       'RETURNING data, version, updated_at',
-      [role, JSON.stringify(body.data), body.expectedVersion]
+      [role, JSON.stringify(encryptData(body.data, role)), body.expectedVersion]
     );
 
     if (result.rowCount === 0) {
@@ -204,7 +286,7 @@ const server = http.createServer(async (req, res) => {
     const row = result.rows[0];
     return send(res, 200, {
       role,
-      data: row.data,
+      data: body.data,
       version: Number(row.version),
       updatedAt: row.updated_at
     });
