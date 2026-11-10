@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16304f">
+<title>Почта — Патрульная служба</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172334;background:#eef2f6;font-size:14px}
+*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}
+.top{background:#16304f;color:white;padding:15px max(16px,calc((100% - 1180px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.top a{color:white;text-decoration:none}.wrap{max-width:1180px;margin:22px auto;padding:0 16px}
+.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:16px}
+.panel{background:white;border:1px solid #dce3eb;border-radius:13px;padding:16px;min-width:0}
+.btn{border:0;border-radius:9px;background:#168477;color:white;padding:10px 14px;font-weight:650;cursor:pointer}
+.btn.secondary{background:#edf2f6;color:#1c2a3b}.btn:disabled{opacity:.5;cursor:wait}
+.nav{display:grid;gap:7px;margin:14px 0}.nav button{width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:10px;color:#27384c;cursor:pointer}
+.nav button.active{background:#e7f4f1;color:#116c61;font-weight:700}
+.field{display:grid;gap:5px;margin:10px 0}.field label{font-size:12px;color:#536477;font-weight:650}
+input,select,textarea{width:100%;border:1px solid #cbd5df;border-radius:8px;padding:10px;background:white;color:#172334;min-height:40px}
+textarea{resize:vertical;min-height:120px}
+.list{display:grid;gap:8px;margin-top:12px}.item{border:1px solid #e0e6ed;border-radius:10px;padding:12px;text-align:left;background:white;cursor:pointer;color:inherit;width:100%}.item:hover,.item.selected{border-color:#168477;background:#f5fbfa}
+.itemhead{display:flex;justify-content:space-between;gap:8px}.muted{color:#68788b;font-size:12px}.preview{margin-top:6px;color:#46566a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.unread{background:#dff3ed;color:#12695e;border-radius:20px;padding:2px 7px;font-size:11px;font-weight:700}
+.message{padding:12px;border:1px solid #e0e6ed;border-radius:10px;margin:10px 0;max-width:88%;white-space:pre-wrap;overflow-wrap:anywhere}
+.message.mine{margin-left:auto;background:#edf8f5;border-color:#cce9e1}
+.messagehead{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-bottom:6px;font-size:12px;color:#627286}
+.empty{padding:30px 12px;text-align:center;color:#6b7a8c}
+.hidden{display:none!important}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:700px){.wrap{margin:12px auto}.layout{grid-template-columns:1fr}.nav{grid-template-columns:repeat(3,1fr)}.nav button{text-align:center;padding:8px 4px}.message{max-width:96%}.top{padding:13px 16px}}
+</style>
+</head>
+<body>
+<header class="top"><strong>Патрульная служба · Почта</strong><a href="/">К выбору раздела</a></header>
+<main class="wrap">
+<div id="status" class="panel">Проверяем вход…</div>
+<div id="app" class="layout hidden">
+<aside class="panel">
+<button class="btn" id="compose" style="width:100%">＋ Написать письмо</button>
+<nav class="nav">
+<button data-box="inbox" class="active">Входящие <span id="inboxCount"></span></button>
+<button data-box="sent">Отправленные</button>
+<button data-box="all">Все письма</button>
+</nav>
+<div class="field"><label for="search">Поиск по теме и тексту</label><input id="search" placeholder="Введите запрос"></div>
+<div class="muted" id="identity"></div>
+</aside>
+<section class="panel" style="min-height:65vh">
+<div id="listPane">
+<div class="row" style="justify-content:space-between"><h2 id="listTitle" style="font-size:19px;margin:0">Входящие</h2><button class="btn secondary" id="refresh">Обновить</button></div>
+<div class="list" id="threads"></div>
+</div>
+<div id="detailPane" class="hidden">
+<div class="row" style="justify-content:space-between"><button class="btn secondary" id="back">← К письмам</button><span class="muted" id="other"></span></div>
+<h2 id="subject" style="font-size:20px;margin:16px 0"></h2>
+<div id="messages"></div>
+<form id="replyForm">
+<div class="field"><label for="reply">Ответ</label><textarea id="reply" maxlength="20000" required placeholder="Напишите ответ…"></textarea></div>
+<div class="row"><button class="btn" type="submit">Отправить ответ</button></div>
+</form>
+</div>
+<div id="composePane" class="hidden">
+<div class="row"><button class="btn secondary" id="cancelCompose">← Назад</button><h2 style="font-size:19px;margin:0">Новое письмо</h2></div>
+<form id="composeForm">
+<div class="field"><label for="recipient">Кому</label><select id="recipient" required><option value="">Загрузка сотрудников…</option></select></div>
+<div class="field"><label for="newSubject">Тема</label><input id="newSubject" maxlength="200" required placeholder="Кратко обозначьте тему"></div>
+<div class="field"><label for="newBody">Текст письма</label><textarea id="newBody" maxlength="20000" required placeholder="Опишите запрос или сообщение…"></textarea></div>
+<button class="btn" type="submit">Отправить письмо</button>
+</form>
+</div>
+</section>
+</div>
+</main>
+<script src="/mail.js" defer></script>
+</body></html>
