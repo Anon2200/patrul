@@ -56,7 +56,7 @@ textarea{resize:vertical;min-height:120px}
 <div id="messages"></div>
 <form id="replyForm">
 <div class="field"><label for="reply">Ответ</label><textarea id="reply" maxlength="20000" required placeholder="Напишите ответ…"></textarea></div>
-<div class="row"><button class="btn" type="submit">Отправить ответ</button></div>
+<div class="field"><label for="replyFiles">Файлы к ответу (до 5 файлов, всего до 8 МБ)</label><input id="replyFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.png,.jpg,.jpeg,.webp,.html,.json"><div id="replyFileList" class="muted"></div></div><div class="row"><button class="btn" type="submit">Отправить ответ</button></div>
 </form>
 </div>
 <div id="composePane" class="hidden">
@@ -65,7 +65,7 @@ textarea{resize:vertical;min-height:120px}
 <div class="field"><label for="recipient">Кому</label><select id="recipient" required><option value="">Загрузка сотрудников…</option></select></div>
 <div class="field"><label for="newSubject">Тема</label><input id="newSubject" maxlength="200" required placeholder="Кратко обозначьте тему"></div>
 <div class="field"><label for="newBody">Текст письма</label><textarea id="newBody" maxlength="20000" required placeholder="Опишите запрос или сообщение…"></textarea></div>
-<button class="btn" type="submit">Отправить письмо</button>
+<div class="field"><label for="newFiles">Вложения (до 5 файлов, всего до 8 МБ)</label><input id="newFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.png,.jpg,.jpeg,.webp,.html,.json"><div id="newFileList" class="muted"></div></div><button class="btn" type="submit">Отправить письмо</button>
 </form>
 </div>
 </section>

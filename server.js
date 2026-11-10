@@ -146,12 +146,12 @@ function authorized(req, role) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > maxBytes) {
       const err = new Error('Тело запроса слишком большое');
       err.status = 413;
       throw err;
@@ -199,6 +199,8 @@ async function initDatabase() {
   await pool.query(identitySchema);
   const mailSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '002_mail_schema.sql'), 'utf8');
   await pool.query(mailSchema);
+  const mailAttachmentsSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '003_mail_attachments.sql'), 'utf8');
+  await pool.query(mailAttachmentsSchema);
   await migratePlaintextRows(pool);
 }
 
