@@ -146,7 +146,7 @@
       const scale=Math.min(1,1200/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       let quality=.72,out=canvas.toDataURL('image/jpeg',quality);
-      while(out.length>180000&&quality>.35{quality-=.08;out=canvas.toDataURL('image/jpeg',quality);}
+      while(out.length>180000&&quality>.35){quality-=.08;out=canvas.toDataURL('image/jpeg',quality);}
       if(out.length>180000)throw new Error('Не удалось уменьшить фотографию до допустимого размера.');
       return out;
     }finally{URL.revokeObjectURL(url);}
