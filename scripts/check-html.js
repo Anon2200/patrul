@@ -150,7 +150,7 @@ if (!serviceWorker.includes('cloud-sync.js')) {
 
 if (!mailClient.includes("const filtered=items.filter(f=>!query||[f.name,f.mime].join(' ').toLocaleLowerCase('ru-RU').includes(query))")) fail('mail archive must support searching saved attachments by file name and format');
 if (!mailClient.includes("Поиск по названию или формату файла")) fail('mail archive search must explain which file fields are searchable');
-if (!mailClient.includes("copy.textContent='Копировать текст'") || !mailClient.includes('navigator.clipboard.writeText(m.body)') || !mailClient.includes("copy.textContent='✓ Скопировано'")) fail('mail messages must provide a working copy-text action with confirmation');
+if (!mailClient.includes("copy.textContent='Копировать текст'") || !mailClient.includes('navigator.clipboard.writeText') || !mailClient.includes("document.execCommand('copy')") || !mailClient.includes("copy.textContent='✓ Скопировано'")) fail('mail messages must provide clipboard and fallback copy actions with confirmation');
 if (!mailClient.includes("По вашему запросу писем не найдено. Попробуйте изменить запрос.") || !mailClient.includes("В этом разделе пока нет писем.")) fail('mail search and empty folders must show distinct empty states');
 
 if (!process.exitCode) console.log('Patrul static checks passed.');
