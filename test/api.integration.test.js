@@ -323,6 +323,15 @@ let employeeCsrf = '';
 let employeeId = '';
 let employeeTemporaryPassword = '';
 
+test('cloud status updates preserve the persistent employee controls', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
+  assert.match(source, /const statusLabel = document\.createElement\('span'\)/);
+  assert.match(source, /badge\.appendChild\(statusLabel\)/);
+  assert.match(source, /function status\(s,color\)\s*\{\s*statusLabel\.textContent=/);
+  assert.match(source, /badge\.appendChild\(row\)/);
+  assert.doesNotMatch(source, /function status\(s,color\)\s*\{\s*badge\.textContent=/);
+});
+
 async function sessionApi(path, options = {}, cookie = '', csrf = '') {
   return fetch(baseUrl + path, {
     ...options,
@@ -447,6 +456,34 @@ test('personal login session, CSRF protection, and role authorization work', asy
   const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(latest.status, 200);
   assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
+});
+
+test('administrator can create and list accounts for all staff roles', async () => {
+  const me = await sessionApi('/api/auth/me', {}, adminCookie);
+  assert.equal(me.status, 200);
+  adminCsrf = (await me.json()).csrfToken;
+
+  for (const [role, username] of [
+    ['nachalnik', 'employee.nachalnik'],
+    ['dokumentoved', 'employee.dokumentoved']
+  ]) {
+    const response = await sessionApi('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, displayName: 'CI ' + role, role })
+    }, adminCookie, adminCsrf);
+    assert.equal(response.status, 201, role + ' account should be created');
+    const created = await response.json();
+    assert.equal(created.user.role, role);
+    assert.equal(created.user.mustChangePassword, true);
+    assert.ok(created.temporaryPassword.length >= 20);
+  }
+
+  const listed = await sessionApi('/api/admin/users', {}, adminCookie);
+  assert.equal(listed.status, 200);
+  const roles = new Set((await listed.json()).users.map(user => user.role));
+  for (const role of ['uchet', 'nachalnik', 'zam', 'dokumentoved']) {
+    assert.ok(roles.has(role), 'account list should contain role ' + role);
+  }
 });
 
 test('administrator can block a user and all that user sessions are revoked', async () => {
