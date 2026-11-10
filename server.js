@@ -30,6 +30,8 @@ const PUBLIC_FILES = new Map([
   ['/uchet.html', 'uchet.html'],
   ['/dokumentoved.html', 'dokumentoved.html'],
   ['/cloud-sync.js', 'cloud-sync.js'],
+  ['/mail.html', 'mail.html'],
+  ['/mail.js', 'mail.js'],
   ['/sw.js', 'sw.js'],
   ['/nachalnik.webmanifest', 'nachalnik.webmanifest'],
   ['/zam.webmanifest', 'zam.webmanifest'],
@@ -195,6 +197,8 @@ async function initDatabase() {
   );
   const identitySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '001_identity_schema.sql'), 'utf8');
   await pool.query(identitySchema);
+  const mailSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '002_mail_schema.sql'), 'utf8');
+  await pool.query(mailSchema);
   await migratePlaintextRows(pool);
 }
 
