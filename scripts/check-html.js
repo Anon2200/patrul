@@ -88,6 +88,14 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
   if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
+  const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);
+  const homeStyles = html.match(/<style id="patrul-home-styles">([\s\S]*?)<\/style>/);
+  if (!authGate || authGate[1].trim() !== 'body{visibility:hidden}') {
+    fail(file + ' auth gate must contain only the temporary page-visibility rule');
+  }
+  if (!homeStyles || !homeStyles[1].includes('.home-screen') || !homeStyles[1].includes('.home-panel') || !homeStyles[1].includes('.home-metrics')) {
+    fail(file + ' dashboard styles must live outside the removable authentication gate');
+  }
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
   if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
   if (!html.includes('delete copy.sx.pw')) fail(file + ' manual backup must not export the shared exchange password');
