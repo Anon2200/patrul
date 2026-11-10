@@ -264,13 +264,13 @@
       share.addEventListener('click',async()=>{
         try{
           const title=paper.querySelector('h2')?.textContent?.trim()||document.querySelector('[data-chg="doc"] option:checked')?.textContent||'Рабочий документ';
-          const styles=Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\\n');
+          const styles=Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join(String.fromCharCode(10));
           const html='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title.replace(/[<>&"]/g,' ')+'</title><style>'+styles+'body{background:#fff!important;color:#000!important}.paper{margin:0 auto!important;box-shadow:none!important}</style></head><body>'+paper.outerHTML+'</body></html>';
           const blob=new Blob([html],{type:'text/html;charset=utf-8'});
           if(blob.size>3*1024*1024)throw new Error('Документ слишком большой для прямой передачи. Сохраните его как PDF и прикрепите к письму вручную.');
           const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';
           for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
-          const safe=String(title).replace(/[^\\p{L}\\p{N} _.-]/gu,' ').trim().slice(0,70)||'document';
+          const safe=String(title).split('/').join(' ').split(String.fromCharCode(92)).join(' ').trim().slice(0,70)||'document';
           sessionStorage.setItem('patrul_mail_document_draft',JSON.stringify({name:safe+'.html',size:bytes.length,data:btoa(binary)}));
           location.href='/mail.html?compose=1&document=1';
         }catch(err){alert(err.message||'Не удалось подготовить документ к отправке');}
