@@ -186,6 +186,83 @@ function createAuth(pool,send,readJson) {
         }
         send(res,404,{error:'Маршрут не найден'});return true;
       }
+
+      if(p.startsWith('/api/mail/')){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        const mailPath=p.slice('/api/mail'.length);
+        if(mailPath==='/recipients'&&req.method==='GET'){
+          const q=await pool.query('SELECT id,display_name AS "displayName",role FROM patrul_users WHERE is_active=TRUE AND id<>$1 ORDER BY lower(display_name)',[s.id]);
+          send(res,200,{users:q.rows});return true;
+        }
+        if(mailPath==='/unread'&&req.method==='GET'){
+          const q=await pool.query("SELECT COUNT(*)::int AS count FROM patrul_mail_participants p WHERE p.user_id=$1 AND EXISTS (SELECT 1 FROM patrul_mail_messages m WHERE m.thread_id=p.thread_id AND m.sender_id<>$1 AND m.created_at>COALESCE(p.last_read_at,'epoch'::timestamptz))",[s.id]);
+          send(res,200,{count:q.rows[0].count});return true;
+        }
+        if(mailPath==='/threads'&&req.method==='GET'){
+          const box=['inbox','sent','all'].includes(url.searchParams.get('box'))?url.searchParams.get('box'):'inbox';
+          const search=String(url.searchParams.get('q')||'').trim().slice(0,120);
+          const q=await pool.query(
+            'SELECT t.id,t.subject,t.created_at AS "createdAt",t.updated_at AS "updatedAt",t.created_by=$1 AS "isSent", '+
+            'u.display_name AS "otherName",u.role AS "otherRole",lm.body AS "lastBody",lm.created_at AS "lastAt", '+
+            '(lm.sender_id=$1) AS "lastFromMe", '+
+            '(SELECT COUNT(*)::int FROM patrul_mail_messages um WHERE um.thread_id=t.id AND um.sender_id<>$1 AND um.created_at>COALESCE(p.last_read_at,\'epoch\'::timestamptz)) AS "unreadCount" '+
+            'FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id AND p.user_id=$1 '+
+            'JOIN LATERAL (SELECT m.body,m.sender_id,m.created_at FROM patrul_mail_messages m WHERE m.thread_id=t.id ORDER BY m.created_at DESC,m.id DESC LIMIT 1) lm ON TRUE '+
+            'JOIN LATERAL (SELECT pu.display_name,pu.role FROM patrul_mail_participants op JOIN patrul_users pu ON pu.id=op.user_id WHERE op.thread_id=t.id AND op.user_id<>$1 LIMIT 1) u ON TRUE '+
+            'WHERE ($2=\'all\' OR ($2=\'sent\' AND t.created_by=$1) OR ($2=\'inbox\' AND t.created_by<>$1)) '+
+            'AND ($3=\'\' OR t.subject ILIKE $4 OR EXISTS(SELECT 1 FROM patrul_mail_messages sm WHERE sm.thread_id=t.id AND sm.body ILIKE $4)) '+
+            'ORDER BY lm.created_at DESC,t.id DESC LIMIT 100',
+            [s.id,box,search,'%'+search+'%']);
+          send(res,200,{threads:q.rows});return true;
+        }
+        const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);
+        if(threadMatch&&req.method==='GET'){
+          const id=threadMatch[1];
+          const participant=await pool.query('SELECT 1 FROM patrul_mail_participants WHERE thread_id=$1 AND user_id=$2',[id,s.id]);
+          if(!participant.rowCount){send(res,404,{error:'Письмо не найдено'});return true;}
+          await pool.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[id,s.id]);
+          const thread=await pool.query('SELECT t.id,t.subject,t.created_at AS "createdAt",t.created_by=$2 AS "isSent",u.display_name AS "otherName",u.role AS "otherRole" FROM patrul_mail_threads t JOIN LATERAL (SELECT pu.display_name,pu.role FROM patrul_mail_participants op JOIN patrul_users pu ON pu.id=op.user_id WHERE op.thread_id=t.id AND op.user_id<>$2 LIMIT 1) u ON TRUE WHERE t.id=$1',[id,s.id]);
+          const messages=await pool.query('SELECT m.id,m.body,m.created_at AS "createdAt",m.sender_id=$2 AS "fromMe",u.display_name AS "senderName",u.role AS "senderRole" FROM patrul_mail_messages m JOIN patrul_users u ON u.id=m.sender_id WHERE m.thread_id=$1 ORDER BY m.created_at,m.id',[id,s.id]);
+          send(res,200,{thread:thread.rows[0],messages:messages.rows});return true;
+        }
+        if(mailPath==='/threads'&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req),to=String(b.toUserId||''),subject=typeof b.subject==='string'?b.subject.trim():'',body=typeof b.body==='string'?b.body.trim():'';
+          if(!/^[0-9a-f-]{36}$/i.test(to)||to===s.id||!subject||subject.length>200||!body||body.length>20000){send(res,400,{error:'Укажите получателя, тему (до 200 символов) и текст (до 20 000 символов)'});return true;}
+          const c=await pool.connect();
+          try{
+            await c.query('BEGIN');
+            const recipient=await c.query('SELECT id FROM patrul_users WHERE id=$1 AND is_active=TRUE',[to]);
+            if(!recipient.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Получатель не найден или заблокирован'});return true;}
+            const t=await c.query('INSERT INTO patrul_mail_threads(subject,created_by) VALUES($1,$2) RETURNING id',[subject,s.id]);
+            await c.query('INSERT INTO patrul_mail_participants(thread_id,user_id) VALUES($1,$2),($1,$3)',[t.rows[0].id,s.id,to]);
+            await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3)',[t.rows[0].id,s.id,body]);
+            await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[t.rows[0].id]);
+            await c.query('COMMIT');send(res,201,{threadId:t.rows[0].id});
+          }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+          return true;
+        }
+        const replyMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})\/messages$/i);
+        if(replyMatch&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req),body=typeof b.body==='string'?b.body.trim():'';
+          if(!body||body.length>20000){send(res,400,{error:'Текст ответа обязателен (до 20 000 символов)'});return true;}
+          const c=await pool.connect();
+          try{
+            await c.query('BEGIN');
+            const t=await c.query('SELECT t.id FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id WHERE t.id=$1 AND p.user_id=$2 FOR UPDATE OF t',[replyMatch[1],s.id]);
+            if(!t.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Переписка не найдена'});return true;}
+            await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3)',[replyMatch[1],s.id,body]);
+            await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[replyMatch[1]]);
+            await c.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[replyMatch[1],s.id]);
+            await c.query('COMMIT');send(res,201,{ok:true});
+          }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+          return true;
+        }
+        send(res,404,{error:'Маршрут почты не найден'});return true;
+      }
       if(p.startsWith('/api/session-data/')){
         const s=await sessionFor(req);if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
