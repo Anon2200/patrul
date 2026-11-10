@@ -21,7 +21,8 @@
     .patrul-menu-link{display:flex;gap:8px;align-items:center;box-sizing:border-box;text-decoration:none;cursor:pointer}
     #nv .patrul-menu-link{width:100%;border:0;background:transparent;color:#c5d1e2;font:inherit;font-weight:600;padding:10px 12px;border-radius:9px;text-align:left}
     #nv .patrul-menu-link:hover{background:rgba(255,255,255,.08)}
-    #bn{overflow-x:auto;scrollbar-width:none}\n    #bn button:not(.patrul-menu-link){flex:0 0 58px}
+    #bn{overflow-x:auto;scrollbar-width:none}
+    #bn button:not(.patrul-menu-link){flex:0 0 58px}
     #bn::-webkit-scrollbar{display:none}
     #bn .patrul-menu-link{flex:0 0 66px;min-width:66px;max-width:90px;justify-content:center;flex-direction:column;gap:3px;padding:7px 3px;color:var(--mu);font:600 10px/1.1 system-ui;text-align:center;white-space:normal}
     #bn .patrul-menu-link svg{width:22px;height:22px}
