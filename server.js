@@ -32,6 +32,8 @@ const PUBLIC_FILES = new Map([
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/mail.html', 'mail.html'],
   ['/mail.js', 'mail.js'],
+  ['/mail-viewer.html', 'mail-viewer.html'],
+  ['/mail-viewer.js', 'mail-viewer.js'],
   ['/sw.js', 'sw.js'],
   ['/nachalnik.webmanifest', 'nachalnik.webmanifest'],
   ['/zam.webmanifest', 'zam.webmanifest'],
