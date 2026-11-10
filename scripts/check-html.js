@@ -21,6 +21,7 @@ const serviceWorker = fs.readFileSync('sw.js', 'utf8');
 const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
+const mailClient = fs.readFileSync('mail.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 function countMatches(source, pattern) {
@@ -145,5 +146,8 @@ if (!serviceWorker.includes('cloud-sync.js')) {
   // The sync script is loaded by the HTML and cached through normal network fetches.
   console.log('sw.js: cloud-sync.js is fetched dynamically and cached by the fetch handler');
 }
+
+if (!mailClient.includes("const filtered=items.filter(f=>!query||[f.name,f.mime].join(' ').toLocaleLowerCase('ru-RU').includes(query))")) fail('mail archive must support searching saved attachments by file name and format');
+if (!mailClient.includes("Поиск по названию или формату файла")) fail('mail archive search must explain which file fields are searchable');
 
 if (!process.exitCode) console.log('Patrul static checks passed.');
