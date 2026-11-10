@@ -266,7 +266,8 @@ function createAuth(pool,send,readJson) {
             if(!recipient.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Получатель не найден или заблокирован'});return true;}
             const t=await c.query('INSERT INTO patrul_mail_threads(subject,created_by) VALUES($1,$2) RETURNING id',[subject,s.id]);
             await c.query('INSERT INTO patrul_mail_participants(thread_id,user_id) VALUES($1,$2),($1,$3)',[t.rows[0].id,s.id,to]);
-            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[t.rows[0].id,s.id,body]);\n            await insertMailAttachments(c,t.rows[0].id,m.rows[0].id,b.attachments);
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[t.rows[0].id,s.id,body]);
+            await insertMailAttachments(c,t.rows[0].id,m.rows[0].id,b.attachments);
             await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[t.rows[0].id]);
             await c.query('COMMIT');send(res,201,{threadId:t.rows[0].id});
           }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
@@ -282,7 +283,8 @@ function createAuth(pool,send,readJson) {
             await c.query('BEGIN');
             const t=await c.query('SELECT t.id FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id WHERE t.id=$1 AND p.user_id=$2 FOR UPDATE OF t',[replyMatch[1],s.id]);
             if(!t.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Переписка не найдена'});return true;}
-            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[replyMatch[1],s.id,body]);\n            await insertMailAttachments(c,replyMatch[1],m.rows[0].id,b.attachments);
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[replyMatch[1],s.id,body]);
+            await insertMailAttachments(c,replyMatch[1],m.rows[0].id,b.attachments);
             await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[replyMatch[1]]);
             await c.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[replyMatch[1],s.id]);
             await c.query('COMMIT');send(res,201,{ok:true});
@@ -349,7 +351,8 @@ module.exports={createAuth,hashPassword,verifyPassword};
             if(!recipient.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Получатель не найден или заблокирован'});return true;}
             const t=await c.query('INSERT INTO patrul_mail_threads(subject,created_by) VALUES($1,$2) RETURNING id',[subject,s.id]);
             await c.query('INSERT INTO patrul_mail_participants(thread_id,user_id) VALUES($1,$2),($1,$3)',[t.rows[0].id,s.id,to]);
-            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[t.rows[0].id,s.id,body]);\n            await insertMailAttachments(c,t.rows[0].id,m.rows[0].id,b.attachments);
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[t.rows[0].id,s.id,body]);
+            await insertMailAttachments(c,t.rows[0].id,m.rows[0].id,b.attachments);
             await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[t.rows[0].id]);
             await c.query('COMMIT');send(res,201,{threadId:t.rows[0].id});
           }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
@@ -365,7 +368,8 @@ module.exports={createAuth,hashPassword,verifyPassword};
             await c.query('BEGIN');
             const t=await c.query('SELECT t.id FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id WHERE t.id=$1 AND p.user_id=$2 FOR UPDATE OF t',[replyMatch[1],s.id]);
             if(!t.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Переписка не найдена'});return true;}
-            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[replyMatch[1],s.id,body]);\n            await insertMailAttachments(c,replyMatch[1],m.rows[0].id,b.attachments);
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[replyMatch[1],s.id,body]);
+            await insertMailAttachments(c,replyMatch[1],m.rows[0].id,b.attachments);
             await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[replyMatch[1]]);
             await c.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[replyMatch[1],s.id]);
             await c.query('COMMIT');send(res,201,{ok:true});
