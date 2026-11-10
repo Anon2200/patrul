@@ -11,9 +11,13 @@
 
   const badge = document.createElement('div');
   badge.id = 'patrul-cloud-status';
-  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10000;padding:7px 11px;border-radius:9px;background:#16304f;color:#fff;font:12px/1.4 system-ui;box-shadow:0 2px 12px #0003;max-width:300px';
+  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10000;padding:8px 11px;border-radius:9px;background:#16304f;color:#fff;font:12px/1.4 system-ui;box-shadow:0 2px 12px #0003;max-width:300px;display:flex;flex-direction:column;gap:6px';
+  const statusLabel = document.createElement('span');
+  statusLabel.textContent = 'Система: проверка входа';
+  badge.appendChild(statusLabel);
   document.body.appendChild(badge);
-  function status(s,color) { badge.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
+  // Update only the status text so persistent employee/logout controls remain available.
+  function status(s,color) { statusLabel.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
   function localSnapshot() {
     return JSON.stringify(D);
   }
