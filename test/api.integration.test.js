@@ -178,9 +178,14 @@ test('security headers are present on API and static responses', async () => {
   assert.equal(pageResponse.headers.get('cache-control'), 'no-store');
 });
 
-test('data endpoints reject requests without a role token', async () => {
-  const response = await api('/api/data/nachalnik');
-  assert.equal(response.status, 401);
+test('data endpoints reject reads and writes without a role token', async () => {
+  const read = await api('/api/data/nachalnik');
+  assert.equal(read.status, 401);
+  const write = await api('/api/data/nachalnik', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 0, data: { marker: 'unauthorized' } })
+  });
+  assert.equal(write.status, 401);
 });
 
 test('repeated invalid role tokens are throttled and valid access clears the counter', async () => {
