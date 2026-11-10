@@ -146,12 +146,12 @@ function authorized(req, role) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > maxBytes) {
       const err = new Error('Тело запроса слишком большое');
       err.status = 413;
       throw err;
