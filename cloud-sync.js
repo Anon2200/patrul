@@ -2,7 +2,7 @@
   'use strict';
   const role = window.PATRUL_ROLE;
   const api = '/api/session-data/' + encodeURIComponent(role);
-  let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null, unsavedChanges = false;
+  let version = 0, ready = false, busy = false, queued = false, suppressUpload = false, timer = null, retryTimer = null, retryCount = 0, unsavedChanges = false;
   let csrfToken = '', currentUser = null;
   const localDataKey = role + '_v1';
   function clearLocalData(){try{localStorage.removeItem(localDataKey);}catch(_){}}
@@ -88,17 +88,51 @@
     });
     });
   }
+  function scheduleRetry() {
+    if (!ready || retryTimer) return;
+    const delay = Math.min(30000, 1000 * (2 ** Math.min(retryCount, 5)));
+    retryCount += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (ready && unsavedChanges) upload(localSnapshot());
+    }, delay);
+  }
   async function upload(snapshot) {
     if(!ready||busy){queued=true;return false;}busy=true;queued=false;
     let saved=false;
     try{
       const r=await request(api,'PUT',{expectedVersion:version,data:JSON.parse(snapshot)});
-      if(r.response.status===409){ready=false;status('конфликт версий — ничего не перезаписано','#9a6700');alert('Данные изменились на другом устройстве. Ничего не перезаписано. Обновите страницу и повторите проверку.');}
+      if(r.response.status===409){
+        ready=false;
+        const preserved=backup(localSnapshot());
+        status('конфликт версий — данные не перезаписаны','#9a6700');
+        alert('Данные изменились на другом устройстве. Сервер не перезаписан. '+(preserved?'Сохранена резервная копия текущих изменений.':'Не удалось автоматически скачать резервную копию. Не закрывайте эту вкладку.'));
+      }
       else if(r.response.status===401){ready=false;status('сеанс завершён — войдите снова','#9a6700');}
-      else if(!r.response.ok){status(r.result.error||'ошибка сохранения','#9a6700');}
-      else{version=Number(r.result.version||version);await saveMeta(snapshot);clearLocalData();unsavedChanges=false;saved=true;status('подключено · сохранено','#176b50');}
-    }catch(_){status('нет связи; изменения пока не сохранены на сервере','#9a6700');}
-    finally{busy=false;if(queued&&ready){queued=false;scheduleUpload();}}
+      else if(!r.response.ok){
+        status((r.result.error||'ошибка сохранения')+' · повторяем отправку','#9a6700');
+        if(r.response.status>=500||r.response.status===429)scheduleRetry();
+      }
+      else{
+        version=Number(r.result.version||version);
+        await saveMeta(snapshot);
+        clearLocalData();
+        const current=localSnapshot();
+        unsavedChanges=current!==snapshot;
+        retryCount=0;
+        if(retryTimer){clearTimeout(retryTimer);retryTimer=null;}
+        saved=true;
+        status(unsavedChanges?'есть новые изменения · сохраняем':'подключено · сохранено','#176b50');
+        if(unsavedChanges)queued=true;
+      }
+    }catch(_){
+      status('нет связи · изменения сохранены в этой вкладке, повторяем отправку','#9a6700');
+      scheduleRetry();
+    }
+    finally{
+      busy=false;
+      if(queued&&ready){queued=false;scheduleUpload();}
+    }
     return saved;
   }
   function scheduleUpload(){if(!ready)return;unsavedChanges=true;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
