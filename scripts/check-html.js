@@ -20,6 +20,7 @@ const index = fs.readFileSync('index.html', 'utf8');
 const serviceWorker = fs.readFileSync('sw.js', 'utf8');
 const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
+const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 function countMatches(source, pattern) {
@@ -85,6 +86,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
   if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
+  if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
   if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
@@ -115,6 +117,9 @@ for (const asset of ['cloud-sync.js', 'sw.js', 'icon-180.png', 'icon-192.png', '
 }
 
 if (!server.includes("['/ops-workspace.js', 'ops-workspace.js']")) fail('server public-file allowlist missing ops-workspace.js');
+if (!server.includes("['/personal-workspace.js', 'personal-workspace.js']")) fail('server public-file allowlist missing personal-workspace.js');
+if (!cacheManifest || !cacheManifest[1].includes("'/personal-workspace.js'")) fail('service worker static cache must include personal-workspace.js');
+if (!personalWorkspace.includes('patrul:ready') || !personalWorkspace.includes('Уведомления') || !personalWorkspace.includes('Телефон')) fail('personal workspace must expose its ready event, notifications and device mode');
 if (!opsWorkspace.includes('nachalnik:') || !opsWorkspace.includes('zam:') || !opsWorkspace.includes('uchet:') || !opsWorkspace.includes('dokumentoved:')) fail('role workspaces must define all four roles');
 if (opsWorkspace.includes('localStorage.setItem') || opsWorkspace.includes('localStorage.removeItem')) fail('role workspace must persist only through the encrypted session-data sync');
 if (!serviceWorker.includes("url.pathname.startsWith('/api/')")) {
