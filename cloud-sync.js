@@ -16,6 +16,10 @@
   statusLabel.textContent = 'Система: проверка входа';
   badge.appendChild(statusLabel);
   document.body.appendChild(badge);
+  // Floating account/sync controls are useful on screen but must never appear on printed documents.
+  const printControlsStyle = document.createElement('style');
+  printControlsStyle.textContent = '@media print { #patrul-cloud-status, #patrul-mail-button { display: none !important; visibility: hidden !important; } }';
+  document.head.appendChild(printControlsStyle);
   // Update only the status text so persistent employee/logout controls remain available.
   function status(s,color) { statusLabel.textContent='Система: '+s; badge.style.background=color||'#16304f'; }
   function localSnapshot() {
@@ -253,7 +257,7 @@
     await refresh();
   }
   function addControls() {
-    const mail=document.createElement('a');mail.href='/mail.html';mail.textContent='Почта';mail.setAttribute('aria-label','Открыть внутреннюю почту');mail.style.cssText='position:fixed;right:14px;bottom:52px;z-index:10001;padding:11px 16px;border-radius:10px;background:#16304f;color:#fff;text-decoration:none;font:600 14px system-ui;box-shadow:0 4px 18px #0004';
+    const mail=document.createElement('a');mail.id='patrul-mail-button';mail.href='/mail.html';mail.textContent='Почта';mail.setAttribute('aria-label','Открыть внутреннюю почту');mail.style.cssText='position:fixed;right:14px;bottom:52px;z-index:10001;padding:11px 16px;border-radius:10px;background:#16304f;color:#fff;text-decoration:none;font:600 14px system-ui;box-shadow:0 4px 18px #0004';
     const unread=document.createElement('span');unread.style.cssText='display:inline-block;margin-left:7px;min-width:18px;padding:1px 5px;border-radius:10px;background:#d64545;color:#fff;text-align:center;font-size:11px';unread.hidden=true;mail.appendChild(unread);document.body.appendChild(mail);
     async function refreshMailCount(){try{const r=await request('/api/mail/unread');if(r.response.ok&&r.result.count>0){unread.hidden=false;unread.textContent=String(r.result.count>99?'99+':r.result.count)}else unread.hidden=true}catch(_){}}
     refreshMailCount();setInterval(()=>{if(!document.hidden)refreshMailCount()},30000);
