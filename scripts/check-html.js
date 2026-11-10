@@ -74,6 +74,11 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!index.includes('href="' + file + '"')) fail('index.html link missing for ' + file);
 
   const html = fs.readFileSync(file, 'utf8');
+  if (countMatches(html, /name="theme-color"/g) !== 1 ||
+      countMatches(html, /rel="apple-touch-icon"/g) !== 1 ||
+      countMatches(html, /name="apple-mobile-web-app-capable"/g) !== 1) {
+    fail(file + ' must not contain duplicate PWA metadata declarations');
+  }
   if (!html.includes("window.PATRUL_ROLE='" + role + "'")) {
     fail(file + ' has an incorrect or missing role identifier');
   }
