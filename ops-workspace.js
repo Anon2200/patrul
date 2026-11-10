@@ -107,7 +107,7 @@
       const label='<label>'+esc(f[1]);
       if(f[2]==='area')return '<div class="ops-field">'+label+'<textarea name="'+f[0]+'" rows="3">'+esc(value)+'</textarea></label></div>';
       if(f[2]==='select')return '<div class="ops-field">'+label+'<select name="'+f[0]+'">'+(f[3]||[]).map(v=>'<option'+(value===v?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label></div>';
-      if(f[2]==='file')return '<div class="ops-field">'+label+'<input type="file" name="'+f[0]+'" accept="image/*"><small>Изображение будет уменьшено перед сохранением (до 250 КБ).</small>'+(value?'<img class="ops-photo" src="'+value+'" alt="Текущая фотография">':'')+'</label></div>';
+      if(f[2]==='file')return '<div class="ops-field">'+label+'<input type="file" name="'+f[0]+'" accept="image/*"><small>Изображение будет уменьшено перед сохранением (до 135 КБ).</small>'+(value?'<img class="ops-photo" src="'+value+'" alt="Текущая фотография">':'')+'</label></div>';
       const type=['date','time','number'].includes(f[2])?f[2]:'text';
       return '<div class="ops-field">'+label+'<input type="'+type+'" name="'+f[0]+'" value="'+esc(value)+'"></label></div>';
     }).join('');
@@ -122,12 +122,19 @@
       data().drafts[id]=d;persist();
     });
     f.addEventListener('submit',async e=>{
-      e.preventDefault();const fd=new FormData(f),values={};for(const [k,v] of fd.entries())if(typeof v==='string')values[k]=v;
-      for(const field of m.fields||[]){if(field[2]==='file'){const file=f.elements[field[0]].files[0];if(file)values[field[0]]=await compressImage(file);else if(record&&record.fields[field[0]])values[field[0]]=record.fields[field[0]];}}
-      const now=new Date().toISOString();let target=record&&data().records.find(r=>r.id===record.id);
-      if(target){target.title=values.title.trim();target.date=values.date;target.status=values.status;target.fields=values;target.updatedAt=now;log('Изменена запись',target);}
-      else{target={id:uid(),module:id,title:values.title.trim(),date:values.date,status:values.status,fields:values,createdAt:now,updatedAt:now,archived:false};if(id==='numbering'){const y=(values.date||today()).slice(0,4);const n=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(y)).length+1;target.number=String(n).padStart(3,'0')+'/'+y;}data().records.unshift(target);log('Создана запись',target);}
-      delete data().drafts[id];persist();editingId='';list(id);
+      e.preventDefault();
+      try{
+        const fd=new FormData(f),values={};for(const [k,v] of fd.entries())if(typeof v==='string')values[k]=v;
+        for(const field of m.fields||[]){if(field[2]==='file'){const file=f.elements[field[0]].files[0];if(file)values[field[0]]=await compressImage(file);else if(record&&record.fields[field[0]])values[field[0]]=record.fields[field[0]];}}
+        const now=new Date().toISOString(),existing=record&&data().records.find(r=>r.id===record.id);
+        let target=existing?{...existing,title:values.title.trim(),date:values.date,status:values.status,fields:values,updatedAt:now}:{id:uid(),module:id,title:values.title.trim(),date:values.date,status:values.status,fields:values,createdAt:now,updatedAt:now,archived:false};
+        if(!existing&&id==='numbering'){const y=(values.date||today()).slice(0,4);const n=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(y)).length+1;target.number=String(n).padStart(3,'0')+'/'+y;}
+        const projected=JSON.parse(JSON.stringify(D)),rows=projected.opsHub.records,index=existing?rows.findIndex(r=>r.id===existing.id):-1;
+        if(index>=0)rows[index]=target;else rows.unshift(target);
+        if(JSON.stringify(projected).length>1800000)throw new Error('Общий объём данных приблизился к лимиту синхронизации. Сохранение остановлено, прежние записи не изменены. Уменьшите вложение или создайте резервную копию и освободите место.');
+        if(existing){Object.assign(existing,target);log('Изменена запись',existing);}else{data().records.unshift(target);log('Создана запись',target);}
+        delete data().drafts[id];persist();editingId='';list(id);
+      }catch(err){alert(err&&err.message?err.message:'Не удалось сохранить запись. Исходные данные не изменены.');}
     });
   }
   async function compressImage(file){
@@ -139,8 +146,8 @@
       const scale=Math.min(1,1200/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       let quality=.72,out=canvas.toDataURL('image/jpeg',quality);
-      while(out.length>340000&&quality>.35){quality-=.08;out=canvas.toDataURL('image/jpeg',quality);}
-      if(out.length>340000)throw new Error('Не удалось уменьшить фотографию до допустимого размера.');
+      while(out.length>180000&&quality>.35{quality-=.08;out=canvas.toDataURL('image/jpeg',quality);}
+      if(out.length>180000)throw new Error('Не удалось уменьшить фотографию до допустимого размера.');
       return out;
     }finally{URL.revokeObjectURL(url);}
   }
