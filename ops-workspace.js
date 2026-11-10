@@ -24,6 +24,7 @@
     uchet: {
       title: 'Рабочий центр старшего мастера',
       modules: [
+        {id:'equipmentSummary',name:'Сводка по имуществу',desc:'Состояние, ремонты, выдача и ближайшие проверки',kind:'equipmentSummary'},
         {id:'equipment',name:'Паспорта имущества',desc:'Инвентарные номера, состояние и хранение',fields:[['inventory','Инвентарный номер'],['category','Категория'],['serial','Серийный номер'],['location','Место хранения'],['condition','Состояние','select',['Исправно','Требует проверки','Неисправно','Списано']],['responsible','Ответственный']]},
         {id:'repairs',name:'История ремонтов',desc:'Неисправности, ремонт и возврат',fields:[['inventory','Инвентарный номер'],['problem','Неисправность','area'],['sentAt','Передано в ремонт','date'],['service','Исполнитель ремонта'],['returnedAt','Возвращено','date'],['result','Результат ремонта','area']]},
         {id:'issuance',name:'Выдача и возврат',desc:'Кому и какое имущество выдано',fields:[['inventory','Инвентарный номер'],['item','Наименование'],['recipient','Получатель'],['issuedAt','Дата выдачи','date'],['returnedAt','Дата возврата','date'],['condition','Состояние при возврате']]},
@@ -146,7 +147,7 @@
   }
   function list(id){
     currentModule=id;const m=moduleById(id);if(!m){home();return;}
-    if(m.kind==='analytics'){analytics();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}
+    if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}
     const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||recordText(r).includes(filterText.toLowerCase()))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rows=all.length?all.map(r=>card(r,m)).join(''):'<div class="ops-empty">Записей пока нет. Нажмите «Добавить запись», чтобы создать первую.</div>';
     shell('<div class="ops-toolbar"><button class="ops-primary" data-ops="new">＋ Добавить запись</button><button class="ops-secondary" data-ops="home">Все разделы</button><input id="ops-filter" placeholder="Поиск в разделе…" value="'+esc(filterText)+'"><select id="ops-status"><option>Все записи</option>'+statusOptions(filterStatus)+'</select></div><div class="ops-count">Найдено записей: '+all.length+'</div><div class="ops-list">'+rows+'</div>');
@@ -202,6 +203,23 @@
       if(out.length>180000)throw new Error('Не удалось уменьшить фотографию до допустимого размера.');
       return out;
     }finally{URL.revokeObjectURL(url);}
+  }
+  function equipmentSummary(){
+    const equipment=records('equipment'),repairs=records('repairs'),issuance=records('issuance'),maintenance=records('maintenance'),purchases=records('purchases'),checks=records('inventory');
+    const needsAttention=equipment.filter(r=>['Неисправно','Требует проверки'].includes(r.fields.condition));
+    const inRepair=repairs.filter(r=>!r.fields.returnedAt);
+    const issued=issuance.filter(r=>!r.fields.returnedAt);
+    const overdue=maintenance.filter(r=>r.fields.deadline&&r.fields.deadline<today());
+    const pendingPurchases=purchases.filter(r=>!['Одобрено','Отклонено','Приобретено'].includes(r.fields.approval));
+    const discrepancies=checks.filter(r=>r.fields.book!==''&&r.fields.fact!==''&&Number(r.fields.book)!==Number(r.fields.fact));
+    const section=(title,rows,empty)=>'<div class="ops-panel"><h3>'+title+'</h3>'+(rows.length?rows.slice(0,5).map(r=>'<article class="ops-record"><b>'+esc(r.title)+'</b><p>'+esc(r.fields.inventory||r.fields.item||r.fields.location||'')+(r.fields.deadline?' · срок: '+dateText(r.fields.deadline):'')+(r.fields.responsible?' · '+esc(r.fields.responsible):'')+'</p></article>').join(''):'<p class="ops-muted">'+empty+'</p>')+'</div>';
+    shell('<div class="ops-panel"><div class="ops-panel-head"><div><h2>Сводка по имуществу</h2><p class="ops-muted">Показатели рассчитаны по записям рабочего центра. Данные учёта не изменяются.</p></div><button type="button" class="ops-secondary" data-ops="home">Все разделы</button></div><div class="ops-stats"><div><b>'+equipment.length+'</b><span>позиций на учёте</span></div><div><b>'+needsAttention.length+'</b><span>требуют внимания</span></div><div><b>'+inRepair.length+'</b><span>в ремонте</span></div><div><b>'+issued.length+'</b><span>выдано без возврата</span></div><div><b>'+overdue.length+'</b><span>просрочено ТО</span></div><div><b>'+pendingPurchases.length+'</b><span>закупок на рассмотрении</span></div></div></div>'+
+      section('Имущество, требующее внимания',needsAttention,'Нет позиций с состоянием «Неисправно» или «Требует проверки».')+
+      section('Имущество в ремонте',inRepair,'Нет незавершённых ремонтов.')+
+      section('Выданное имущество без отметки о возврате',issued,'Нет незакрытых выдач.')+
+      section('Просроченные сроки обслуживания',overdue,'Просроченных проверок и ТО нет.')+
+      section('Закупки на рассмотрении',pendingPurchases,'Нет закупок, ожидающих решения.')+
+      section('Инвентаризационные расхождения',discrepancies,'По заполненным числовым полям расхождений не найдено.'));
   }
   function summary(){
     const t=today(),viol=Array.isArray(D.viol)?D.viol.filter(v=>v.d===t).length:0,inc=Array.isArray(D.inc)?D.inc.filter(v=>v.d===t).length:0,rounds=Array.isArray(D.rounds)?D.rounds.filter(v=>v.d===t).length:0,tasks=records('tasks').filter(r=>r.status!=='Выполнено'&&r.status!=='Закрыто').length;
