@@ -139,39 +139,111 @@
   save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();};
 
   async function adminPanel() {
-    const p=panel('<h3 style="margin-top:0">Управление сотрудниками</h3><p data-msg style="color:#b42318"></p><form data-create><input name="displayName" placeholder="ФИО сотрудника" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><input name="username" placeholder="Логин (латиница)" required style="box-sizing:border-box;width:100%;padding:9px;margin:4px 0"><select name="role" style="width:100%;padding:9px;margin:4px 0"><option value="nachalnik">Начальник патруля</option><option value="zam">Заместитель начальника патруля</option><option value="dokumentoved">Документовед</option></select><button style="padding:10px;background:#167d70;color:white;border:0;border-radius:8px">Создать сотрудника</button></form><hr><div data-users>Загрузка…</div><button type="button" data-audit style="margin-top:10px;padding:9px">Журнал действий</button><div data-audit-list></div><button type="button" data-close style="margin-top:14px;padding:9px">Закрыть</button>');
-    const msg=p.box.querySelector('[data-msg]'), list=p.box.querySelector('[data-users]');
-    async function refresh(){
-      const r=await request('/api/admin/users');if(!r.response.ok){msg.textContent=r.result.error||'Не удалось загрузить сотрудников';return;}
+    const p=panel(`
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div><h2 style="margin:0 0 5px;font-size:21px">Управление сотрудниками</h2>
+        <p style="margin:0;color:#64748b;line-height:1.45">Создавайте учётные записи, назначайте роли и управляйте доступом.</p></div>
+        <button type="button" data-close aria-label="Закрыть" style="border:0;background:#f1f5f9;border-radius:8px;padding:8px 11px;font-size:18px;cursor:pointer">×</button>
+      </div>
+      <div data-msg role="status" aria-live="polite" style="margin:12px 0"></div>
+      <section style="margin:14px 0;padding:14px;border:1px solid #dbe4ea;border-radius:12px;background:#f8fafc">
+        <h3 style="margin:0 0 10px;font-size:16px">Добавить сотрудника</h3>
+        <form data-create style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px">
+          <label style="display:grid;gap:5px;font-weight:600">ФИО сотрудника<input name="displayName" autocomplete="name" placeholder="Например, Иван Петров" required maxlength="120" style="box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-weight:400"></label>
+          <label style="display:grid;gap:5px;font-weight:600">Логин (латиница)<input name="username" autocomplete="off" placeholder="Например, ivan.petrov" required maxlength="64" pattern="[A-Za-z0-9._-]+" style="box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-weight:400"></label>
+          <label style="display:grid;gap:5px;font-weight:600">Роль<select name="role" style="box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:white;font:inherit;font-weight:400"><option value="nachalnik">Начальник патруля</option><option value="zam">Заместитель начальника патруля</option><option value="dokumentoved">Документовед</option></select></label>
+          <div style="display:flex;align-items:end"><button data-create-btn style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px;font-weight:700;cursor:pointer">Создать учётную запись</button></div>
+        </form>
+        <p style="margin:9px 0 0;color:#64748b;font-size:12px">Временный пароль создаётся автоматически. Сотрудник сменит его при первом входе.</p>
+        <div data-temp-result></div>
+      </section>
+      <section>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h3 style="margin:4px 0;font-size:16px">Учётные записи</h3><span data-count style="font-size:12px;color:#64748b"></span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:9px 0">
+          <input data-search type="search" placeholder="Поиск по имени или логину" aria-label="Поиск сотрудников" style="flex:1;min-width:190px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit">
+          <select data-filter aria-label="Фильтр по статусу" style="padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:white;font:inherit"><option value="all">Все сотрудники</option><option value="active">Активные</option><option value="blocked">Заблокированные</option></select>
+          <button type="button" data-refresh style="padding:9px 12px;border:1px solid #cbd5e1;background:white;border-radius:8px;cursor:pointer">Обновить</button>
+        </div>
+        <div data-users aria-live="polite" style="display:grid;gap:9px">Загрузка списка…</div>
+      </section>
+      <details style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px"><summary style="cursor:pointer;font-weight:600">Журнал действий администратора</summary><button type="button" data-audit style="margin:10px 0;padding:8px 11px;border:1px solid #cbd5e1;background:white;border-radius:8px;cursor:pointer">Загрузить последние действия</button><div data-audit-list></div></details>
+    `);
+    p.box.style.width='min(760px,100%)';
+    p.box.style.maxHeight='92vh';
+    p.box.style.padding='20px';
+    const msg=p.box.querySelector('[data-msg]'),list=p.box.querySelector('[data-users]');
+    const roleNames={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер'};
+    let users=[];
+    function notice(text,type='info'){
+      msg.textContent=text;msg.style.cssText='margin:12px 0;padding:10px 12px;border-radius:8px;line-height:1.4;background:'+(type==='error'?'#fef2f2':type==='success'?'#ecfdf5':'#eff6ff')+';color:'+(type==='error'?'#991b1b':type==='success'?'#065f46':'#1e40af');
+    }
+    async function copyValue(value,button){
+      try{await navigator.clipboard.writeText(value);button.textContent='Скопировано';}
+      catch(_){const field=document.createElement('textarea');field.value=value;field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);field.select();let ok=false;try{ok=document.execCommand('copy')}catch(__){}field.remove();button.textContent=ok?'Скопировано':'Скопируйте пароль вручную';}
+      setTimeout(()=>{if(button.isConnected)button.textContent='Копировать пароль';},1800);
+    }
+    function showTemporaryPassword(password,heading){
+      const target=p.box.querySelector('[data-temp-result]');target.replaceChildren();
+      const wrap=document.createElement('div');wrap.style.cssText='margin-top:12px;padding:12px;border:1px solid #86efac;background:#f0fdf4;border-radius:9px';
+      const title=document.createElement('strong');title.textContent=heading;wrap.appendChild(title);
+      const note=document.createElement('p');note.textContent='Сохраните пароль сейчас: повторно посмотреть его будет нельзя. Передайте сотруднику лично или по защищённому каналу. При первом входе пароль потребуется сменить.';note.style.cssText='font-size:12px;line-height:1.4;color:#166534;margin:6px 0';wrap.appendChild(note);
+      const line=document.createElement('div');line.style.cssText='display:flex;gap:7px;flex-wrap:wrap';
+      const field=document.createElement('input');field.readOnly=true;field.value=password;field.autocomplete='off';field.style.cssText='flex:1;min-width:180px;padding:10px;border:1px solid #86efac;border-radius:7px;font:14px ui-monospace,monospace';
+      const copy=document.createElement('button');copy.type='button';copy.textContent='Копировать пароль';copy.style.cssText='padding:9px 12px;border:0;border-radius:7px;background:#166534;color:white;cursor:pointer';copy.addEventListener('click',()=>copyValue(password,copy));
+      line.append(field,copy);wrap.appendChild(line);target.appendChild(wrap);
+    }
+    function renderUsers(){
+      const q=p.box.querySelector('[data-search]').value.trim().toLowerCase(),filter=p.box.querySelector('[data-filter]').value;
+      const visible=users.filter(u=>(filter==='all'||(filter==='active'?u.active:!u.active))&&(!q||(u.displayName+' '+u.username).toLowerCase().includes(q)));
+      p.box.querySelector('[data-count]').textContent='Всего: '+users.length+' · активно: '+users.filter(u=>u.active).length+' · заблокировано: '+users.filter(u=>!u.active).length;
       list.replaceChildren();
-      r.result.users.forEach(u=>{
-        const card=document.createElement('section');card.style.cssText='border-top:1px solid #e5e7eb;padding:12px 0';
-        const title=document.createElement('strong');title.textContent=u.displayName+' · '+u.username;card.appendChild(title);
-        const info=document.createElement('p');info.textContent=u.role+' · '+(u.active?'активен':'заблокирован')+(u.systemAdmin?' · администратор':'');card.appendChild(info);
-        const roleSelect=document.createElement('select');const roleValues=['nachalnik','zam','dokumentoved'];if(u.role==='uchet')roleValues.push('uchet');roleValues.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=({nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер'})[v];o.selected=v===u.role;roleSelect.appendChild(o);});if(u.systemAdmin)roleSelect.disabled=true;card.appendChild(roleSelect);
-        const toggle=document.createElement('button');toggle.textContent=u.active?'Заблокировать':'Восстановить';toggle.style.margin='5px';toggle.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id,'PATCH',{role:roleSelect.value,active:!u.active,displayName:u.displayName});if(!x.response.ok)msg.textContent=x.result.error;else refresh();});card.appendChild(toggle);
-        const change=document.createElement('button');change.textContent='Сохранить роль';change.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id,'PATCH',{role:roleSelect.value,active:u.active,displayName:u.displayName});if(!x.response.ok)msg.textContent=x.result.error;else refresh();});card.appendChild(change);
-        const reset=document.createElement('button');reset.textContent='Сбросить пароль';reset.style.margin='5px';reset.addEventListener('click',async()=>{const x=await request('/api/admin/users/'+u.id+'/reset-password','POST',{});if(!x.response.ok)msg.textContent=x.result.error;else{const note=document.createElement('p');note.textContent='Временный пароль (покажется только сейчас): '+x.result.temporaryPassword;card.appendChild(note);}});card.appendChild(reset);
+      if(!visible.length){const empty=document.createElement('p');empty.textContent=users.length?'По заданным условиям сотрудники не найдены.':'Учётных записей пока нет.';empty.style.cssText='padding:16px;text-align:center;color:#64748b;background:#f8fafc;border-radius:9px';list.appendChild(empty);return;}
+      visible.forEach(u=>{
+        const card=document.createElement('article');card.style.cssText='padding:13px;border:1px solid #e2e8f0;border-radius:11px;background:white';
+        const top=document.createElement('div');top.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap';
+        const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=u.displayName;name.style.cssText='display:block;font-size:15px';const login=document.createElement('span');login.textContent='@'+u.username;login.style.cssText='display:block;margin-top:3px;color:#64748b;font-size:13px';identity.append(name,login);
+        const status=document.createElement('span');status.textContent=u.active?'Активен':'Заблокирован';status.style.cssText='padding:4px 8px;border-radius:20px;font-size:12px;font-weight:600;background:'+(u.active?'#dcfce7':'#fee2e2')+';color:'+(u.active?'#166534':'#991b1b');
+        top.append(identity,status);card.appendChild(top);
+        const meta=document.createElement('p');meta.textContent=(roleNames[u.role]||u.role)+(u.systemAdmin?' · владелец системы':'');meta.style.cssText='margin:9px 0;color:#475569;font-size:13px';card.appendChild(meta);
+        if(!u.systemAdmin){
+          const actions=document.createElement('div');actions.style.cssText='display:flex;gap:7px;flex-wrap:wrap;align-items:center';
+          const role=document.createElement('select');role.setAttribute('aria-label','Роль сотрудника '+u.displayName);['nachalnik','zam','dokumentoved'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=roleNames[v];o.selected=v===u.role;role.appendChild(o);});role.style.cssText='flex:1;min-width:170px;padding:8px;border:1px solid #cbd5e1;border-radius:7px;background:white';
+          const save=document.createElement('button');save.type='button';save.textContent='Сохранить роль';save.style.cssText='padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;cursor:pointer';
+          save.addEventListener('click',async()=>{save.disabled=true;const x=await request('/api/admin/users/'+u.id,'PATCH',{role:role.value,active:u.active,displayName:u.displayName});save.disabled=false;if(!x.response.ok)notice(x.result.error||'Не удалось изменить роль','error');else{notice('Роль сотрудника обновлена.','success');await refresh();}});
+          const toggle=document.createElement('button');toggle.type='button';toggle.textContent=u.active?'Заблокировать':'Разблокировать';toggle.style.cssText='padding:8px 10px;border:0;border-radius:7px;background:'+(u.active?'#fff1f2':'#ecfdf5')+';color:'+(u.active?'#9f1239':'#166534')+';cursor:pointer';
+          toggle.addEventListener('click',async()=>{if(!confirm((u.active?'Заблокировать':'Разблокировать')+' учётную запись '+u.displayName+'?'))return;toggle.disabled=true;const x=await request('/api/admin/users/'+u.id,'PATCH',{role:u.role,active:!u.active,displayName:u.displayName});if(!x.response.ok){toggle.disabled=false;notice(x.result.error||'Не удалось изменить доступ','error');}else{notice(u.active?'Учётная запись заблокирована.':'Доступ восстановлен.','success');await refresh();}});
+          const reset=document.createElement('button');reset.type='button';reset.textContent='Сбросить пароль';reset.style.cssText='padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer';
+          reset.addEventListener('click',async()=>{if(!confirm('Сбросить пароль для '+u.displayName+'? Сотруднику потребуется новый временный пароль.'))return;reset.disabled=true;const x=await request('/api/admin/users/'+u.id+'/reset-password','POST',{});reset.disabled=false;if(!x.response.ok)notice(x.result.error||'Не удалось сбросить пароль','error');else{notice('Временный пароль создан.','success');showTemporaryPassword(x.result.temporaryPassword,'Новый временный пароль для '+u.displayName);}});
+          actions.append(role,save,toggle,reset);card.appendChild(actions);
+        }
         list.appendChild(card);
       });
     }
+    async function refresh(){
+      list.textContent='Загружаем список сотрудников…';
+      const r=await request('/api/admin/users');
+      if(!r.response.ok){list.textContent=r.result.error||'Не удалось загрузить сотрудников';notice('Не удалось обновить список сотрудников.','error');return;}
+      users=r.result.users||[];renderUsers();
+    }
+    p.box.querySelector('[data-search]').addEventListener('input',renderUsers);
+    p.box.querySelector('[data-filter]').addEventListener('change',renderUsers);
+    p.box.querySelector('[data-refresh]').addEventListener('click',refresh);
     p.box.querySelector('[data-create]').addEventListener('submit',async e=>{
-      e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget)),btn=e.currentTarget.querySelector('button');btn.disabled=true;
-      const r=await request('/api/admin/users','POST',b);btn.disabled=false;
-      if(!r.response.ok)msg.textContent=r.result.error||'Не удалось создать сотрудника';
-      else{msg.textContent='Сотрудник создан. Передайте временный пароль лично: '+r.result.temporaryPassword+' . Он будет показан только сейчас.';e.currentTarget.reset();refresh();}
+      e.preventDefault();const form=e.currentTarget,btn=form.querySelector('[data-create-btn]'),data=Object.fromEntries(new FormData(form));btn.disabled=true;btn.textContent='Создаём…';
+      const r=await request('/api/admin/users','POST',data);
+      btn.disabled=false;btn.textContent='Создать учётную запись';
+      if(!r.response.ok){notice(r.result.error||'Не удалось создать сотрудника','error');return;}
+      notice('Учётная запись создана.','success');showTemporaryPassword(r.result.temporaryPassword,'Временный пароль для '+data.displayName);form.reset();await refresh();
     });
     p.box.querySelector('[data-audit]').addEventListener('click',async()=>{
-      const target=p.box.querySelector('[data-audit-list]');target.textContent='Загрузка журнала…';
+      const target=p.box.querySelector('[data-audit-list]');target.textContent='Загружаем журнал…';
       const r=await request('/api/admin/audit?limit=50');
       if(!r.response.ok){target.textContent=r.result.error||'Не удалось загрузить журнал';return;}
       target.replaceChildren();
-      r.result.events.forEach(ev=>{
-        const item=document.createElement('p');item.style.cssText='border-top:1px solid #e5e7eb;padding:7px 0;margin:0;font-size:12px';
-        const date=new Date(ev.created_at).toLocaleString();
-        item.textContent=date+' · '+ev.event_type+' · '+(ev.actor_name||ev.actor_username||'система')+(ev.target_name?' → '+ev.target_name:'');
-        target.appendChild(item);
-      });
+      if(!r.result.events.length){target.textContent='Записей пока нет.';return;}
+      r.result.events.forEach(ev=>{const item=document.createElement('p');item.style.cssText='border-top:1px solid #e5e7eb;padding:8px 0;margin:0;font-size:12px;line-height:1.4';item.textContent=new Date(ev.created_at).toLocaleString()+' · '+ev.event_type+' · '+(ev.actor_name||ev.actor_username||'система')+(ev.target_name?' → '+ev.target_name:'');target.appendChild(item);});
     });
     p.box.querySelector('[data-close]').addEventListener('click',()=>p.overlay.remove());
     await refresh();
