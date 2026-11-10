@@ -9,7 +9,7 @@
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172334;background:#eef2f6;font-size:14px}
 *{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}
 .top{background:#16304f;color:white;padding:15px max(16px,calc((100% - 1180px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}
-.top a{color:white;text-decoration:none}.wrap{max-width:1180px;margin:22px auto;padding:0 16px}
+.top a{color:white;text-decoration:none}.top .return-link{display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ffffff55;border-radius:9px;background:#ffffff12;font-weight:650;white-space:nowrap}.top .return-link:hover{background:#ffffff25}.wrap{max-width:1180px;margin:22px auto;padding:0 16px}
 .layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:16px}
 .panel{background:white;border:1px solid #dce3eb;border-radius:13px;padding:16px;min-width:0}
 .btn{border:0;border-radius:9px;background:#168477;color:white;padding:10px 14px;font-weight:650;cursor:pointer}
@@ -31,7 +31,7 @@ textarea{resize:vertical;min-height:120px}
 </style>
 </head>
 <body>
-<header class="top"><strong>Патрульная служба · Почта</strong><a href="/">К выбору раздела</a></header>
+<header class="top"><strong>Патрульная служба · Почта</strong><a class="return-link" id="returnToRole" href="/">← К выбору раздела</a></header>
 <main class="wrap">
 <div id="status" class="panel">Проверяем вход…</div>
 <div id="app" class="layout hidden">
