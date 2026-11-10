@@ -4,4 +4,24 @@
 <a href="zam.html"><b>Заместитель начальника патруля</b><span>развод, обход постов, доклады (для телефона)</span></a>
 <a href="dokumentoved.html"><b>Документовед</b><span>журналы, исходящие документы, бланки</span></a>
 <a href="nachalnik.html"><b>Начальник патруля</b><span>планер, наряд, поручения</span></a>
-<a href="uchet.html"><b>Старший мастер</b><span>учёт имущества</span></a></main></body></html>
+<a href="uchet.html"><b>Старший мастер</b><span>учёт имущества</span></a><p id="session-status" role="status" aria-live="polite" hidden></p>
+</main>
+<script>
+(async()=>{
+  const status=document.getElementById('session-status');
+  const pages={nachalnik:'/nachalnik.html',zam:'/zam.html',uchet:'/uchet.html',dokumentoved:'/dokumentoved.html'};
+  try{
+    const response=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)return;
+    const result=await response.json();
+    const page=pages[result&&result.user&&result.user.role];
+    if(!page)return;
+    status.hidden=false;
+    status.textContent='Вход уже сохранён. Открываем ваш рабочий кабинет…';
+    document.querySelectorAll('main > a').forEach(link=>link.hidden=true);
+    location.replace(page);
+  }catch(_){
+    // При отсутствии сети оставляем выбор раздела доступным.
+  }
+})();
+</script></body></html>
