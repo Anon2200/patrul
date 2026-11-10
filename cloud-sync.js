@@ -369,7 +369,7 @@
         catch(_){throw new Error('Старый локальный кэш не удалось безопасно прочитать; он не удалён.');}
       }
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
-      if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');unlockPage();return;}
+      if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');draw();window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();return;}
       const remote=norm(data.data);
       const remoteSnapshot=JSON.stringify(remote);
       const localChanged=hadLocalData&&!!previous&&previous.fingerprint!==localFingerprint;
@@ -381,7 +381,7 @@
         if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
       }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');unlockPage();return;}
       loadCloudData(data.data);const mergedSnapshot=localSnapshot(),needsUpload=mergedSnapshot!==remoteSnapshot;await saveMeta(mergedSnapshot);clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
-      status('подключено · данные загружены','#176b50');unlockPage();if(needsUpload)scheduleUpload();
+      status('подключено · данные загружены','#176b50');window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();if(needsUpload)scheduleUpload();
     }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
   start();
