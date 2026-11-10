@@ -237,9 +237,121 @@ function createAuth(pool,send,readJson) {
             [s.id,box,search,'%'+search+'%']);
           send(res,200,{threads:q.rows});return true;
         }
-        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})'+'$','i'));
+        if(mailPath==='/archive'&&req.method==='GET'){
+          const q=await pool.query('SELECT id,file_name AS "name",file_size AS "size",mime_type AS "mime",created_at AS "savedAt" FROM patrul_mail_archive WHERE owner_user_id=$1 ORDER BY created_at DESC,id DESC LIMIT 500',[s.id]);
+          send(res,200,{items:q.rows});return true;
+        }
+        if(mailPath==='/archive'&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req,16000),attachmentId=String(b.attachmentId||'');
+          if(!/^[0-9a-f-]{36}$/i.test(attachmentId)){send(res,400,{error:'Некорректное вложение'});return true;}
+          const source=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data,a.sha256 FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentId,s.id]);
+          if(!source.rowCount){send(res,404,{error:'Вложение не найдено или у вас нет доступа'});return true;}
+          const file=source.rows[0];
+          const saved=await pool.query('INSERT INTO patrul_mail_archive(owner_user_id,source_attachment_id,file_name,mime_type,file_size,file_data,sha256) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_user_id,source_attachment_id) DO NOTHING RETURNING id',[s.id,attachmentId,file.file_name,file.mime_type,file.file_size,file.file_data,file.sha256]);
+          const id=saved.rowCount?saved.rows[0].id:(await pool.query('SELECT id FROM patrul_mail_archive WHERE owner_user_id=$1 AND source_attachment_id=$2',[s.id,attachmentId])).rows[0].id;
+          send(res,201,{id,alreadySaved:!saved.rowCount});return true;
+        }
+        const archiveMatch=mailPath.match(/^\\/archive\\/([0-9a-f-]{36})$/i);
+        if(archiveMatch&&req.method==='GET'){
+          const q=await pool.query('SELECT file_name,mime_type,file_size,file_data FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2',[archiveMatch[1],s.id]);
+          if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
+          const file=q.rows[0];
+          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          res.end(file.file_data);return true;
+        }
+        if(archiveMatch&&req.method==='DELETE'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const q=await pool.query('DELETE FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2 RETURNING id',[archiveMatch[1],s.id]);
+          if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
+          send(res,200,{ok:true});return true;
+        }
+        const attachmentMatch=mailPath.match(new RegExp('^/attachments/([0-9a-f-]{36})'+'
+          if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
+          const file=q.rows[0],fallback='attachment';
+          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          res.end(file.file_data);return true;
+        }
+        const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);
+        if(threadMatch&&req.method==='GET'){
+          const id=threadMatch[1];
+          const participant=await pool.query('SELECT 1 FROM patrul_mail_participants WHERE thread_id=$1 AND user_id=$2',[id,s.id]);
+          if(!participant.rowCount){send(res,404,{error:'Письмо не найдено'});return true;}
+          await pool.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[id,s.id]);
+          const thread=await pool.query('SELECT t.id,t.subject,t.created_at AS "createdAt",t.created_by=$2 AS "isSent",u.display_name AS "otherName",u.role AS "otherRole" FROM patrul_mail_threads t JOIN LATERAL (SELECT pu.display_name,pu.role FROM patrul_mail_participants op JOIN patrul_users pu ON pu.id=op.user_id WHERE op.thread_id=t.id AND op.user_id<>$2 LIMIT 1) u ON TRUE WHERE t.id=$1',[id,s.id]);
+          const messages=await pool.query('SELECT m.id,m.body,m.created_at AS "createdAt",m.sender_id=$2 AS "fromMe",u.display_name AS "senderName",u.role AS "senderRole",COALESCE((SELECT json_agg(json_build_object(\'id\',a.id,\'name\',a.file_name,\'size\',a.file_size,\'mime\',a.mime_type) ORDER BY a.id) FROM patrul_mail_attachments a WHERE a.message_id=m.id),\'[]\'::json) AS attachments FROM patrul_mail_messages m JOIN patrul_users u ON u.id=m.sender_id WHERE m.thread_id=$1 ORDER BY m.created_at,m.id',[id,s.id]);
+          send(res,200,{thread:thread.rows[0],messages:messages.rows});return true;
+        }
+        if(mailPath==='/threads'&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req,12*1024*1024),to=String(b.toUserId||''),subject=typeof b.subject==='string'?b.subject.trim():'',body=typeof b.body==='string'?b.body.trim():'';
+          if(!/^[0-9a-f-]{36}$/i.test(to)||to===s.id||!subject||subject.length>200||!body||body.length>20000){send(res,400,{error:'Укажите получателя, тему (до 200 символов) и текст (до 20 000 символов)'});return true;}
+          const c=await pool.connect();
+          try{
+            await c.query('BEGIN');
+            const recipient=await c.query('SELECT id FROM patrul_users WHERE id=$1 AND is_active=TRUE',[to]);
+            if(!recipient.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Получатель не найден или заблокирован'});return true;}
+            const t=await c.query('INSERT INTO patrul_mail_threads(subject,created_by) VALUES($1,$2) RETURNING id',[subject,s.id]);
+            await c.query('INSERT INTO patrul_mail_participants(thread_id,user_id) VALUES($1,$2),($1,$3)',[t.rows[0].id,s.id,to]);
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[t.rows[0].id,s.id,body]);
+            await insertMailAttachments(c,t.rows[0].id,m.rows[0].id,b.attachments);
+            await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[t.rows[0].id]);
+            await c.query('COMMIT');send(res,201,{threadId:t.rows[0].id});
+          }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+          return true;
+        }
+        const replyMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})\/messages$/i);
+        if(replyMatch&&req.method==='POST'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req,12*1024*1024),body=typeof b.body==='string'?b.body.trim():'';
+          if(!body||body.length>20000){send(res,400,{error:'Текст ответа обязателен (до 20 000 символов)'});return true;}
+          const c=await pool.connect();
+          try{
+            await c.query('BEGIN');
+            const t=await c.query('SELECT t.id FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id WHERE t.id=$1 AND p.user_id=$2 FOR UPDATE OF t',[replyMatch[1],s.id]);
+            if(!t.rowCount){await c.query('ROLLBACK');send(res,404,{error:'Переписка не найдена'});return true;}
+            const m=await c.query('INSERT INTO patrul_mail_messages(thread_id,sender_id,body) VALUES($1,$2,$3) RETURNING id',[replyMatch[1],s.id,body]);
+            await insertMailAttachments(c,replyMatch[1],m.rows[0].id,b.attachments);
+            await c.query('UPDATE patrul_mail_threads SET updated_at=NOW() WHERE id=$1',[replyMatch[1]]);
+            await c.query('UPDATE patrul_mail_participants SET last_read_at=NOW() WHERE thread_id=$1 AND user_id=$2',[replyMatch[1],s.id]);
+            await c.query('COMMIT');send(res,201,{ok:true});
+          }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+          return true;
+        }
+        send(res,404,{error:'Маршрут почты не найден'});return true;
+      }
+      if(p.startsWith('/api/session-data/')){
+        const s=await sessionFor(req);if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        const role=p.slice('/api/session-data/'.length);if(!ROLES.has(role)){send(res,400,{error:'Неизвестная роль'});return true;}
+        if(s.role!==role){send(res,403,{error:'Нет доступа к данным этой роли'});return true;}
+        if(req.method==='GET'){
+          const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[role]);
+          if(!q.rowCount){send(res,200,{role,data:null,version:0,updatedAt:null});return true;}
+          send(res,200,{role,data:await readRoleData(pool,role,q.rows[0]),version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+        }
+        if(req.method==='PUT'){
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req);if(!b||typeof b!=='object'||Array.isArray(b)||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<0||!Object.prototype.hasOwnProperty.call(b,'data')){send(res,400,{error:'Некорректные данные'});return true;}
+          const q=await pool.query('INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW() WHERE patrul_role_data.version=$3 RETURNING data,version,updated_at',[role,JSON.stringify(encryptData(b.data,role)),b.expectedVersion]);
+          if(!q.rowCount){const v=await pool.query('SELECT version FROM patrul_role_data WHERE role=$1',[role]);send(res,409,{error:'Данные уже изменились',currentVersion:v.rowCount?Number(v.rows[0].version):0});return true;}
+          await audit(s.id,'role_data_updated',s.id,{role,version:Number(q.rows[0].version)});
+          send(res,200,{role,data:b.data,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+        }
+        send(res,404,{error:'Маршрут не найден'});return true;
+      }
+      send(res,404,{error:'Маршрут не найден'});return true;
+    } catch(e) {
+      if(e.code==='23505'){send(res,409,{error:'Такой логин уже существует'});return true;}
+      if(e.status){send(res,e.status,{error:e.message});return true;}
+      console.error('Auth API failure:',e.message);send(res,500,{error:'Внутренняя ошибка сервера'});return true;
+    }
+  };
+}
+module.exports={createAuth,hashPassword,verifyPassword};
+,'i'));
         if(attachmentMatch&&req.method==='GET'){
-          const q=await pool.query('SELECT a.file_name,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
+          const q=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
           const file=q.rows[0],fallback='attachment';
           res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
