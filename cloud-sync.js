@@ -7,6 +7,8 @@
   const localDataKey = role + '_v1';
   function clearLocalData(){try{localStorage.removeItem(localDataKey);}catch(_){}}
   window.addEventListener('beforeunload',event=>{if(unsavedChanges){event.preventDefault();event.returnValue='';}});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&ready&&unsavedChanges)upload(localSnapshot());});
+  window.addEventListener('pagehide',()=>{if(ready&&unsavedChanges)upload(localSnapshot());});
   function unlockPage(){const gate=document.getElementById('patrul-auth-gate');if(gate)gate.remove();document.body.style.visibility='';}
 
   const badge = document.createElement('div');
@@ -295,6 +297,12 @@
 
     const row=document.createElement('div');
     row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap';
+    const flush=document.createElement('button');
+    flush.type='button';
+    flush.textContent='Сохранить сейчас';
+    flush.title='Немедленно отправить последние изменения на сервер';
+    flush.addEventListener('click',async()=>{flush.disabled=true;flush.textContent='Сохраняем…';if(!ready){status('подождите загрузки данных','#9a6700');}else if(!unsavedChanges){status('подключено · сохранено','#176b50');}else{await upload(localSnapshot());}flush.disabled=false;flush.textContent='Сохранить сейчас';});
+    row.appendChild(flush);
     const out=document.createElement('button');
     out.type='button';
     out.textContent='Выйти';
