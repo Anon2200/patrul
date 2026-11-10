@@ -51,7 +51,7 @@
   const config=configs[role];
   const $=s=>document.querySelector(s);
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const today=()=>new Date().toISOString().slice(0,10);
+  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
   const dateText=s=>{if(!s)return '—';const p=s.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:s};
   const uid=()=>window.crypto&&crypto.randomUUID?crypto.randomUUID():'ops-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   let active=false, currentModule='', editingId='', filterText='', filterStatus='Все записи', reportFrom=today().slice(0,8)+'01', reportTo=today();
@@ -88,7 +88,7 @@
   function statusOptions(selected){return ['Новая','В работе','На проверке','Выполнено','Закрыто'].map(x=>'<option'+(selected===x?' selected':'')+'>'+x+'</option>').join('');}
   function recordText(r){return [r.title,r.status,r.date,...Object.values(r.fields||{})].join(' ').toLowerCase();}
   function card(r,m){
-    const details=(m.fields||[]).filter(f=>f[3]!=='file').map(f=>{const v=r.fields[f[0]];return v?'<div><span>'+esc(f[1])+':</span> '+esc(v)+'</div>':'';}).join('');
+    const details=(m.fields||[]).filter(f=>f[2]!=='file').map(f=>{const v=r.fields[f[0]];return v?'<div><span>'+esc(f[1])+':</span> '+esc(v)+'</div>':'';}).join('');
     const photo=r.fields.photo?'<img class="ops-photo" src="'+r.fields.photo+'" alt="Прикреплённая фотография">':'';
     return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions"><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
   }
@@ -126,7 +126,7 @@
       for(const field of m.fields||[]){if(field[2]==='file'){const file=f.elements[field[0]].files[0];if(file)values[field[0]]=await compressImage(file);else if(record&&record.fields[field[0]])values[field[0]]=record.fields[field[0]];}}
       const now=new Date().toISOString();let target=record&&data().records.find(r=>r.id===record.id);
       if(target){target.title=values.title.trim();target.date=values.date;target.status=values.status;target.fields=values;target.updatedAt=now;log('Изменена запись',target);}
-      else{target={id:uid(),module:id,title:values.title.trim(),date:values.date,status:values.status,fields:values,createdAt:now,updatedAt:now,archived:false};if(id==='numbering'){const y=(values.date||today()).slice(0,4);const n=data().records.filter(r=>r.module==='numbering'&&!r.archived&&String(r.date).startsWith(y)).length+1;target.number=String(n).padStart(3,'0')+'/'+y;}data().records.unshift(target);log('Создана запись',target);}
+      else{target={id:uid(),module:id,title:values.title.trim(),date:values.date,status:values.status,fields:values,createdAt:now,updatedAt:now,archived:false};if(id==='numbering'){const y=(values.date||today()).slice(0,4);const n=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(y)).length+1;target.number=String(n).padStart(3,'0')+'/'+y;}data().records.unshift(target);log('Создана запись',target);}
       delete data().drafts[id];persist();editingId='';list(id);
     });
   }
