@@ -31,6 +31,12 @@
     #bn #patrul-cloud-status{flex:0 0 116px;min-width:116px;max-width:140px;margin:0;padding:5px 4px;border-top:0;border-left:1px solid var(--bd);justify-content:center;gap:3px;color:var(--mu);font:9px/1.2 system-ui;text-align:center}
     #bn #patrul-cloud-status span{overflow-wrap:anywhere}
     #bn #patrul-cloud-status button{align-self:center;font-size:9px;padding:2px 5px}
+    @media(max-width:760px){
+      #nv .patrul-menu-link{flex-direction:column;gap:3px;justify-content:center;text-align:center;white-space:normal;flex:1 0 auto;min-width:68px;max-width:84px;width:auto;padding:8px 4px 7px;font-size:10px;line-height:1.1}
+      #nv .patrul-menu-link svg{width:22px;height:22px}
+      #nv #patrul-cloud-status{flex:0 0 116px;min-width:116px;max-width:140px;margin:0;padding:5px 4px;border-top:0;border-left:1px solid rgba(255,255,255,.16);justify-content:center;gap:3px;text-align:center;font:9px/1.2 system-ui}
+      #nv #patrul-cloud-status button{align-self:center;font-size:9px;padding:2px 5px}
+    }
     #nv #patrul-admin-users{margin-top:4px}
     @media print{#patrul-cloud-status,#patrul-mail-button,#patrul-mail-link,#patrul-admin-users{display:none!important;visibility:hidden!important}}
   `;
