@@ -51,6 +51,22 @@ function failed(req,name) {
 }
 const MAIL_FILE_EXTENSIONS = new Set(['pdf','doc','docx','xls','xlsx','csv','txt','rtf','png','jpg','jpeg','webp','html','json']);
 function safeMailFilename(value) { const name=String(value||'').normalize('NFKC').split('/').join('_').split(String.fromCharCode(92)).join('_').replace(/[\u0000-\u001f\u007f]/g,'_').replace(/^\.+/,'').trim().slice(0,180); return name||'attachment'; }
+function mailFileHeaders(file, disposition) {
+  const data=Buffer.isBuffer(file.file_data)?file.file_data:Buffer.from(file.file_data||[]);
+  const name=safeMailFilename(file.file_name);
+  const fallback=name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,120)||'attachment';
+  const encoded=encodeURIComponent(name).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+  return {
+    'content-type':file.mime_type||'application/octet-stream',
+    'content-length':String(data.length),
+    'content-disposition':disposition+'; filename="'+fallback+'"; filename*=UTF-8\'\''+encoded,
+    'cache-control':'private, no-store',
+    'x-content-type-options':'nosniff',
+    'x-frame-options':'DENY',
+    'referrer-policy':'no-referrer',
+    'accept-ranges':'none'
+  };
+}
 async function insertMailAttachments(client,threadId,messageId,items) {
   if(items===undefined)return [];
   if(!Array.isArray(items)||items.length>5)throw Object.assign(new Error('Можно прикрепить не более 5 файлов к одному сообщению'),{status:400});
@@ -257,7 +273,8 @@ function createAuth(pool,send,readJson) {
           const q=await pool.query('SELECT file_name,mime_type,file_size,file_data FROM patrul_mail_archive WHERE id=$1 AND owner_user_id=$2',[archiveMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Документ в архиве не найден'});return true;}
           const file=q.rows[0];
-          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          const disposition=url.searchParams.get('download')==='1'?'attachment':'inline';
+          res.writeHead(200,mailFileHeaders(file,disposition));
           res.end(file.file_data);return true;
         }
         if(archiveMatch&&req.method==='DELETE'){
@@ -271,7 +288,8 @@ function createAuth(pool,send,readJson) {
           const q=await pool.query('SELECT a.file_name,a.mime_type,a.file_size,a.file_data FROM patrul_mail_attachments a JOIN patrul_mail_participants p ON p.thread_id=a.thread_id AND p.user_id=$2 WHERE a.id=$1',[attachmentMatch[1],s.id]);
           if(!q.rowCount){send(res,404,{error:'Вложение не найдено'});return true;}
           const file=q.rows[0];
-          res.writeHead(200,{'content-type':file.mime_type,'content-length':file.file_size,'content-disposition':"attachment; filename=attachment; filename*=UTF-8''"+encodeURIComponent(file.file_name),'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'});
+          const disposition=url.searchParams.get('download')==='1'?'attachment':'inline';
+          res.writeHead(200,mailFileHeaders(file,disposition));
           res.end(file.file_data);return true;
         }
         const threadMatch=mailPath.match(/^\/threads\/([0-9a-f-]{36})$/i);

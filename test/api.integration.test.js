@@ -510,10 +510,15 @@ test('internal mail supports role-to-role conversations and restricts access to 
   const openedBody=await opened.json();
   assert.equal(openedBody.messages.length,1);
   assert.equal(openedBody.messages[0].attachments.length,1);
-  const attachmentDownload=await sessionApi('/api/mail/attachments/'+openedBody.messages[0].attachments[0].id,{},employeeCookie);
+  const attachmentId=openedBody.messages[0].attachments[0].id;
+  const attachmentPreview=await sessionApi('/api/mail/attachments/'+attachmentId,{},employeeCookie);
+  assert.equal(attachmentPreview.status,200);
+  assert.match(attachmentPreview.headers.get('content-type'),/text\/plain/);
+  assert.match(attachmentPreview.headers.get('content-disposition'),/^inline;/);
+  assert.equal(await attachmentPreview.text(),'Test attachment');
+  const attachmentDownload=await sessionApi('/api/mail/attachments/'+attachmentId+'?download=1',{},employeeCookie);
   assert.equal(attachmentDownload.status,200);
-  assert.match(attachmentDownload.headers.get('content-type'),/text\/plain/);
-  assert.match(attachmentDownload.headers.get('content-disposition'),/attachment/);
+  assert.match(attachmentDownload.headers.get('content-disposition'),/^attachment;/);
   assert.equal(await attachmentDownload.text(),'Test attachment');
 
   const archiveNoCsrf = await sessionApi('/api/mail/archive', {
@@ -536,8 +541,13 @@ test('internal mail supports role-to-role conversations and restricts access to 
   assert.equal(archiveItems.length, 1);
   assert.equal(archiveItems[0].name, 'test.txt');
 
-  const archivedDownload = await sessionApi('/api/mail/archive/' + archiveSaved.id, {}, employeeCookie);
+  const archivedPreview = await sessionApi('/api/mail/archive/' + archiveSaved.id, {}, employeeCookie);
+  assert.equal(archivedPreview.status, 200);
+  assert.match(archivedPreview.headers.get('content-disposition'), /^inline;/);
+  assert.equal(await archivedPreview.text(), 'Test attachment');
+  const archivedDownload = await sessionApi('/api/mail/archive/' + archiveSaved.id + '?download=1', {}, employeeCookie);
   assert.equal(archivedDownload.status, 200);
+  assert.match(archivedDownload.headers.get('content-disposition'), /^attachment;/);
   assert.match(archivedDownload.headers.get('content-type'), /text\/plain/);
   assert.equal(await archivedDownload.text(), 'Test attachment');
 
@@ -553,7 +563,7 @@ test('internal mail supports role-to-role conversations and restricts access to 
 
   const reply = await sessionApi('/api/mail/threads/' + threadId + '/messages', {
     method: 'POST',
-    body: JSON.stringify({ body: 'Ответ подготовлен.', attachments: [{ name: 'reply.txt', data: 'UmVwbHkgZmlsZQ==' }] })
+    body: JSON.stringify({ body: 'Ответ подготовлен.', attachments: [{ name: 'reply.txt', data: 'UmVwbHkgZmlsZQ==' }, { name: 'reply.png', data: 'iVBORw0KGgo=' }] })
   }, employeeCookie, employeeToken);
   assert.equal(reply.status, 201);
 
@@ -562,10 +572,18 @@ test('internal mail supports role-to-role conversations and restricts access to 
   const conversationBody = await conversation.json();
   assert.equal(conversationBody.messages.length, 2);
   assert.equal(conversationBody.messages[1].body, 'Ответ подготовлен.');
-  assert.equal(conversationBody.messages[1].attachments.length,1);
-  const replyDownload=await sessionApi('/api/mail/attachments/'+conversationBody.messages[1].attachments[0].id,{},adminCookie);
+  assert.equal(conversationBody.messages[1].attachments.length,2);
+  const replyText=conversationBody.messages[1].attachments.find(x=>x.name==='reply.txt');
+  const replyImage=conversationBody.messages[1].attachments.find(x=>x.name==='reply.png');
+  assert.ok(replyText&&replyImage);
+  const replyDownload=await sessionApi('/api/mail/attachments/'+replyText.id+'?download=1',{},adminCookie);
   assert.equal(replyDownload.status,200);
   assert.equal(await replyDownload.text(),'Reply file');
+  const imageDownload=await sessionApi('/api/mail/attachments/'+replyImage.id+'?download=1',{},adminCookie);
+  assert.equal(imageDownload.status,200);
+  assert.match(imageDownload.headers.get('content-type'),/image\/png/);
+  assert.match(imageDownload.headers.get('content-disposition'),/filename\*=UTF-8''reply.png/);
+  assert.deepEqual(Buffer.from(await imageDownload.arrayBuffer()),Buffer.from('iVBORw0KGgo=','base64'));
 
   const archiveDelete = await sessionApi('/api/mail/archive/' + archiveSaved.id, {
     method: 'DELETE'
