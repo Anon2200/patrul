@@ -538,7 +538,7 @@ test('internal mail supports role-to-role conversations and restricts access to 
 
   const archivedDownload = await sessionApi('/api/mail/archive/' + archiveSaved.id, {}, employeeCookie);
   assert.equal(archivedDownload.status, 200);
-  assert.match(archivedDownload.headers.get('content-type'), /text\\/plain/);
+  assert.match(archivedDownload.headers.get('content-type'), /text\/plain/);
   assert.equal(await archivedDownload.text(), 'Test attachment');
 
   const duplicateArchive = await sessionApi('/api/mail/archive', {
