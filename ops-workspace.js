@@ -211,9 +211,10 @@
     const inRepair=repairs.filter(r=>!(r.fields||{}).returnedAt);
     const issued=issuance.filter(r=>!(r.fields||{}).returnedAt);
     const currentDay=today(),limitDate=new Date(currentDay+'T00:00:00');limitDate.setDate(limitDate.getDate()+30);const limitDay=[limitDate.getFullYear(),String(limitDate.getMonth()+1).padStart(2,'0'),String(limitDate.getDate()).padStart(2,'0')].join('-');
-    const activeMaintenance=maintenance.filter(r=>!['Выполнено','Закрыто','Исполнено'].includes(r.status));
-    const overdue=activeMaintenance.filter(r=>(r.fields||{}).deadline&&r.fields.deadline<currentDay);
-    const upcomingMaintenance=activeMaintenance.filter(r=>(r.fields||{}).deadline&&r.fields.deadline>=currentDay&&r.fields.deadline<=limitDay);
+    const activeMaintenance=maintenance.filter(r=>!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status));
+    const maintenanceDay=r=>String((r.fields||{}).deadline||'').slice(0,10);
+    const overdue=activeMaintenance.filter(r=>maintenanceDay(r)&&maintenanceDay(r)<currentDay);
+    const upcomingMaintenance=activeMaintenance.filter(r=>maintenanceDay(r)&&maintenanceDay(r)>=currentDay&&maintenanceDay(r)<=limitDay);
     const pendingPurchases=purchases.filter(r=>!['Одобрено','Отклонено','Приобретено'].includes((r.fields||{}).approval));
     const discrepancies=checks.filter(r=>{const f=r.fields||{},book=Number(f.book),fact=Number(f.fact);return f.book!==undefined&&f.book!==''&&f.fact!==undefined&&f.fact!==''&&Number.isFinite(book)&&Number.isFinite(fact)&&book!==fact;});
     const section=(title,rows,empty)=>'<div class="ops-panel"><h3>'+title+'</h3>'+(rows.length?rows.slice(0,5).map(r=>'<article class="ops-record"><b>'+esc(r.title)+'</b><p>'+esc((r.fields||{}).inventory||(r.fields||{}).item||(r.fields||{}).location||'')+((r.fields||{}).deadline?' · срок: '+dateText(r.fields.deadline):'')+((r.fields||{}).responsible?' · '+esc(r.fields.responsible):'')+'</p></article>').join(''):'<p class="ops-muted">'+empty+'</p>')+'</div>';
