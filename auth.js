@@ -68,7 +68,8 @@ async function insertMailAttachments(client,threadId,messageId,items) {
   }
   return saved;
 }
-\nfunction createAuth(pool,send,readJson) {
+
+function createAuth(pool,send,readJson) {
   async function audit(actor,event,target,details={}) {
     await pool.query('INSERT INTO patrul_audit_log(actor_user_id,event_type,target_user_id,details) VALUES($1,$2,$3,$4::jsonb)',
       [actor,event,target,JSON.stringify(details)]);
