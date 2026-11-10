@@ -114,7 +114,7 @@
   function statusOptions(selected){return ['Новая','В работе','На проверке','Выполнено','Закрыто'].map(x=>'<option'+(selected===x?' selected':'')+'>'+x+'</option>').join('');}
   function searchableText(value){if(value===null||value===undefined)return '';if(Array.isArray(value))return value.map(searchableText).join(' ');if(typeof value==='object')return Object.entries(value).map(([key,item])=>key+' '+searchableText(item)).join(' ');const text=String(value);return text.startsWith('data:image/')?'':text;}
   function recordText(r){return searchableText([r.title,r.status,r.date,r.fields||{}]).toLocaleLowerCase('ru-RU');}
-  function matchesSearch(value,query){const terms=String(query||'').toLocaleLowerCase('ru-RU').trim().split(/\\s+/).filter(Boolean);const haystack=searchableText(value).toLocaleLowerCase('ru-RU');return terms.every(term=>haystack.includes(term));}
+  function matchesSearch(value,query){const terms=String(query||'').toLocaleLowerCase('ru-RU').trim().split(/\s+/).filter(Boolean);const haystack=searchableText(value).toLocaleLowerCase('ru-RU');return terms.every(term=>haystack.includes(term));}
   function deadlineState(record){
     const raw=record.fields&&(record.fields.deadline||record.fields.due);
     if(!raw)return 'Без срока';
