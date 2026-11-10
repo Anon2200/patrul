@@ -254,6 +254,32 @@
     async function refreshMailCount(){try{const r=await request('/api/mail/unread');if(r.response.ok&&r.result.count>0){unread.hidden=false;unread.textContent=String(r.result.count>99?'99+':r.result.count)}else unread.hidden=true}catch(_){}}
     refreshMailCount();setInterval(()=>{if(!document.hidden)refreshMailCount()},30000);
     const mobile=document.createElement('style');mobile.textContent='@media(max-width:760px){#patrul-mail-link{bottom:88px!important;right:10px!important}}';mail.id='patrul-mail-link';document.head.appendChild(mobile);
+    function addDocumentShareButton(){
+      const paper=document.querySelector('.paper');
+      if(!paper||!paper.isConnected)return;
+      let bar=paper.previousElementSibling;
+      while(bar&&!bar.classList.contains('bar'))bar=bar.previousElementSibling;
+      if(!bar||bar.querySelector('[data-mail-document-share]'))return;
+      const share=document.createElement('button');share.type='button';share.dataset.mailDocumentShare='1';share.className='btn';share.textContent='Отправить по почте';share.title='Прикрепить текущий документ к новому письму';
+      share.addEventListener('click',async()=>{
+        try{
+          const title=paper.querySelector('h2')?.textContent?.trim()||document.querySelector('[data-chg="doc"] option:checked')?.textContent||'Рабочий документ';
+          const styles=Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\\n');
+          const html='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title.replace(/[<>&"]/g,' ')+'</title><style>'+styles+'body{background:#fff!important;color:#000!important}.paper{margin:0 auto!important;box-shadow:none!important}</style></head><body>'+paper.outerHTML+'</body></html>';
+          const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+          if(blob.size>3*1024*1024)throw new Error('Документ слишком большой для прямой передачи. Сохраните его как PDF и прикрепите к письму вручную.');
+          const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';
+          for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+          const safe=String(title).replace(/[^\\p{L}\\p{N} _.-]/gu,' ').trim().slice(0,70)||'document';
+          sessionStorage.setItem('patrul_mail_document_draft',JSON.stringify({name:safe+'.html',size:bytes.length,data:btoa(binary)}));
+          location.href='/mail.html?compose=1&document=1';
+        }catch(err){alert(err.message||'Не удалось подготовить документ к отправке');}
+      });
+      bar.appendChild(share);
+    }
+    addDocumentShareButton();
+    const documentObserver=new MutationObserver(()=>addDocumentShareButton());
+    documentObserver.observe(document.getElementById('m')||document.body,{childList:true,subtree:true});
     const row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap';
     if(currentUser&&currentUser.systemAdmin&&currentUser.role==='uchet'){const a=document.createElement('button');a.type='button';a.textContent='Управление сотрудниками';a.setAttribute('aria-label','Открыть управление сотрудниками');a.style.cssText='position:fixed;left:14px;bottom:14px;z-index:10002;padding:12px 16px;border:0;border-radius:10px;background:#167d70;color:#fff;font:600 14px system-ui;box-shadow:0 4px 18px #0004;cursor:pointer';a.addEventListener('click',adminPanel);document.body.appendChild(a);const mobile=document.createElement('style');mobile.textContent='@media(max-width:760px){#patrul-admin-users{bottom:88px!important;left:10px!important}}';a.id='patrul-admin-users';document.head.appendChild(mobile);}
     const out=document.createElement('button');out.textContent='Выйти';out.style.cssText='border:0;border-radius:5px;padding:4px 7px';out.addEventListener('click',async()=>{await request('/api/auth/logout','POST',{});location.reload();});row.appendChild(out);
