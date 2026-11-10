@@ -206,13 +206,13 @@
   }
   function equipmentSummary(){
     const equipment=records('equipment'),repairs=records('repairs'),issuance=records('issuance'),maintenance=records('maintenance'),purchases=records('purchases'),checks=records('inventory');
-    const needsAttention=equipment.filter(r=>['Неисправно','Требует проверки'].includes(r.fields.condition));
-    const inRepair=repairs.filter(r=>!r.fields.returnedAt);
-    const issued=issuance.filter(r=>!r.fields.returnedAt);
-    const overdue=maintenance.filter(r=>r.fields.deadline&&r.fields.deadline<today());
-    const pendingPurchases=purchases.filter(r=>!['Одобрено','Отклонено','Приобретено'].includes(r.fields.approval));
-    const discrepancies=checks.filter(r=>r.fields.book!==''&&r.fields.fact!==''&&Number(r.fields.book)!==Number(r.fields.fact));
-    const section=(title,rows,empty)=>'<div class="ops-panel"><h3>'+title+'</h3>'+(rows.length?rows.slice(0,5).map(r=>'<article class="ops-record"><b>'+esc(r.title)+'</b><p>'+esc(r.fields.inventory||r.fields.item||r.fields.location||'')+(r.fields.deadline?' · срок: '+dateText(r.fields.deadline):'')+(r.fields.responsible?' · '+esc(r.fields.responsible):'')+'</p></article>').join(''):'<p class="ops-muted">'+empty+'</p>')+'</div>';
+    const needsAttention=equipment.filter(r=>['Неисправно','Требует проверки'].includes((r.fields||{}).condition));
+    const inRepair=repairs.filter(r=>!(r.fields||{}).returnedAt);
+    const issued=issuance.filter(r=>!(r.fields||{}).returnedAt);
+    const overdue=maintenance.filter(r=>(r.fields||{}).deadline&&r.fields.deadline<today());
+    const pendingPurchases=purchases.filter(r=>!['Одобрено','Отклонено','Приобретено'].includes((r.fields||{}).approval));
+    const discrepancies=checks.filter(r=>{const f=r.fields||{},book=Number(f.book),fact=Number(f.fact);return f.book!==undefined&&f.book!==''&&f.fact!==undefined&&f.fact!==''&&Number.isFinite(book)&&Number.isFinite(fact)&&book!==fact;});
+    const section=(title,rows,empty)=>'<div class="ops-panel"><h3>'+title+'</h3>'+(rows.length?rows.slice(0,5).map(r=>'<article class="ops-record"><b>'+esc(r.title)+'</b><p>'+esc((r.fields||{}).inventory||(r.fields||{}).item||(r.fields||{}).location||'')+((r.fields||{}).deadline?' · срок: '+dateText(r.fields.deadline):'')+((r.fields||{}).responsible?' · '+esc(r.fields.responsible):'')+'</p></article>').join(''):'<p class="ops-muted">'+empty+'</p>')+'</div>';
     shell('<div class="ops-panel"><div class="ops-panel-head"><div><h2>Сводка по имуществу</h2><p class="ops-muted">Показатели рассчитаны по записям рабочего центра. Данные учёта не изменяются.</p></div><button type="button" class="ops-secondary" data-ops="home">Все разделы</button></div><div class="ops-stats"><div><b>'+equipment.length+'</b><span>позиций на учёте</span></div><div><b>'+needsAttention.length+'</b><span>требуют внимания</span></div><div><b>'+inRepair.length+'</b><span>в ремонте</span></div><div><b>'+issued.length+'</b><span>выдано без возврата</span></div><div><b>'+overdue.length+'</b><span>просрочено ТО</span></div><div><b>'+pendingPurchases.length+'</b><span>закупок на рассмотрении</span></div></div></div>'+
       section('Имущество, требующее внимания',needsAttention,'Нет позиций с состоянием «Неисправно» или «Требует проверки».')+
       section('Имущество в ремонте',inRepair,'Нет незавершённых ремонтов.')+
