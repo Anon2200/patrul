@@ -22,6 +22,15 @@ const tokens = {
 };
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@127.0.0.1:5432/patrul_test';
 
+test('cloud status updates preserve employee and logout controls', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
+  assert.ok(source.includes("const statusLabel = document.createElement('span')"));
+  assert.ok(source.includes('badge.appendChild(statusLabel)'));
+  assert.ok(source.includes('statusLabel.textContent='));
+  assert.ok(source.includes('badge.appendChild(row)'));
+  assert.ok(!source.includes("function status(s,color) { badge.textContent="));
+});
+
 let serverProcess;
 let pool;
 
