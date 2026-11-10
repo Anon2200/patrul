@@ -468,7 +468,7 @@ test('internal mail supports role-to-role conversations and restricts access to 
 
   const created = await sessionApi('/api/mail/threads', {
     method: 'POST',
-    body: JSON.stringify({ toUserId: employeeId, subject: 'Проверка почты', body: 'Прошу подготовить ответ по вопросу.' })
+    body: JSON.stringify({ toUserId: employeeId, subject: 'Проверка почты', body: 'Прошу подготовить ответ по вопросу.', attachments: [{ name: 'test.txt', data: 'VGVzdCBhdHRhY2htZW50' }] })
   }, adminCookie, adminCsrf);
   assert.equal(created.status, 201);
   const threadId = (await created.json()).threadId;
@@ -493,6 +493,10 @@ test('internal mail supports role-to-role conversations and restricts access to 
   assert.equal(outsiderChange.status, 200);
   const privateThread = await sessionApi('/api/mail/threads/' + threadId, {}, outsiderCookie);
   assert.equal(privateThread.status, 404);
+  const storedAttachment = await pool.query('SELECT id FROM patrul_mail_attachments WHERE thread_id=$1',[threadId]);
+  assert.equal(storedAttachment.rowCount,1);
+  const outsiderAttachment = await sessionApi('/api/mail/attachments/'+storedAttachment.rows[0].id,{},outsiderCookie);
+  assert.equal(outsiderAttachment.status,404);
 
   const inbox = await sessionApi('/api/mail/threads?box=inbox', {}, employeeCookie);
   assert.equal(inbox.status, 200);
@@ -503,11 +507,16 @@ test('internal mail supports role-to-role conversations and restricts access to 
   const employeeToken = (await employeeMe.json()).csrfToken;
   const opened = await sessionApi('/api/mail/threads/' + threadId, {}, employeeCookie);
   assert.equal(opened.status, 200);
-  assert.equal((await opened.json()).messages.length, 1);
+  const openedBody=await opened.json();
+  assert.equal(openedBody.messages.length,1);
+  assert.equal(openedBody.messages[0].attachments.length,1);
+  const attachmentDownload=await sessionApi('/api/mail/attachments/'+openedBody.messages[0].attachments[0].id,{},employeeCookie);
+  assert.equal(attachmentDownload.status,200);
+  assert.equal(await attachmentDownload.text(),'Test attachment');
 
   const reply = await sessionApi('/api/mail/threads/' + threadId + '/messages', {
     method: 'POST',
-    body: JSON.stringify({ body: 'Ответ подготовлен.' })
+    body: JSON.stringify({ body: 'Ответ подготовлен.', attachments: [{ name: 'reply.txt', data: 'UmVwbHkgZmlsZQ==' }] })
   }, employeeCookie, employeeToken);
   assert.equal(reply.status, 201);
 
@@ -516,6 +525,10 @@ test('internal mail supports role-to-role conversations and restricts access to 
   const conversationBody = await conversation.json();
   assert.equal(conversationBody.messages.length, 2);
   assert.equal(conversationBody.messages[1].body, 'Ответ подготовлен.');
+  assert.equal(conversationBody.messages[1].attachments.length,1);
+  const replyDownload=await sessionApi('/api/mail/attachments/'+conversationBody.messages[1].attachments[0].id,{},adminCookie);
+  assert.equal(replyDownload.status,200);
+  assert.equal(await replyDownload.text(),'Reply file');
 });
 
 test('administrator can block a user and all that user sessions are revoked', async () => {
