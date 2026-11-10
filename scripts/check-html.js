@@ -21,6 +21,7 @@ const serviceWorker = fs.readFileSync('sw.js', 'utf8');
 const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
+const mailClient = fs.readFileSync('mail.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 function countMatches(source, pattern) {
@@ -128,7 +129,20 @@ if (!server.includes("['/ops-workspace.js', 'ops-workspace.js']")) fail('server 
 if (!server.includes("['/personal-workspace.js', 'personal-workspace.js']")) fail('server public-file allowlist missing personal-workspace.js');
 if (!cacheManifest || !cacheManifest[1].includes("'/personal-workspace.js'")) fail('service worker static cache must include personal-workspace.js');
 if (!personalWorkspace.includes('patrul:ready') || !personalWorkspace.includes('Уведомления') || !personalWorkspace.includes('Телефон')) fail('personal workspace must expose its ready event, notifications and device mode');
+if (!personalWorkspace.includes('localDay=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,\'0\'),String(d.getDate()).padStart(2,\'0\')].join(\'-\')') || !personalWorkspace.includes("r.fields.deadline||r.fields.due") || !personalWorkspace.includes("/^\\d{4}-\\d{2}-\\d{2}$/")) fail('personal notifications must use local calendar dates, accept due aliases and ignore malformed dates');
 if (!opsWorkspace.includes('nachalnik:') || !opsWorkspace.includes('zam:') || !opsWorkspace.includes('uchet:') || !opsWorkspace.includes('dokumentoved:')) fail('role workspaces must define all four roles');
+if (!opsWorkspace.includes('const dueToday=data().records.filter(r=>{const due=r.fields&&(r.fields.deadline||r.fields.due)') || !opsWorkspace.includes('String(due).slice(0,10)===now')) fail('home deadline indicator must normalize date values consistently');
+if (!opsWorkspace.includes("String(raw).slice(0,10)<t") || !opsWorkspace.includes('const fields=r.fields||{},raw=fields.deadline||fields.due')) fail('overdue home indicator must normalize date-time values and tolerate missing fields');
+if (!opsWorkspace.includes('const dueToday=rows.filter') || !opsWorkspace.includes('fields.deadline||fields.due') || !opsWorkspace.includes('Укажите корректный период') || !opsWorkspace.includes('срок сегодня')) fail('reports must count due aliases, show due-today items and validate date range');
+if (!opsWorkspace.includes('function reports()') || !opsWorkspace.includes('По разделам') || !opsWorkspace.includes('просрочено сейчас') || !opsWorkspace.includes('не завершено') || !opsWorkspace.includes('завершено')) fail('period reports must include summary metrics and module breakdown');
+if (!opsWorkspace.includes("id:'equipmentSummary'") || !opsWorkspace.includes('function equipmentSummary()') || !opsWorkspace.includes('Имущество, требующее внимания') || !opsWorkspace.includes('Инвентаризационные расхождения') || !opsWorkspace.includes('ТО в ближайшие 30 дней') || !opsWorkspace.includes('Проверки и ТО в ближайшие 30 дней')) fail('senior master workspace must provide a derived equipment overview with upcoming maintenance');
+if (!opsWorkspace.includes("const closedStatuses=['Выполнено','Закрыто','Исполнено','В архиве']") || !opsWorkspace.includes("!closedStatuses.includes(r.status)")) fail('deadline control must exclude completed and archived records');
+if (!opsWorkspace.includes("const maintenanceDay=r=>String((r.fields||{}).deadline||'').slice(0,10)") || !opsWorkspace.includes("!['Выполнено','Закрыто','Исполнено','В архиве'].includes(r.status)")) fail('equipment maintenance summary must normalize date-time values and exclude archived work');
+if (!opsWorkspace.includes("const taskDeadline=r=>String((r.fields||{}).deadline||'').slice(0,10)") || !opsWorkspace.includes("taskDeadline(r)<now") || !opsWorkspace.includes("taskDeadline(r)>=now")) fail('personal task summaries must normalize date-time values and tolerate missing fields');
+if (!opsWorkspace.includes("!taskDeadline(r)||taskDeadline(r)>=now") || !opsWorkspace.includes("taskDeadline(r)?dateText(r.fields.deadline):'Без срока'")) fail('home page must also surface active personal tasks without a due date');
+if (!opsWorkspace.includes('function searchableText(value)') || !opsWorkspace.includes("Object.entries(value).map(([key,item])=>key+' '+searchableText(item)).join(' ')") || !opsWorkspace.includes("text.startsWith('data:image/')?'':text")) fail('workspace search must index nested field values while skipping embedded image data');
+if (!opsWorkspace.includes('function matchesSearch(value,query)') || !opsWorkspace.includes(".split(/\\s+/).filter(Boolean)") || !opsWorkspace.includes('terms.every(term=>haystack.includes(term))') || !opsWorkspace.includes('matchesSearch(r,q)')) fail('workspace searches must match all query words across nested record fields');
+if (!opsWorkspace.includes("id:'personalTasks'") || !opsWorkspace.includes('Просроченные задачи') || !opsWorkspace.includes('lateTasks') || !opsWorkspace.includes('Ближайшие личные задачи') || !opsWorkspace.includes('Личный список текущей учётной записи') || !opsWorkspace.includes("action==='complete'") || !opsWorkspace.includes('Отметить выполненной') || !opsWorkspace.includes('function globalSearch(query)') || !opsWorkspace.includes('function deadlineState(record)') || !opsWorkspace.includes('Результаты общего поиска') || !opsWorkspace.includes('Просроченные') || !opsWorkspace.includes("id:'audit'") || !opsWorkspace.includes('История действий') || !opsWorkspace.includes('ops-audit-search') || !opsWorkspace.includes('@media(max-width:360px)') || !opsWorkspace.includes('ops-task-row{align-items:flex-start;flex-direction:column}') || !opsWorkspace.includes("id:'deadlines'") || !opsWorkspace.includes('Открыть контроль сроков')) fail('all role workspaces must provide a personal task list and upcoming task summary');
 if (opsWorkspace.includes('localStorage.setItem') || opsWorkspace.includes('localStorage.removeItem')) fail('role workspace must persist only through the encrypted session-data sync');
 if (!serviceWorker.includes("url.pathname.startsWith('/api/')")) {
   fail('service worker must bypass all API requests');
@@ -144,5 +158,10 @@ if (!serviceWorker.includes('cloud-sync.js')) {
   // The sync script is loaded by the HTML and cached through normal network fetches.
   console.log('sw.js: cloud-sync.js is fetched dynamically and cached by the fetch handler');
 }
+
+if (!mailClient.includes("const filtered=items.filter(f=>!query||[f.name,f.mime].join(' ').toLocaleLowerCase('ru-RU').includes(query))")) fail('mail archive must support searching saved attachments by file name and format');
+if (!mailClient.includes("Поиск по названию или формату файла")) fail('mail archive search must explain which file fields are searchable');
+if (!mailClient.includes("copy.textContent='Копировать текст'") || !mailClient.includes('navigator.clipboard.writeText') || !mailClient.includes("document.execCommand('copy')") || !mailClient.includes("copy.textContent='✓ Скопировано'")) fail('mail messages must provide clipboard and fallback copy actions with confirmation');
+if (!mailClient.includes("По вашему запросу писем не найдено. Попробуйте изменить запрос.") || !mailClient.includes("В этом разделе пока нет писем.")) fail('mail search and empty folders must show distinct empty states');
 
 if (!process.exitCode) console.log('Patrul static checks passed.');
