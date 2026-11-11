@@ -184,6 +184,60 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:850px){.home-screen{gap:14px}.home-columns{grid-template-columns:minmax(0,1fr)}.home-panel{min-width:0}}
 @media(max-width:560px){.home-screen{gap:12px}.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.home-shortcut{min-height:56px;padding:10px}.home-metrics{gap:8px}.home-metric{min-height:82px;padding:12px}.home-panel{padding:14px}}
 @media(prefers-reduced-motion:reduce){.home-screen,.home-screen>*,.ov,.ov .mod,.toast{animation:none!important;transition:none!important}.home-shortcut:hover,.home-alert:hover,.home-shortcut:active{transform:none!important}}
+
+/* Финальная компоновка рабочих панелей ролей */
+.home-screen{max-width:1360px;gap:20px;padding:2px 0 18px}
+.home-top{align-items:center;padding:4px 0 14px}
+.home-top>div:first-child{min-width:0}
+.home-date{max-width:42%;line-height:1.45}
+.home-shortcuts{gap:12px}
+.home-shortcut{min-height:66px;border-radius:14px;padding:13px 16px}
+.home-shortcut:focus-visible,.home-row button:focus-visible,.home-alert button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+.home-metrics{gap:12px}
+.home-metric{min-height:100px;border-radius:14px;padding:16px 18px}
+.home-columns{grid-template-columns:minmax(0,1.4fr) minmax(320px,.86fr);gap:16px;align-items:start}
+.home-panel{align-self:start;gap:12px;padding:20px;border-radius:15px}
+.home-panel>h2,.home-panel>.home-panel-head h2{font-size:15px;letter-spacing:-.01em}
+.home-panel>.home-panel-head{padding-bottom:9px;border-bottom:1px solid var(--bd);margin-bottom:2px}
+.home-panel>.home-panel-head:not(:first-child){margin-top:14px!important}
+.home-panel .home-list{gap:2px}
+.home-panel .home-row{padding:11px 2px}
+.home-panel .home-row button{padding:4px 2px}
+.home-panel .home-alert{margin:2px 0;padding:12px 13px}
+.home-panel .home-empty{border:1px dashed var(--bd);border-radius:11px;padding:20px 12px}
+.home-panel .ev{margin:2px 0}
+.home-panel .home-muted{line-height:1.4}
+@media(min-width:1200px){
+ .home-columns{grid-template-columns:minmax(0,1.48fr) minmax(330px,.82fr);gap:18px}
+ .home-panel{padding:22px}
+}
+@media(max-width:1050px){
+ .home-screen{gap:16px}
+ .home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .home-columns{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+ .home-panel{padding:16px}
+}
+@media(max-width:760px){
+ .home-columns{grid-template-columns:minmax(0,1fr)}
+ .home-panel{padding:16px}
+ .home-date{max-width:100%;text-align:left}
+}
+@media(max-width:420px){
+ .home-screen{gap:12px}
+ .home-shortcuts{grid-template-columns:minmax(0,1fr);gap:8px}
+ .home-shortcut{min-height:54px;padding:10px 12px}
+ .home-metrics{gap:8px}
+ .home-metric{min-height:82px;padding:11px 12px}
+ .home-metric b{font-size:23px}
+ .home-panel{padding:13px;border-radius:12px}
+ .home-panel .home-row{gap:7px}
+ .home-panel .home-row button{font-size:11px}
+}
+@media(prefers-reduced-motion:no-preference){
+ .home-panel{transition:box-shadow .18s,border-color .18s}
+ .home-panel:hover{border-color:color-mix(in srgb,var(--ac) 24%,var(--bd))}
+}
 </style></head><body>
 <div class="app"><aside id="nv"></aside><main id="m"></main></div><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json"><input type="file" id="imp2" hidden accept=".json">
 <datalist id="dl_staff"></datalist>
