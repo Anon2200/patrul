@@ -512,7 +512,7 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   const inbox = await sessionApi('/api/tasks', {}, employeeCookie);
   assert.equal(inbox.status, 200);
   const inboxBody = await inbox.json();
-  assert.equal(inboxBody.canViewAll, true);
+  assert.equal(inboxBody.canViewAll, false);
   assert.ok(inboxBody.tasks.some(task => task.id === created.task.id));
   assert.ok(inboxBody.unreadNotifications >= 1);
 
@@ -538,7 +538,10 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
 
   const creatorInbox = await sessionApi('/api/tasks', {}, adminCookie);
   assert.equal(creatorInbox.status, 200);
-  assert.ok((await creatorInbox.json()).unreadNotifications >= 1);
+  const creatorInboxBody = await creatorInbox.json();
+  assert.equal(creatorInboxBody.canViewAll, true);
+  assert.ok(creatorInboxBody.tasks.some(task => task.id === created.task.id));
+  assert.ok(creatorInboxBody.unreadNotifications >= 1);
 
   const history = await sessionApi('/api/tasks/' + created.task.id + '/events', {}, employeeCookie);
   assert.equal(history.status, 200);
