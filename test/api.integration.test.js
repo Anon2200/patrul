@@ -692,6 +692,11 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes("id:'handover'"));
   assert.ok(workspace.includes("id:'approvals'"));
   assert.ok(workspace.includes('ops-crossrole-task-summary'));
+  assert.ok(workspace.includes('result.notifications'));
+  assert.ok(workspace.includes('taskNotificationMarkup'));
+  const seniorUiSource = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(seniorUiSource.includes("taskTab.textContent=unreadCount"));
+  assert.ok(seniorUiSource.includes("if(activeTab!=='tasks')loadSeniorTasks()"));
   assert.ok(workspace.includes('task-from-record'));
   assert.ok(workspace.includes('startTaskFromRecord'));
   assert.ok(workspace.includes('/api/documents/next-number'));
