@@ -29,6 +29,8 @@ const PUBLIC_FILES = new Map([
   ['/zam.html', 'zam.html'],
   ['/uchet.html', 'uchet.html'],
   ['/dokumentoved.html', 'dokumentoved.html'],
+  ['/patrol-senior.html', 'patrol-senior.html'],
+  ['/patrol-senior.js', 'patrol-senior.js'],
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/ops-workspace.js', 'ops-workspace.js'],
   ['/personal-workspace.js', 'personal-workspace.js'],
@@ -210,6 +212,8 @@ async function initDatabase() {
   await pool.query(mailArchiveSchema);
   const sharedStaffSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '005_shared_staff_schema.sql'), 'utf8');
   await pool.query(sharedStaffSchema);
+  const patrolSeniorSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '006_patrol_senior_role.sql'), 'utf8');
+  await pool.query(patrolSeniorSchema);
   await migratePlaintextRows(pool);
 }
 
