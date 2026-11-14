@@ -459,6 +459,336 @@ test('personal login session, CSRF protection, and role authorization work', asy
 });
 
 
+test('senior master has audited read-only access to every role cabinet', async () => {
+  const roleList = await sessionApi('/api/control/roles', {}, adminCookie);
+  assert.equal(roleList.status, 200);
+  assert.deepEqual((await roleList.json()).roles.map(item => item.id), [
+    'nachalnik', 'zam', 'uchet', 'dokumentoved', 'starshiy_patrulya'
+  ]);
+
+  for (const role of ['nachalnik', 'zam', 'uchet', 'dokumentoved']) {
+    const read = await sessionApi('/api/control/role-data/' + role, {}, adminCookie);
+    assert.equal(read.status, 200, 'control read should work for ' + role);
+    const body = await read.json();
+    assert.equal(body.role, role);
+    assert.equal(body.readOnly, true);
+    assert.equal(body.actorRole, 'uchet');
+
+    const audit = await pool.query(
+      "SELECT details FROM patrul_audit_log WHERE event_type='role_control_viewed' AND details->>'targetRole'=$1 ORDER BY id DESC LIMIT 1",
+      [role]
+    );
+    assert.equal(audit.rowCount, 1, 'audit row should exist for ' + role);
+    assert.equal(audit.rows[0].details.mode, 'read_only');
+  }
+
+  const write = await sessionApi('/api/control/role-data/nachalnik', {
+    method: 'PUT',
+    body: JSON.stringify({ data: { changedByControl: true } })
+  }, adminCookie, adminCsrf);
+  assert.equal(write.status, 405);
+
+  const employeeDenied = await sessionApi('/api/control/role-data/nachalnik', {}, employeeCookie);
+  assert.equal(employeeDenied.status, 403);
+});
+
+test('shared tasks can be assigned, tracked, and notified across roles', async () => {
+  const noCsrf = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ assigneeId: employeeId, title: 'Проверка поручения' })
+  }, adminCookie);
+  assert.equal(noCsrf.status, 403);
+
+  const create = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({
+      assigneeId: employeeId,
+      title: 'Проверить тестовое поручение',
+      description: 'Проверить получение и изменение статуса',
+      priority: 'Важный',
+      dueDate: new Date().toISOString().slice(0,10)
+    })
+  }, adminCookie, adminCsrf);
+  assert.equal(create.status, 201);
+  const created = await create.json();
+  assert.equal(created.task.assigneeId, employeeId);
+  assert.equal(created.task.status, 'Новая');
+
+  const recipients = await sessionApi('/api/tasks/recipients', {}, adminCookie);
+  assert.equal(recipients.status, 200);
+  assert.ok((await recipients.json()).recipients.some(person => person.id === employeeId));
+
+  const inbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal(inbox.status, 200);
+  const inboxBody = await inbox.json();
+  assert.equal(inboxBody.canViewAll, false);
+  assert.ok(inboxBody.tasks.some(task => task.id === created.task.id));
+  assert.ok(inboxBody.unreadNotifications >= 2);
+  assert.ok(inboxBody.notifications.some(item => item.type === 'assigned'));
+  assert.ok(inboxBody.notifications.some(item => item.type === 'due_today'));
+  const repeatedInbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal(repeatedInbox.status, 200);
+  assert.equal((await repeatedInbox.json()).notifications.filter(item => item.type === 'due_today').length, 1);
+
+  const blockedStatus = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie);
+  assert.equal(blockedStatus.status, 403);
+
+  const status = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(status.status, 200);
+  assert.equal((await status.json()).task.status, 'В работе');
+
+  const prematureComplete = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'Выполнено' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(prematureComplete.status, 403);
+
+  const review = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На проверке' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(review.status, 200);
+  assert.equal((await review.json()).task.status, 'На проверке');
+
+  const revisionWithoutReason = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На доработку' })
+  }, adminCookie, adminCsrf);
+  assert.equal(revisionWithoutReason.status, 400);
+
+  const revision = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На доработку', comment: 'Уточнить итоговую дату и приложить акт проверки.' })
+  }, adminCookie, adminCsrf);
+  assert.equal(revision.status, 200);
+  assert.equal((await revision.json()).task.status, 'На доработку');
+
+  const resume = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(resume.status, 200);
+  assert.equal((await resume.json()).task.status, 'В работе');
+
+  const finalReview = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На проверке' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(finalReview.status, 200);
+  assert.equal((await finalReview.json()).task.status, 'На проверке');
+
+  const complete = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'Выполнено' })
+  }, adminCookie, adminCsrf);
+  assert.equal(complete.status, 200);
+  assert.equal((await complete.json()).task.status, 'Выполнено');
+
+  const creatorInbox = await sessionApi('/api/tasks', {}, adminCookie);
+  assert.equal(creatorInbox.status, 200);
+  const creatorInboxBody = await creatorInbox.json();
+  assert.equal(creatorInboxBody.canViewAll, true);
+  assert.ok(creatorInboxBody.tasks.some(task => task.id === created.task.id));
+  assert.ok(creatorInboxBody.unreadNotifications >= 1);
+
+  const history = await sessionApi('/api/tasks/' + created.task.id + '/events', {}, employeeCookie);
+  assert.equal(history.status, 200);
+  const historyBody = await history.json();
+  assert.equal(historyBody.events.length, 7);
+  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed','status_changed','status_changed','status_changed','status_changed']);
+  assert.equal(historyBody.events[3].details.comment, 'Уточнить итоговую дату и приложить акт проверки.');
+
+  const employeeRead = await sessionApi('/api/tasks/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, employeeCookie, employeeCsrf);
+  assert.equal(employeeRead.status, 200);
+  const employeeReadInbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal((await employeeReadInbox.json()).unreadNotifications, 0);
+
+  const doneRead = await sessionApi('/api/tasks/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, adminCookie, adminCsrf);
+  assert.equal(doneRead.status, 200);
+
+});
+
+test('document numbers are server-issued sequentially per year and role-protected', async () => {
+  const createUser = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ci.documenter', displayName: 'CI Documenter', role: 'dokumentoved' })
+  }, adminCookie, adminCsrf);
+  assert.equal(createUser.status, 201);
+  const temporaryPassword = (await createUser.json()).temporaryPassword;
+  const login = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ci.documenter', password: temporaryPassword })
+  });
+  assert.equal(login.status, 200);
+  const loginBody = await login.json();
+  const docCookie = (login.headers.get('set-cookie') || '').split(';')[0];
+  const docCsrf = loginBody.csrfToken;
+  const passwordChanged = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword: temporaryPassword, newPassword: 'CI-Documenter-Changed-Password-2026!' })
+  }, docCookie, docCsrf);
+  assert.equal(passwordChanged.status, 200);
+
+  const withoutCsrf = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, docCookie);
+  assert.equal(withoutCsrf.status, 403);
+
+  const wrongRole = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(wrongRole.status, 403);
+
+  const invalidDate = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-02-31' })
+  }, docCookie, docCsrf);
+  assert.equal(invalidDate.status, 400);
+
+  const concurrent = await Promise.all(Array.from({ length: 6 }, () => sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, docCookie, docCsrf)));
+  assert.deepEqual(concurrent.map(response => response.status), [201,201,201,201,201,201]);
+  const numbers = await Promise.all(concurrent.map(async response => (await response.json()).number));
+  assert.deepEqual(numbers.slice().sort(), ['001/2026','002/2026','003/2026','004/2026','005/2026','006/2026']);
+
+  const nextYear = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2027-01-01' })
+  }, docCookie, docCsrf);
+  assert.equal(nextYear.status, 201);
+  assert.equal((await nextYear.json()).number, '001/2027');
+
+  const legacySeed = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2027-02-01', minimumSequence: 10 })
+  }, docCookie, docCsrf);
+  assert.equal(legacySeed.status, 201);
+  assert.equal((await legacySeed.json()).number, '011/2027');
+});
+
+test('post kit issue aggregates duplicate rows and never over-issues stock', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  const start = source.indexOf('function issuePostKit(t){');
+  const end = source.indexOf('\nfunction returnPostKit', start);
+  assert.ok(start >= 0 && end > start, 'post kit issue function must exist');
+  const issueSource = source.slice(start, end);
+  const kit = { id: 'post-1', name: 'КПП', items: [{ id: 'radio-1', name: 'Рация', qty: 2 }, { id: 'radio-1', name: 'Рация', qty: 2 }] };
+  const item = { id: 'radio-1', name: 'Рация', state: 'Отличное' };
+  const D = { postEquipment: [kit], items: [item], ops: [], set: { master: 'CI' } };
+  let stock = 3, toastMessages = [], audit = [];
+  const context = {
+    D, GONE: ['Утеряно','Списано'], BAD: ['Требует ремонта','В ремонте','Неисправно'],
+    postRecipient: p => 'Пост: '+p.id,
+    postIssued: p => {
+      const target='Пост: '+p.id;
+      const qty=D.ops.filter(row=>row.w===target&&row.id==='radio-1').reduce((sum,row)=>sum+(row.op==='Выдача'?row.qty:row.op==='Возврат'?-row.qty:0),0);
+      return qty>0?[{id:'radio-1',qty,item}]:[];
+    },
+    cur: () => stock,
+    toast: message => toastMessages.push(message),
+    aud: message => audit.push(message),
+    draw: () => {},
+    today: () => '2026-11-15'
+  };
+  const issue = vm.runInNewContext(issueSource+'; issuePostKit',context);
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,0,'shortage must not partially issue any kit row');
+  assert.match(toastMessages[0],/Недостаточно на складе/);
+
+  stock=4;toastMessages=[];
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,1,'duplicate rows must collapse to one stock operation');
+  assert.equal(D.ops[0].qty,4,'duplicate quantities must be summed before issuing');
+  assert.equal(D.ops[0].op,'Выдача');
+
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,1,'repeated issue must not issue the kit twice');
+  assert.match(toastMessages.at(-1),/уже выдан/);
+});
+
+test('role workspaces expose shared task and controlled inspection modules', () => {
+  const workspace = fs.readFileSync(path.join(__dirname, '..', 'ops-workspace.js'), 'utf8');
+  assert.ok(workspace.includes("id:'sharedTasks'"));
+  assert.ok(workspace.includes("id:'roleControl'"));
+  assert.ok(workspace.includes('/api/control/role-data/'));
+  assert.ok(workspace.includes('/api/tasks/recipients'));
+  assert.ok(workspace.includes("function loadChiefOperationalOverview"));
+  assert.ok(workspace.includes("fetch('/api/shared-staff'"));
+  assert.ok(workspace.includes("fetch('/api/patrol-senior/reports?limit=200'"));
+  assert.ok(workspace.includes("D.duty[today()]"));
+  assert.ok(workspace.includes("ops-chief-overview"));
+  assert.ok(workspace.includes("id:'rollCall'"));
+  assert.ok(workspace.includes("function rollCall("));
+  assert.ok(workspace.includes("fetch('/api/shared-staff'"));
+  assert.ok(workspace.includes('ops-rollcall-all-present'));
+  assert.ok(workspace.includes('function printRollCall('));
+  assert.ok(workspace.includes("window.addEventListener('afterprint',cleanup,{once:true})"));
+  assert.ok(workspace.includes("window.addEventListener('pagehide',cleanup,{once:true})"));
+  assert.ok(!workspace.includes("window.print();\\n    cleanup();"));
+  assert.ok(workspace.includes('data-ops="rollcall-print"'));
+  assert.ok(workspace.includes('ops-rollcall-print-surface'));
+  assert.ok(workspace.includes("id:'inspections'"));
+  assert.ok(workspace.includes("id:'handover'"));
+  assert.ok(workspace.includes("id:'approvals'"));
+  assert.ok(workspace.includes('ops-crossrole-task-summary'));
+  assert.ok(workspace.includes('result.notifications'));
+  assert.ok(workspace.includes('taskNotificationMarkup'));
+  const seniorUiSource = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(seniorUiSource.includes("taskTab.textContent=unreadCount"));
+  assert.ok(seniorUiSource.includes("if(activeTab!=='tasks')loadSeniorTasks()"));
+  assert.ok(workspace.includes('task-from-record'));
+  assert.ok(workspace.includes('documentVersionModules'));
+  assert.ok(workspace.includes('function saveDocumentVersion'));
+  assert.ok(workspace.includes('function showRecordVersions'));
+  assert.ok(workspace.includes('function restoreDocumentVersion'));
+  assert.ok(workspace.includes('data-ops="versions"'));
+  assert.ok(workspace.includes("saveDocumentVersion(existing)"));
+  assert.ok(workspace.includes('startTaskFromRecord'));
+  assert.ok(workspace.includes('/api/documents/next-number'));
+  assert.ok(workspace.includes('minimumSequence'));
+  assert.ok(workspace.includes('notificationMarkup'));
+  assert.ok(workspace.includes('due_today'));
+  const seniorUi = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(seniorUi.includes('r.result.notifications'));
+  assert.ok(seniorUi.includes('notificationMarkup'));
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(server.includes('008_document_numbering.sql'));
+  const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(senior.includes('loadSeniorTasks'));
+  assert.ok(senior.includes('/api/tasks'));
+  assert.ok(senior.includes("data-task-history"));
+  const master = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  assert.ok(master.includes('function issuePostKit'));
+  assert.ok(master.includes('const issued=postIssued(p),changes=[],requirements=new Map()'));
+  assert.ok(master.includes('requirements.set(id,(requirements.get(id)||0)+rawQuantity)'));
+  assert.ok(master.includes('const quantity=Math.max(0,required-outstanding),available=cur(item)'));
+  assert.ok(master.includes('function returnPostKit'));
+  assert.ok(master.includes('kitissue:issuePostKit'));
+  assert.ok(master.includes('kitreturn:returnPostKit'));
+  assert.ok(master.includes('function postIssueSummary'));
+  assert.ok(master.includes('Перед удалением поста оформите возврат выданного имущества'));
+  assert.ok(master.includes("function postRecipient(p){return 'Пост: '+String(p.name||'').trim()+' ['+String(p.id||'')+']';}"));
+  assert.ok(master.includes('function outstandingIssueQty'));
+  assert.ok(master.includes('Нельзя выдавать неисправное имущество или имущество в ремонте'));
+  assert.ok(master.includes('Нельзя удалить позицию: сначала оформите возврат всего выданного количества'));
+});
+
 test('shared personnel roster deduplicates legacy role lists and synchronizes across roles', async () => {
   const legacyHead = {
     set: {},
@@ -536,6 +866,18 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const seniorBody = await seniorEnroll.json();
   assert.equal(seniorBody.user.role, 'starshiy_patrulya');
   const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const seniorControlView = await sessionApi('/api/control/role-data/starshiy_patrulya', {}, adminCookie);
+  assert.equal(seniorControlView.status, 200);
+  const seniorControlBody = await seniorControlView.json();
+  assert.equal(seniorControlBody.readOnly, true);
+  assert.ok(seniorControlBody.data.accounts.some(account => account.displayName === 'Сидоров Сергей Сергеевич'));
+  const patrolCannotInspect = await sessionApi('/api/control/role-data/nachalnik', {}, seniorCookie);
+  assert.equal(patrolCannotInspect.status, 403);
+  const seniorCannotAssignTasks = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ assigneeId: employeeId, title: 'Поручение без полномочий' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorCannotAssignTasks.status, 403);
   const reusedCode = await sessionApi('/api/patrol-senior/enroll', {
     method: 'POST',
     body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '135790' })
@@ -560,9 +902,18 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'present', title: 'Проверка явки' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorAttendance.status, 201);
+  const seniorAttendanceUpdate = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'late', title: 'Повторная отметка явки' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorAttendanceUpdate.status, 201);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
   assert.equal(supervisorReports.status, 200);
-  assert.ok((await supervisorReports.json()).entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  const supervisorReportsBody = await supervisorReports.json();
+  assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  assert.ok(Array.isArray(supervisorReportsBody.latestAttendance));
+  assert.ok(supervisorReportsBody.latestAttendance.some(entry => entry.staffKey === 'head-ivanov' && entry.status === 'late'));
+  assert.equal(supervisorReportsBody.latestAttendance.filter(entry => entry.staffKey === 'head-ivanov').length, 1);
   const seniorReportsDenied = await sessionApi('/api/patrol-senior/reports', {}, seniorCookie);
   assert.equal(seniorReportsDenied.status, 403);
   const seniorLogin = await sessionApi('/api/patrol-senior/login', {
@@ -835,7 +1186,7 @@ test('bootstrap cannot be repeated and administrator can inspect the audit trail
   const me = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(me.status, 200);
   adminCsrf = (await me.json()).csrfToken;
-  const audit = await sessionApi('/api/admin/audit?limit=20', {}, adminCookie, adminCsrf);
+  const audit = await sessionApi('/api/admin/audit?limit=100', {}, adminCookie, adminCsrf);
   assert.equal(audit.status, 200);
   const result = await audit.json();
   assert.ok(result.events.some(event => event.event_type === 'bootstrap_admin_created'));
