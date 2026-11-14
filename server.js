@@ -32,6 +32,7 @@ const PUBLIC_FILES = new Map([
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/ops-workspace.js', 'ops-workspace.js'],
   ['/personal-workspace.js', 'personal-workspace.js'],
+  ['/staff-workspace.js', 'staff-workspace.js'],
   ['/mail.html', 'mail.html'],
   ['/mail.js', 'mail.js'],
   ['/mail-viewer.html', 'mail-viewer.html'],
