@@ -256,6 +256,9 @@
       if(!taskResponse.ok){shell('<div class="ops-empty">'+esc(taskResult.error||'Не удалось загрузить поручения')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
       if(!recipientResponse.ok){shell('<div class="ops-empty">'+esc(recipientResult.error||'Не удалось загрузить список исполнителей')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
       const tasks=Array.isArray(taskResult.tasks)?taskResult.tasks:[];
+      const notifications=Array.isArray(taskResult.notifications)?taskResult.notifications:[];
+      const notificationLabels={assigned:'Новое поручение',status_changed:'Изменён статус поручения',due_today:'Срок исполнения сегодня',due_soon:'Срок исполнения завтра',overdue:'Просрочено поручение'};
+      const notificationMarkup=notifications.length?'<div class="ops-panel"><div class="ops-panel-head"><h2>Уведомления</h2><span class="ops-muted">Последние сообщения по поручениям</span></div><div class="ops-list">'+notifications.slice(0,8).map(item=>'<article class="ops-record"><div class="ops-record-head"><b>'+esc(item.title||notificationLabels[item.type]||item.type)+'</b><span class="ops-status">'+(item.isRead?'Прочитано':'Новое')+'</span></div><p>'+esc(item.body||'')+'</p><small>'+esc(item.createdAt?new Date(item.createdAt).toLocaleString('ru-RU'):'')+'</small></article>').join('')+'</div></div>':'<div class="ops-panel"><p class="ops-muted">Уведомлений пока нет.</p></div>';
       const recipients=Array.isArray(recipientResult.recipients)?recipientResult.recipients:[];
       const roleNames={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед',starshiy_patrulya:'Старший патруля'};
       const terminal=['Выполнено','Отменено'];
@@ -277,7 +280,7 @@
           '<div class="ops-actions">'+(actions.length?actions.join(''):'')+'<button type="button" data-task-history="'+esc(task.id)+'">История</button></div><div class="ops-task-history" data-task-history-content="'+esc(task.id)+'" hidden></div>'+'</article>';
       }).join('');
       const options=recipients.map(person=>'<option value="'+esc(person.id)+'">'+esc(person.displayName)+' · '+esc(roleNames[person.role]||person.role)+'</option>').join('');
-      shell('<div class="ops-control-banner"><b>Единый список поручений</b><span>Поручения хранятся на сервере и доступны постановщику и назначенному исполнителю. Исполнитель отмечает ход работы, постановщик видит результат.</span></div>'+
+      shell('<div class="ops-control-banner"><b>Единый список поручений</b><span>Поручения хранятся на сервере и доступны постановщику и назначенному исполнителю. Исполнитель отмечает ход работы, постановщик видит результат.</span></div>'+notificationMarkup+
         '<div class="ops-stats"><div><b>'+tasks.filter(x=>x.isAssignee&&!terminal.includes(x.status)).length+'</b><span>у меня на исполнении</span></div><div><b>'+tasks.filter(x=>x.isCreator&&!terminal.includes(x.status)).length+'</b><span>поставлено мной</span></div><div><b>'+Number(taskResult.unreadNotifications||0)+'</b><span>новых уведомлений</span></div></div>'+
         '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Новое поручение</h2><p class="ops-muted">Получателем может быть сотрудник любой из пяти рабочих ролей.</p></div></div>'+
         '<form id="ops-shared-task-form"><div class="ops-form-grid"><div class="ops-field"><label>Исполнитель<select name="assigneeId" required><option value="">Выберите сотрудника</option>'+options+'</select></label></div>'+
