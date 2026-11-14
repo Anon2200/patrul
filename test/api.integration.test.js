@@ -714,6 +714,9 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(senior.includes("data-task-history"));
   const master = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
   assert.ok(master.includes('function issuePostKit'));
+  assert.ok(master.includes('const issued=postIssued(p),changes=[],requirements=new Map()'));
+  assert.ok(master.includes('requirements.set(id,(requirements.get(id)||0)+rawQuantity)'));
+  assert.ok(master.includes('const quantity=Math.max(0,required-outstanding),available=cur(item)'));
   assert.ok(master.includes('function returnPostKit'));
   assert.ok(master.includes('kitissue:issuePostKit'));
   assert.ok(master.includes('kitreturn:returnPostKit'));
