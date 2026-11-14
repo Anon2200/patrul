@@ -550,7 +550,7 @@ function createAuth(pool,send,readJson) {
               send(res,409,{error:'Общий список уже изменился',data:current,version:Number(row.version),updatedAt:row.updated_at});
               return true;
             }
-            if(s.role!=='uchet' && JSON.stringify(b.data.postEquipment || []) !== JSON.stringify(current.postEquipment || [])) {
+            if(s.role!=='uchet' && Object.prototype.hasOwnProperty.call(b.data,'postEquipment') && JSON.stringify(b.data.postEquipment || []) !== JSON.stringify(current.postEquipment || [])) {
               await client.query('ROLLBACK');
               send(res,403,{error:'Изменять комплекты постов может только старший мастер патруля'});
               return true;
