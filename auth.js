@@ -818,7 +818,7 @@ function createAuth(pool,send,readJson) {
         const description=typeof b.description==='string'?b.description.trim():'';
         const priority=String(b.priority||'Обычный');
         const dueDate=b.dueDate==null||b.dueDate===''?null:String(b.dueDate);
-        const validDate=dueDate===null||(/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)&&!Number.isNaN(Date.parse(dueDate+'T00:00:00Z'))&&new Date(dueDate+'T00:00:00Z').toISOString().slice(0,10)===dueDate);
+        const validDate=dueDate===null||(/^\d{4}-\d{2}-\d{2}$/.test(dueDate)&&!Number.isNaN(Date.parse(dueDate+'T00:00:00Z'))&&new Date(dueDate+'T00:00:00Z').toISOString().slice(0,10)===dueDate);
         if(!/^[0-9a-f-]{36}$/i.test(assigneeId)||!title||title.length>180||description.length>4000||
           !['Обычный','Важный','Срочный'].includes(priority)||!validDate){
           send(res,400,{error:'Проверьте получателя, тему, описание, приоритет и срок поручения'});return true;
