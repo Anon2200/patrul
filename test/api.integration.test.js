@@ -95,7 +95,7 @@ before(async () => {
   serverProcess.stderr.on('data', chunk => { startupOutput += chunk.toString(); });
   try {
     await waitForServer();
-    await pool.query('TRUNCATE TABLE patrul_role_data');
+    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff');
   } catch (error) {
     throw new Error(`${error.message}\n${startupOutput}`);
   }
