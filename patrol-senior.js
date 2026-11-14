@@ -34,8 +34,11 @@ try{
 const r=await request('/api/tasks');
 if(!r.response.ok){host.innerHTML='<div class="empty">'+esc(r.result.error||'Не удалось загрузить поручения')+'</div>';return;}
 const tasks=Array.isArray(r.result.tasks)?r.result.tasks:[];
+const notifications=Array.isArray(r.result.notifications)?r.result.notifications:[];
+const notificationLabels={assigned:'Новое поручение',status_changed:'Изменён статус',due_today:'Срок сегодня',due_soon:'Срок завтра',overdue:'Просрочено'};
+const notificationMarkup=notifications.length?'<div class="card span-12"><h3>Уведомления</h3>'+notifications.slice(0,6).map(item=>'<div class="entry"><div><strong>'+esc(item.title||notificationLabels[item.type]||item.type)+'</strong><div class="muted">'+esc(item.body||'')+'</div></div><span class="muted">'+(item.isRead?'Прочитано':'Новое')+'</span></div>').join('')+'</div>':'';
 const terminal=['Выполнено','Отменено'];
-host.innerHTML='<div class="notice">Новых уведомлений: <b>'+Number(r.result.unreadNotifications||0)+'</b></div>'+
+host.innerHTML=notificationMarkup+'<div class="notice">Новых уведомлений: <b>'+Number(r.result.unreadNotifications||0)+'</b></div>'+
 '<div class="inline" style="margin:10px 0"><button class="btn" data-task-read>Отметить уведомления прочитанными</button><button class="btn" data-task-refresh>Обновить</button></div>'+
 (tasks.length?'<div class="list">'+tasks.map(task=>{
 const due=task.dueDate?dateText(task.dueDate):'Без срока';
