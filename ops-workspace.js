@@ -426,8 +426,8 @@
         if(!existing&&id==='numbering'){
           const year=String(values.date||today()).slice(0,4);
           const localNumbers=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(year)).map(r=>{
-            const match=String(r.number||'').match(/^(\\d+)\\/([0-9]{4})$/);
-            return match&&match[2]===year?Number(match[1]):0;
+            const parts=String(r.number||'').split('/');
+            return parts.length===2&&parts[1]===year&&/^[0-9]+$/.test(parts[0])?Number(parts[0]):0;
           });
           const response=await fetch('/api/documents/next-number',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:JSON.stringify({date:values.date||today(),minimumSequence:Math.max(0,...localNumbers)})});
           let numbering={};try{numbering=await response.json();}catch(_){}
