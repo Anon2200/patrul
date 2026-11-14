@@ -414,12 +414,7 @@ const A={
  ichksv:()=>{D.ichk.push({k:uid(),d:g('c_d'),note:g('c_n'),ok:$('#c_ok').checked});closeM();draw(1);toast('Записано')},ichkdel:t=>{D.ichk=D.ichk.filter(x=>x.k!=t.dataset.k);draw(1)},
  exp,impb:()=>$('#imp').click(),
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
- rst2:()=>{D=seed();closeM();window.PATRUL_PERSONNEL_BRIDGE={
- getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
- setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);},
- addDepartmentToDuty:(post,deptId)=>{const dpt=(D.departments||[]).find(x=>x.id===deptId);if(!dpt)return null;const people=D.staff.filter(x=>x.departmentId===deptId&&x.st==='в строю');if(!people.length)return {added:0,skipped:0};const d=D.duty[dsel]||(D.duty[dsel]=ddef()),rows=d.rows[post]||(d.rows[post]=[]);let added=0,skipped=0;people.forEach(p=>{if(rows.some(r=>String(r.fio||'').trim().toLocaleLowerCase('ru-RU')===String(p.name||'').trim().toLocaleLowerCase('ru-RU'))){skipped++;return;}rows.push({fio:p.name,pos:p.pos||'Патрульный',eq:''});added++;});save();draw(1);return {added,skipped};}
-};
-draw();toast('Данные сброшены')}};
+ rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 const gdw=()=>D.duty[dsel]||(D.duty[dsel]=ddef());
 document.addEventListener('click',ev=>{if(ev.target.matches('input'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
@@ -1976,5 +1971,10 @@ function exWeekItems(){const t=today(),f=add(t,-6),L=[];let n=0,dn=0;for(let i=0
  let sd=0;for(let i=0;i<7;i++){const d=D.duty[add(t,-i)];if(d&&d.summary)sd++}L.push('Итоги службы подведены за '+sd+' из 7 дней');return L}
 
 
+window.PATRUL_PERSONNEL_BRIDGE={
+ getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
+ setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);},
+ addDepartmentToDuty:(post,deptId)=>{const dpt=(D.departments||[]).find(x=>x.id===deptId);if(!dpt)return null;const people=D.staff.filter(x=>x.departmentId===deptId&&x.st==='в строю');if(!people.length)return {added:0,skipped:0};const d=D.duty[dsel]||(D.duty[dsel]=ddef()),rows=d.rows[post]||(d.rows[post]=[]);let added=0,skipped=0;people.forEach(p=>{if(rows.some(r=>String(r.fio||'').trim().toLocaleLowerCase('ru-RU')===String(p.name||'').trim().toLocaleLowerCase('ru-RU'))){skipped++;return;}rows.push({fio:p.name,pos:p.pos||'Патрульный',eq:''});added++;});save();draw(1);return {added,skipped};}
+};
 draw();cmFirst();
 </script><script>window.PATRUL_ROLE='nachalnik';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="personnel-workspace.js"></script></body></html>
