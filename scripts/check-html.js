@@ -56,7 +56,7 @@ if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server
 if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
 if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
 if (!patrolSeniorPage.includes('src="patrol-senior.js"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must provide first-entry PIN setup and surname/PIN login');
-for (const feature of ['/api/patrol-senior/enroll','/api/patrol-senior/login','/api/patrol-senior/workspace','/api/patrol-senior/entries','/api/patrol-senior/reports']) {
+for (const feature of ['/api/patrol-senior/enroll','/api/patrol-senior/login','/api/patrol-senior/workspace','/api/patrol-senior/entries','/api/patrol-senior/change-pin','/api/patrol-senior/reports']) {
   if (!patrolSeniorAuth.includes(feature)) fail('patrol senior API missing ' + feature);
 }
 if (!patrolSeniorAuth.includes("session.role!=='starshiy_patrulya'") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(s.role)")) fail('patrol senior access must remain department-scoped and block shared personnel administration');
