@@ -254,7 +254,14 @@
       }else if(JSON.stringify(localItem)!==JSON.stringify(oldItem)){
         const remoteIndex=remoteMap.get(id);
         if(remoteIndex===undefined){remoteMap.set(id,result.length);result.push(copyJson(localItem));}
-        else result[remoteIndex]=copyJson(localItem);
+        else{
+          const merged=copyJson(result[remoteIndex]),fields=new Set([...Object.keys(oldItem||{}),...Object.keys(localItem||{})]);
+          for(const field of fields)if(JSON.stringify(localItem[field])!==JSON.stringify(oldItem[field])){
+            if(Object.prototype.hasOwnProperty.call(localItem,field))merged[field]=copyJson(localItem[field]);
+            else delete merged[field];
+          }
+          result[remoteIndex]=merged;
+        }
       }
     }
     for(const [id,item] of localMap)if(!baseMap.has(id)&&!remoteMap.has(id)){remoteMap.set(id,result.length);result.push(copyJson(item));}
