@@ -635,6 +635,13 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const seniorBody = await seniorEnroll.json();
   assert.equal(seniorBody.user.role, 'starshiy_patrulya');
   const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const seniorControlView = await sessionApi('/api/control/role-data/starshiy_patrulya', {}, adminCookie);
+  assert.equal(seniorControlView.status, 200);
+  const seniorControlBody = await seniorControlView.json();
+  assert.equal(seniorControlBody.readOnly, true);
+  assert.ok(seniorControlBody.data.accounts.some(account => account.displayName === 'Сидоров Сергей Сергеевич'));
+  const patrolCannotInspect = await sessionApi('/api/control/role-data/nachalnik', {}, seniorCookie);
+  assert.equal(patrolCannotInspect.status, 403);
   const seniorCannotAssignTasks = await sessionApi('/api/tasks', {
     method: 'POST',
     body: JSON.stringify({ assigneeId: employeeId, title: 'Поручение без полномочий' })
