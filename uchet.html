@@ -393,14 +393,19 @@ function postIssueSummary(p){
 function issuePostKit(t){
  const p=(D.postEquipment||[]).find(x=>x.id===t.dataset.id);if(!p)return;
  if(!Array.isArray(p.items)||!p.items.length)return toast('Сначала сформируйте комплект поста');
- const issued=postIssued(p),changes=[];
+ const issued=postIssued(p),changes=[],requirements=new Map();
  for(const kitItem of p.items){
-  const item=D.items.find(x=>x.id===kitItem.id);if(!item)return toast('Позиция '+kitItem.name+' отсутствует в реестре имущества');
+  const id=String(kitItem.id||''),rawQuantity=Number(kitItem.qty);
+  if(!id||!Number.isSafeInteger(rawQuantity)||rawQuantity<1)return toast('В комплекте найдена позиция с некорректным количеством');
+  requirements.set(id,(requirements.get(id)||0)+rawQuantity);
+ }
+ for(const [id,required] of requirements){
+  const item=D.items.find(x=>String(x.id)===id);if(!item)return toast('Позиция '+id+' отсутствует в реестре имущества');
   if(GONE.includes(item.state))return toast('Нельзя выдать списанное или утерянное имущество: '+item.name);
   if(BAD.includes(item.state))return toast('Нельзя выдавать неисправное имущество или имущество в ремонте: '+item.name);
-  const outstanding=issued.find(x=>x.id===kitItem.id)?.qty||0;
-  const quantity=Math.max(0,Math.floor(Number(kitItem.qty)||0)-outstanding);
-  if(quantity>cur(item))return toast('Недостаточно на складе: '+item.name+'. Нужно ещё '+quantity+', в наличии '+cur(item));
+  const outstanding=issued.find(x=>String(x.id)===id)?.qty||0;
+  const quantity=Math.max(0,required-outstanding),available=cur(item);
+  if(quantity>available)return toast('Недостаточно на складе: '+item.name+'. Нужно ещё '+quantity+', в наличии '+available);
   if(quantity)changes.push({item,quantity});
  }
  if(!changes.length)return toast('Комплект уже выдан в полном количестве');
