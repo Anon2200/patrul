@@ -34,6 +34,9 @@ try{
 const r=await request('/api/tasks');
 if(!r.response.ok){host.innerHTML='<div class="empty">'+esc(r.result.error||'Не удалось загрузить поручения')+'</div>';return;}
 const tasks=Array.isArray(r.result.tasks)?r.result.tasks:[];
+const taskTab=root.querySelector('[data-tab="tasks"]');
+const unreadCount=Number(r.result.unreadNotifications||0);
+if(taskTab)taskTab.textContent=unreadCount?'Поручения · '+unreadCount:'Поручения';
 const notifications=Array.isArray(r.result.notifications)?r.result.notifications:[];
 const notificationLabels={assigned:'Новое поручение',status_changed:'Изменён статус',due_today:'Срок сегодня',due_soon:'Срок завтра',overdue:'Просрочено'};
 const notificationMarkup=notifications.length?'<div class="card span-12"><h3>Уведомления</h3>'+notifications.slice(0,6).map(item=>'<div class="entry"><div><strong>'+esc(item.title||notificationLabels[item.type]||item.type)+'</strong><div class="muted">'+esc(item.body||'')+'</div></div><span class="muted">'+(item.isRead?'Прочитано':'Новое')+'</span></div>').join('')+'</div>':'';
@@ -107,7 +110,7 @@ dialog.addEventListener('close',()=>dialog.remove());
 dialog.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget));const error=dialog.querySelector('[data-error]');if(b.newPin!==b.confirmPin){error.textContent='Новые PIN-коды не совпадают';return;}const button=e.currentTarget.querySelector('[type=submit]');button.disabled=true;try{const r=await request('/api/patrol-senior/change-pin','POST',{currentPin:b.currentPin,newPin:b.newPin});if(!r.response.ok){error.textContent=r.result.error||'Не удалось изменить PIN';button.disabled=false;return;}dialog.close();alert('PIN-код успешно изменён.');}catch(_){error.textContent='Нет соединения с сервером';button.disabled=false;}});
 }
 async function action(name){if(name==='refresh'){await loadWorkspace(workspace.date);return;}if(name==='change-pin'){openPinDialog();return;}if(name==='logout'){try{await request('/api/auth/logout','POST',{});}catch(_){}csrf='';workspace=null;activeTab='overview';authScreen('Вы вышли из системы');return;}if(name==='shift-start'){await saveEntry({type:'shift_start',date:workspace.date,title:'Заступление на службу',body:'Старший патруля отметил начало смены'});return;}if(name==='shift-end')await saveEntry({type:'shift_end',date:workspace.date,title:'Окончание службы',body:'Старший патруля отметил окончание службы'});}
-async function loadWorkspace(date=today()){const r=await request('/api/patrol-senior/workspace?date='+encodeURIComponent(date));if(!r.response.ok){if(r.response.status===401){csrf='';workspace=null;authScreen(r.result.error||'Войдите в систему');return;}authScreen(r.result.error||'Нет доступа к кабинету');return;}workspace=r.result;render();}
+async function loadWorkspace(date=today()){const r=await request('/api/patrol-senior/workspace?date='+encodeURIComponent(date));if(!r.response.ok){if(r.response.status===401){csrf='';workspace=null;authScreen(r.result.error||'Войдите в систему');return;}authScreen(r.result.error||'Нет доступа к кабинету');return;}workspace=r.result;render();if(activeTab!=='tasks')loadSeniorTasks();}
 async function init(){try{const r=await request('/api/auth/me');if(r.response.ok){if(r.result.user.role==='starshiy_patrulya'){csrf=r.result.csrfToken;await loadWorkspace();return;}root.innerHTML='<div class="auth-wrap"><section class="auth"><h1>Нет доступа</h1><p>Эта страница предназначена только для роли «Старший патруля».</p><a href="/">Вернуться к выбору раздела</a></section></div>';return;}}catch(_){}authScreen();}
 init();
 })();
