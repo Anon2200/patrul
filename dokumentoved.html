@@ -431,6 +431,7 @@ const A={
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
  rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{if(ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('input',ev=>{const t=ev.target,c=t.dataset&&t.dataset.chg;if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
  if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
  else if(c=='jr'){setP(gjw(),t.dataset.p,v);save()}
@@ -440,7 +441,7 @@ document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)
  else if(c=='tkst'){D.tasks.find(x=>x.k==t.dataset.k).st=v;draw(1)}
  else if(c=='mper'){mper=v;draw(1)}else if(c=='doc'){doc=v;draw(1)}else if(c=='selOut'){selOut=v;draw(1)}
  else if(c=='dd'){dd=v||today();draw(1)}else if(c=='p1'){p1=v||p1;draw(1)}else if(c=='p2'){p2=v||p2;draw(1)}else if(c=='dto'){dto=v;draw(1)}else if(c=='dgrp'){dgrp=v;draw(1)}
- else if(c.startsWith('s_')){D.set[c.slice(2)]=v;draw(1);toast('Сохранено')}});
+ else if(c.startsWith('s_')){D.set[c.slice(2)]=v;save();toast('Настройка сохранена')}});
 document.addEventListener('input',ev=>{if(ev.target.id=='mq'){mq=ev.target.value;$('#mb').innerHTML=mrows()}});
 document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM();if(ev.code=='KeyN'&&!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&!/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)&&!$('#md').innerHTML){ev.preventDefault();evForm(null,tab=='cal'?csel:today())}});
 $('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.set||!j.mat)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит: нужна копия этой программы')}});ev.target.value=''};function dokLines(s){const j=gj(s),pres=D.staff.filter(x=>['+','оп'].includes(j.att[x.k])).length;return['Явка: '+pres+' из '+D.staff.length,'Итоги: '+(j.sum||'—'),'Происшествия: '+(j.inc||'нет'),'Принято материалов: '+D.mat.filter(m=>m.d==s).length]}
