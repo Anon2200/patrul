@@ -171,14 +171,21 @@
   window.PATRUL_SAVE_NOW=async function(){
     if(!ready)return false;
     if(timer){clearTimeout(timer);timer=null;}
+    if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
     for(let attempt=0;attempt<5;attempt++){
-      while(busy)await new Promise(resolve=>setTimeout(resolve,80));
+      while(busy||sharedBusy)await new Promise(resolve=>setTimeout(resolve,80));
       if(!ready)return false;
+      if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
+      if(sharedReady&&sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline)){
+        const sharedSaved=await uploadSharedRoster();
+        if(!sharedSaved)return false;
+      }
       if(timer){clearTimeout(timer);timer=null;}
       queued=false;unsavedChanges=true;
       const saved=await upload(localSnapshot());
       if(!saved)return false;
-      if(!unsavedChanges)return true;
+      const sharedPending=sharedReady&&sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline);
+      if(!unsavedChanges&&!sharedPending)return true;
     }
     status('сохранение не завершено — остались новые изменения','#9a6700');
     return false;
