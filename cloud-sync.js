@@ -309,7 +309,7 @@
     if(mergeLocal){
       D.staff=mergeLocalRosterList(D.staff,localStaff,'k',aliases);
       D.departments=mergeLocalRosterList(D.departments,localDepartments,'id',departmentAliases);
-      if(role==='uchet' && localPostEquipment.some(post=>Array.isArray(post.items)&&post.items.length) && !(D.postEquipment||[]).some(post=>Array.isArray(post.items)&&post.items.length))D.postEquipment=localPostEquipment;
+      if(role==='uchet' && localPostEquipment.length && !(D.postEquipment||[]).length)D.postEquipment=localPostEquipment;
       if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))scheduleSharedUpload();
     }
     return remapped;
