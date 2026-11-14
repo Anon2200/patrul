@@ -529,6 +529,27 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   assert.equal(status.status, 200);
   assert.equal((await status.json()).task.status, 'В работе');
 
+  const review = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На проверке' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(review.status, 200);
+  assert.equal((await review.json()).task.status, 'На проверке');
+
+  const revision = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На доработку' })
+  }, adminCookie, adminCsrf);
+  assert.equal(revision.status, 200);
+  assert.equal((await revision.json()).task.status, 'На доработку');
+
+  const resume = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(resume.status, 200);
+  assert.equal((await resume.json()).task.status, 'В работе');
+
   const complete = await sessionApi('/api/tasks/' + created.task.id, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'Выполнено' })
@@ -546,8 +567,8 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   const history = await sessionApi('/api/tasks/' + created.task.id + '/events', {}, employeeCookie);
   assert.equal(history.status, 200);
   const historyBody = await history.json();
-  assert.equal(historyBody.events.length, 3);
-  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed']);
+  assert.equal(historyBody.events.length, 6);
+  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed','status_changed','status_changed','status_changed']);
 
   const doneRead = await sessionApi('/api/tasks/notifications/read', {
     method: 'POST',
