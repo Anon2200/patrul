@@ -266,7 +266,18 @@
         const field='att_'+String(person.k),chosen=draft[field]||'unmarked';
         return '<div class="ops-record ops-rollcall-row"><div class="ops-record-head"><div><b>'+esc(person.name)+'</b><small>'+esc(person.pos||'Должность не указана')+(person.grp?' · Группа '+esc(person.grp):'')+'</small></div><select name="'+esc(field)+'" aria-label="Явка '+esc(person.name)+'">'+attendanceOptions.map(([value,label])=>'<option value="'+value+'"'+(chosen===value?' selected':'')+'>'+label+'</option>').join('')+'</select></div></div>';
       }).join('');
-      const recent=records('rollCall').filter(item=>!item.archived).slice(0,5).map(item=>card(item,moduleById('rollCall'))).join('');
+      const recent=records('rollCall').filter(item=>!item.archived).slice(0,5).map(item=>{
+        const fields=item.fields||{},attendance=Array.isArray(fields.attendance)?fields.attendance:[];
+        const count=status=>attendance.filter(person=>person.status===status).length;
+        const details=attendance.map(person=>'<div class="ops-history-row"><span>'+esc(person.name)+'</span><b>'+esc(person.position||'')+'</b><span>'+esc(({present:'Прибыл',late:'Опоздал',absent:'Отсутствует',excused:'Уважительная причина',unmarked:'Не отмечено'})[person.status]||person.status)+'</span></div>').join('');
+        return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(item.date)+' · '+esc(fields.instructor||'Ведущий не указан')+'</small><h3>'+esc(item.title)+'</h3></div><span class="ops-status">'+esc(fields.readiness||item.status)+'</span></div>'+
+          '<p><b>Явка:</b> '+count('present')+' прибыли · '+count('late')+' опоздали · '+count('absent')+' отсутствуют · '+count('excused')+' уважительная причина · '+count('unmarked')+' не отмечено</p>'+
+          (fields.post?'<p><b>Пост:</b> '+esc(fields.post)+'</p>':'')+
+          (fields.briefing?'<p><b>Инструктаж:</b> '+esc(fields.briefing)+'</p>':'')+
+          (fields.remarks?'<p><b>Замечания:</b> '+esc(fields.remarks)+'</p>':'')+
+          '<details><summary>Явка по сотрудникам</summary><div class="ops-list">'+details+'</div></details>'+
+          '<div class="ops-actions"><button type="button" data-ops="task-from-record" data-id="'+esc(item.id)+'">Поставить поручение по замечаниям</button><button type="button" data-ops="archive" data-id="'+esc(item.id)+'">В архив</button></div></article>';
+      }).join('');
       shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">Все разделы</button><span class="ops-muted">Общий личный состав · версия '+Number(result.version||0)+'</span></div>'+
         '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Электронный развод</h2><p class="ops-muted">Отметки берутся из единого списка сотрудников. Новые записи личного состава здесь не создаются.</p></div><span class="ops-status">'+roster.length+' сотрудников</span></div>'+
         '<form id="ops-roll-call-form"><div class="ops-form-grid">'+
