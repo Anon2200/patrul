@@ -127,6 +127,7 @@ function buildLegacySharedStaff(roleData) {
     });
   }
   if (!data.departments.length) data.departments = defaultSharedDepartments();
+  data.departments.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
   data.departments.forEach(department => departmentById.set(String(department.id), department));
   for (const role of SHARED_STAFF_ROLES) {
     const list = Array.isArray(roleData[role] && roleData[role].staff) ? roleData[role].staff : [];
@@ -148,6 +149,13 @@ function buildLegacySharedStaff(roleData) {
           const oldDepartmentId = String(staff.departmentId);
           const mapped = data.departmentAliases[role][oldDepartmentId];
           if (mapped) staff.departmentId = mapped;
+        } else {
+          const legacyOrder = Number(staff.sq);
+          if (Number.isInteger(legacyOrder) && legacyOrder > 0) {
+            const orderedDepartment = data.departments.find(department => Number(department.order) === legacyOrder);
+            staff.departmentId = orderedDepartment ? String(orderedDepartment.id) :
+              (data.departmentAliases[role]['legacy-' + legacyOrder] || 'legacy-' + legacyOrder);
+          }
         }
         data.staff.push(staff);
         staffByName.set(nameKey, staff);
@@ -207,6 +215,12 @@ function normalizeSharedStaffWrite(source, current, role) {
       const oldDepartmentId = String(staff.departmentId);
       if (departmentAliases[role][oldDepartmentId]) staff.departmentId = departmentAliases[role][oldDepartmentId];
       else if (nextDepartmentById.has(oldDepartmentId)) staff.departmentId = oldDepartmentId;
+    } else {
+      const legacyOrder = Number(staff.sq);
+      if (Number.isInteger(legacyOrder) && legacyOrder > 0) {
+        const orderedDepartment = departments.find(department => Number(department.order) === legacyOrder);
+        if (orderedDepartment) staff.departmentId = String(orderedDepartment.id);
+      }
     }
     const duplicate = nextStaffById.get(id);
     if (duplicate) {
