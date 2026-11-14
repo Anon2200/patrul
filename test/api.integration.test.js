@@ -621,6 +621,10 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(master.includes('kitreturn:returnPostKit'));
   assert.ok(master.includes('function postIssueSummary'));
   assert.ok(master.includes('Перед удалением поста оформите возврат выданного имущества'));
+  assert.ok(master.includes("function postRecipient(p){return 'Пост: '+String(p.name||'').trim()+' ['+String(p.id||'')+']';}"));
+  assert.ok(master.includes('function outstandingIssueQty'));
+  assert.ok(master.includes('Нельзя выдавать неисправное имущество или имущество в ремонте'));
+  assert.ok(master.includes('Нельзя удалить позицию: сначала оформите возврат всего выданного количества'));
 });
 
 test('shared personnel roster deduplicates legacy role lists and synchronizes across roles', async () => {
