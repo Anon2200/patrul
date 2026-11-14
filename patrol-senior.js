@@ -39,7 +39,7 @@ host.innerHTML='<div class="notice">Новых уведомлений: <b>'+Numb
 '<div class="inline" style="margin:10px 0"><button class="btn" data-task-read>Отметить уведомления прочитанными</button><button class="btn" data-task-refresh>Обновить</button></div>'+
 (tasks.length?'<div class="list">'+tasks.map(task=>{
 const due=task.dueDate?dateText(task.dueDate):'Без срока';
-const actions=task.isAssignee&&!terminal.includes(task.status)?'<div class="inline" style="margin-top:8px"><button class="btn" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button><button class="btn" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button><button class="btn primary" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button></div>':'';
+const actions=(task.isAssignee&&!terminal.includes(task.status)?'<div class="inline" style="margin-top:8px"><button class="btn" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button><button class="btn" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button><button class="btn primary" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button></div>':'')+'<div class="inline" style="margin-top:8px"><button class="btn" data-task-history="'+esc(task.id)+'">История</button></div><div data-task-history-content="'+esc(task.id)+'" hidden></div>';
 return '<article class="equipment" style="display:block;margin:9px 0"><div class="section-head"><strong>'+esc(task.title)+'</strong><span class="pill">'+esc(task.status)+'</span></div><p class="muted">'+esc(task.description||'Без дополнительного описания')+'</p><p class="muted">Постановщик: '+esc(task.creatorName)+' · Срок: '+esc(due)+' · Приоритет: '+esc(task.priority)+'</p>'+actions+'</article>';
 }).join('')+'</div>':'<div class="empty">Назначенных поручений пока нет.</div>');
 root.querySelectorAll('[data-task-status]').forEach(button=>button.addEventListener('click',async()=>{
@@ -47,6 +47,21 @@ button.disabled=true;
 const result=await request('/api/tasks/'+encodeURIComponent(button.dataset.taskId),'PATCH',{status:button.dataset.taskStatus});
 if(!result.response.ok){alert(result.result.error||'Не удалось изменить статус');button.disabled=false;return;}
 loadSeniorTasks();
+}));
+root.querySelectorAll('[data-task-history]').forEach(button=>button.addEventListener('click',async()=>{
+const id=button.dataset.taskHistory,host=root.querySelector('[data-task-history-content="'+CSS.escape(id)+'"]');
+if(!host)return;
+if(!host.hidden){host.hidden=true;button.textContent='История';return;}
+host.hidden=false;host.innerHTML='<p class="muted">Загружаем историю…</p>';button.textContent='Скрыть историю';
+const result=await request('/api/tasks/'+encodeURIComponent(id)+'/events');
+if(!result.response.ok){host.textContent=result.result.error||'История недоступна';return;}
+const labels={created:'Поручение создано',status_changed:'Изменён статус'};
+const rows=(result.result.events||[]).map(event=>{
+const details=event.details||{},date=event.createdAt?new Date(event.createdAt).toLocaleString('ru-RU'):'';
+const detail=event.type==='created'?'Назначено исполнителю · '+(details.priority||'Обычный'):'Статус: '+(details.from||'—')+' → '+(details.to||'—');
+return '<div class="equipment" style="display:block;margin:5px 0"><b>'+esc(labels[event.type]||event.type)+'</b><p class="muted">'+esc(date)+' · '+esc(event.actorName||'Система')+' · '+esc(detail)+'</p></div>';
+}).join('');
+host.innerHTML=rows||'<p class="muted">Событий пока нет.</p>';
 }));
 root.querySelector('[data-task-refresh]')?.addEventListener('click',loadSeniorTasks);
 root.querySelector('[data-task-read]')?.addEventListener('click',async()=>{
