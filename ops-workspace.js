@@ -249,7 +249,7 @@
         '<div class="ops-field"><label>Приоритет<select name="priority"><option>Обычный</option><option>Важный</option><option>Срочный</option></select></label></div>'+
         '<div class="ops-field" style="grid-column:1/-1"><label>Содержание поручения<textarea name="description" rows="3" maxlength="4000" placeholder="Укажите задачу, ожидаемый результат и важные детали"></textarea></label></div></div>'+
         '<div class="ops-form-actions"><button class="ops-primary" type="submit">Назначить поручение</button></div><p class="ops-muted" id="ops-task-form-message" role="status"></p></form></div>'+
-        '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Поручения и исполнение</h2><p class="ops-muted">Показаны поручения, которые назначены вам или созданы вами.</p></div>'+
+        '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Поручения и исполнение</h2><p class="ops-muted">'+(taskResult.canViewAll?'Полный обзор поручений всех ролей. Изменять статусы можно только у поручений, где вы постановщик или исполнитель.':'Показаны поручения, которые назначены вам или созданы вами.')+'</p></div>'+
         '<div class="ops-actions"><button type="button" class="ops-secondary" id="ops-task-read">Отметить уведомления прочитанными</button><button type="button" class="ops-secondary" id="ops-task-refresh">Обновить</button></div></div>'+
         '<div class="ops-list">'+(cards||'<div class="ops-empty">Поручений пока нет.</div>')+'</div></div>');
       const form=$('#ops-shared-task-form');
