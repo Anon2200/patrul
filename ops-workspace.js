@@ -18,6 +18,8 @@
       modules: [
         {id:'shift',name:'Карточка развода',desc:'Контроль подготовки смены',fields:[['date','Дата развода','date'],['time','Время','time'],['attendance','Явка, ФИО и отметки','area'],['uniform','Форма и внешний вид','area'],['readiness','Готовность и инструктаж','area']]},
         {id:'corrections',name:'Контроль устранения',desc:'Повторные проверки и закрытие замечаний',fields:[['post','Пост / место'],['responsible','Ответственный'],['deadline','Срок устранения','date'],['result','Результат повторной проверки','area'],['checkedAt','Дата проверки','date']]},
+        {id:'inspections',name:'План и журнал проверок постов',desc:'Плановые проверки, замечания, сроки и повторный контроль',fields:[['inspectionDate','Дата проверки','date'],['post','Пост / участок'],['inspector','Проверяющий'],['readiness','Готовность поста','select',['Готов','Замечания','Не готов']],['findings','Выявленные замечания','area'],['responsible','Ответственный за устранение'],['deadline','Срок устранения','date'],['recheck','Результат повторной проверки','area']]},
+        {id:'handover',name:'Передача смены',desc:'Состояние смены, незакрытые вопросы и подтверждение приёма',fields:[['date','Дата передачи','date'],['time','Время передачи','time'],['fromPerson','Сдающий смену'],['toPerson','Принимающий смену'],['readiness','Готовность постов','select',['Готовы','Есть замечания','Не готовы']],['openIssues','Незакрытые вопросы','area'],['equipment','Состояние имущества','area'],['acceptedAt','Дата подтверждения приёма','date']]},
         {id:'briefings',name:'Шаблоны докладов',desc:'Заготовки и готовые тексты докладов',kind:'templates'},
       ]
     },
@@ -39,6 +41,7 @@
         {id:'numbering',name:'Нумерация документов',desc:'Отдельный последовательный реестр по годам',kind:'numbering'},
         {id:'incoming',name:'Входящие документы',desc:'Регистрация поступивших материалов',fields:[['sender','Отправитель'],['sourceNumber','Входящий номер отправителя'],['receivedAt','Дата поступления','date'],['kind','Тип документа'],['summary','Краткое содержание','area'],['deadline','Срок рассмотрения','date']]},
         {id:'movement',name:'Движение документов',desc:'Передача, рассмотрение и исполнение',fields:[['documentNumber','Номер документа'],['recipient','Кому передан'],['sentAt','Дата передачи','date'],['stage','Этап','select',['Зарегистрирован','Передан','На рассмотрении','На доработке','Исполнен','В архиве']],['deadline','Срок исполнения','date'],['note','Примечание','area']]},
+        {id:'approvals',name:'Резолюции и согласование',desc:'Кому направлен документ, решение руководителя и срок исполнения',fields:[['documentNumber','Регистрационный номер'],['documentKind','Вид документа'],['author','Подготовил'],['reviewer','Рассматривает'],['resolution','Резолюция руководителя','area'],['receivedAt','Дата направления','date'],['deadline','Срок исполнения','date'],['decision','Решение','select',['Ожидает рассмотрения','Согласовано','На доработку','Отклонено']],['decisionAt','Дата решения','date'],['executionResult','Результат исполнения','area']]},
         {id:'archive',name:'Поиск по архиву',desc:'Единый поиск по созданным записям и реестрам',kind:'archive'},
         {id:'deadlines',name:'Контроль сроков',desc:'Приближающиеся и просроченные документы',kind:'deadlines'},
         {id:'templates',name:'Библиотека шаблонов',desc:'Заготовки форм и документов',kind:'templates'}
@@ -118,8 +121,39 @@
     const taskPanel='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Ближайшие личные задачи</h2><p class="ops-muted">Личный список текущей учётной записи</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="personalTasks">Открыть задачи</button></div>'+
       (lateTasks.length?'<h3>Просроченные задачи</h3>'+taskRows(lateTasks,'late'):'')+(todayTasks.length?'<h3>Срок сегодня</h3>'+taskRows(todayTasks,'today'):'')+(nextTasks.length?'<h3>Ближайшие задачи</h3>'+taskRows(nextTasks,'next'):'')+(undatedTasks.length?'<h3>Без срока</h3>'+taskRows(undatedTasks,'undated'):'')+(!lateTasks.length&&!todayTasks.length&&!nextTasks.length&&!undatedTasks.length?'<p class="ops-muted">Ближайших задач пока нет. Добавьте задачу, чтобы не забыть о важном.</p>':'')+'</div>';
     const recent=aud.length?aud.map(a=>'<div class="ops-history-row"><span>'+esc(new Date(a.at).toLocaleString())+'</span><b>'+esc(a.action)+'</b><span>'+esc(a.title)+'</span></div>').join(''):'<p class="ops-muted">История новых операций появится после добавления записей.</p>';
-    shell('<div class="ops-stats"><div><b>'+config.modules.length+'</b><span>рабочих разделов</span></div><div><b>'+data().records.filter(r=>!r.archived).length+'</b><span>активных записей</span></div><div><b>'+countOpen()+'</b><span>незакрытых записей</span></div><div><b>'+due.length+'</b><span>просроченных сроков</span></div></div>'+alerts+taskPanel+'<div class="ops-grid">'+cards+'</div><div class="ops-panel"><h2>Последние действия</h2>'+recent+'</div><div class="ops-panel"><h2>Общий поиск</h2><div class="ops-search"><input id="ops-global-search" placeholder="Номер, ФИО, название, содержание…"><button type="button" class="ops-primary" data-ops="search">Найти</button></div><p class="ops-muted">Поиск охватывает записи рабочего центра этой роли, включая архивные.</p></div>');
+    shell('<div class="ops-stats"><div><b>'+config.modules.length+'</b><span>рабочих разделов</span></div><div><b>'+data().records.filter(r=>!r.archived).length+'</b><span>активных записей</span></div><div><b>'+countOpen()+'</b><span>незакрытых записей</span></div><div><b>'+due.length+'</b><span>просроченных сроков</span></div></div>'+alerts+'<div id="ops-crossrole-task-summary"></div>'+taskPanel+'<div class="ops-grid">'+cards+'</div><div class="ops-panel"><h2>Последние действия</h2>'+recent+'</div><div class="ops-panel"><h2>Общий поиск</h2><div class="ops-search"><input id="ops-global-search" placeholder="Номер, ФИО, название, содержание…"><button type="button" class="ops-primary" data-ops="search">Найти</button></div><p class="ops-muted">Поиск охватывает записи рабочего центра этой роли, включая архивные.</p></div>');
   }
+  async function loadTaskSummary(){
+    const host=$('#ops-crossrole-task-summary');if(!host)return;
+    try{
+      const response=await fetch('/api/tasks',{credentials:'same-origin',cache:'no-store'});
+      let result={};try{result=await response.json();}catch(_){}
+      if(!response.ok){host.innerHTML='';return;}
+      const tasks=Array.isArray(result.tasks)?result.tasks:[];
+      const open=tasks.filter(task=>!['Выполнено','Отменено'].includes(task.status));
+      const dueDate=task=>task.dueDate?String(task.dueDate).slice(0,10):'';
+      const late=open.filter(task=>dueDate(task)&&dueDate(task)<today());
+      const dueToday=open.filter(task=>dueDate(task)===today());
+      const urgent=open.filter(task=>task.priority==='Срочный');
+      const roleNames={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед',starshiy_patrulya:'Старший патруля'};
+      const rows=open.slice().sort((a,b)=>(dueDate(a)||'9999-12-31').localeCompare(dueDate(b)||'9999-12-31')).slice(0,5);
+      const items=rows.map(task=>'<div class="ops-history-row"><span>'+esc(dueDate(task)?dateText(dueDate(task)):'Без срока')+'</span><b>'+esc(task.title)+'</b><span>'+esc(task.assigneeName)+' · '+esc(roleNames[task.assigneeRole]||task.assigneeRole)+' · '+esc(task.status)+'</span></div>').join('');
+      host.innerHTML='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Общие поручения</h2><p class="ops-muted">'+(result.canViewAll?'Общий контроль по всем ролям':'Поручения, назначенные вам или поставленные вами')+'</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="sharedTasks">Открыть поручения</button></div>'+
+        '<div class="ops-stats"><div><b>'+open.length+'</b><span>активных</span></div><div><b>'+late.length+'</b><span>просрочено</span></div><div><b>'+dueToday.length+'</b><span>срок сегодня</span></div><div><b>'+urgent.length+'</b><span>срочных</span></div><div><b>'+Number(result.unreadNotifications||0)+'</b><span>уведомлений</span></div></div>'+
+        (items||'<p class="ops-muted">Активных поручений нет.</p>')+'</div>';
+    }catch(_){host.innerHTML='';}
+  }
+
+  function startTaskFromRecord(recordId){
+    const record=data().records.find(item=>item.id===recordId);if(!record)return;
+    const module=moduleById(record.module),fields=record.fields||{};
+    const details=Object.entries(fields).filter(([key,value])=>value!==''&&value!==null&&value!==undefined&&!(typeof value==='string'&&value.startsWith('data:image/')))
+      .map(([key,value])=>key+': '+String(value)).join('\n').slice(0,3400);
+    const description=['Источник: '+(module?module.name:record.module),record.number?'Номер: '+record.number:'','Дата записи: '+dateText(record.date),details].filter(Boolean).join('\n\n').slice(0,3900);
+    sharedTasks({title:record.title,description,dueDate:calendarDay(fields.deadline||fields.due),priority:fields.priority||'Обычный'});
+    loadTaskSummary();
+  }
+
   function statusOptions(selected){return ['Новая','В работе','На проверке','Выполнено','Закрыто'].map(x=>'<option'+(selected===x?' selected':'')+'>'+x+'</option>').join('');}
   function searchableText(value){if(value===null||value===undefined)return '';if(Array.isArray(value))return value.map(searchableText).join(' ');if(typeof value==='object')return Object.entries(value).map(([key,item])=>key+' '+searchableText(item)).join(' ');const text=String(value);return text.startsWith('data:image/')?'':text;}
   function recordText(r){return searchableText([r.title,r.status,r.date,r.fields||{}]).toLocaleLowerCase('ru-RU');}
@@ -155,7 +189,7 @@
   function card(r,m){
     const details=(m.fields||[]).filter(f=>f[2]!=='file').map(f=>{const v=r.fields[f[0]];return v?'<div><span>'+esc(f[1])+':</span> '+esc(v)+'</div>':'';}).join('');
     const photo=r.fields.photo?'<img class="ops-photo" src="'+r.fields.photo+'" alt="Прикреплённая фотография">':'';
-    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+'<button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
+    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+'<button type="button" data-ops="task-from-record" data-id="'+r.id+'">Поставить поручение</button><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
   }
   async function seniorActivation(){
     currentModule='seniorActivation';
@@ -208,7 +242,7 @@
       shell('<div class="ops-empty">Нет соединения с журналом старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
     }
   }
-  async function sharedTasks(){
+  async function sharedTasks(prefill=null){
     currentModule='sharedTasks';
     shell('<div class="ops-count">Загружаем общие поручения и уведомления…</div>');
     try{
@@ -244,10 +278,10 @@
         '<div class="ops-stats"><div><b>'+tasks.filter(x=>x.isAssignee&&!terminal.includes(x.status)).length+'</b><span>у меня на исполнении</span></div><div><b>'+tasks.filter(x=>x.isCreator&&!terminal.includes(x.status)).length+'</b><span>поставлено мной</span></div><div><b>'+Number(taskResult.unreadNotifications||0)+'</b><span>новых уведомлений</span></div></div>'+
         '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Новое поручение</h2><p class="ops-muted">Получателем может быть сотрудник любой из пяти рабочих ролей.</p></div></div>'+
         '<form id="ops-shared-task-form"><div class="ops-form-grid"><div class="ops-field"><label>Исполнитель<select name="assigneeId" required><option value="">Выберите сотрудника</option>'+options+'</select></label></div>'+
-        '<div class="ops-field"><label>Тема поручения<input name="title" required maxlength="180" placeholder="Кратко сформулируйте задачу"></label></div>'+
-        '<div class="ops-field"><label>Срок исполнения<input name="dueDate" type="date"></label></div>'+
+        '<div class="ops-field"><label>Тема поручения<input name="title" required maxlength="180" placeholder="Кратко сформулируйте задачу" value="'+esc(prefill&&prefill.title||'')+'"></label></div>'+
+        '<div class="ops-field"><label>Срок исполнения<input name="dueDate" type="date" value="'+esc(prefill&&prefill.dueDate||'')+'"></label></div>'+
         '<div class="ops-field"><label>Приоритет<select name="priority"><option>Обычный</option><option>Важный</option><option>Срочный</option></select></label></div>'+
-        '<div class="ops-field" style="grid-column:1/-1"><label>Содержание поручения<textarea name="description" rows="3" maxlength="4000" placeholder="Укажите задачу, ожидаемый результат и важные детали"></textarea></label></div></div>'+
+        '<div class="ops-field" style="grid-column:1/-1"><label>Содержание поручения<textarea name="description" rows="3" maxlength="4000" placeholder="Укажите задачу, ожидаемый результат и важные детали">'+esc(prefill&&prefill.description||'')+'</textarea></label></div></div>'+
         '<div class="ops-form-actions"><button class="ops-primary" type="submit">Назначить поручение</button></div><p class="ops-muted" id="ops-task-form-message" role="status"></p></form></div>'+
         '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Поручения и исполнение</h2><p class="ops-muted">'+(taskResult.canViewAll?'Полный обзор поручений всех ролей. Изменять статусы можно только у поручений, где вы постановщик или исполнитель.':'Показаны поручения, которые назначены вам или созданы вами.')+'</p></div>'+
         '<div class="ops-actions"><button type="button" class="ops-secondary" id="ops-task-read">Отметить уведомления прочитанными</button><button type="button" class="ops-secondary" id="ops-task-refresh">Обновить</button></div></div>'+
@@ -484,6 +518,7 @@
       if(action==='exit'){goHome();return;}
       if(action==='module'){filterText='';filterStatus='Все записи';list(id);return;}
       if(action==='new'){form(currentModule||'numbering',null);return;}
+      if(action==='task-from-record'){startTaskFromRecord(id);return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
       if(action==='cancel'){list(currentModule);return;}
       if(action==='complete'){const r=data().records.find(x=>x.id===id);if(r){r.status='Выполнено';r.updatedAt=new Date().toISOString();log('Задача отмечена выполненной',r);persist();if(active)home();}return;}
