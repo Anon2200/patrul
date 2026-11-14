@@ -372,7 +372,11 @@ const A={
  smopen:t=>{ssel=t.dataset.d;go('sm')},sday:t=>{ssel=add(ssel,+t.dataset.d);draw(1)},smcopy:()=>copyT(smLines(ssel).join('\n')),smshare:()=>shareT(smLines(ssel).join('\n')),prn:()=>window.print(),
  exp,impb:()=>$('#imp').click(),bkcopy:()=>{D.bk=Date.now();save();copyT(JSON.stringify(D));draw(1)},
  bkpaste:()=>modal(`<h3>Вставить копию</h3><p class="mu" style="margin-top:0">Вставьте сюда скопированный ранее текст копии. Текущие данные будут заменены.</p><textarea id="bk_t" rows="6" style="width:100%"></textarea><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="bkpaste2">Загрузить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
- bkpaste2:()=>{try{const j=JSON.parse($('#bk_t').value);if(!j.set||!j.rounds)throw 0;D=norm(j);closeM();draw();toast('Копия загружена')}catch(x){toast('Текст не подходит: нужна копия этой программы')}},
+ bkpaste2:()=>{try{const j=JSON.parse($('#bk_t').value);if(!j.set||!j.rounds)throw 0;D=norm(j);closeM();window.PATRUL_PERSONNEL_BRIDGE={
+ getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
+ setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
+};
+draw();toast('Копия загружена')}catch(x){toast('Текст не подходит: нужна копия этой программы')}},
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" style="flex:1" data-act="rst2">Да, сбросить</button><button class="btn" style="flex:1" data-act="cl">Отмена</button></div>`),
  rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{if(ev.target.closest('a[href]')||ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
@@ -1913,4 +1917,4 @@ function exWeekItems(){const t=today(),f=add(t,-6),L=[],R=D.rounds.filter(r=>r.d
 
 
 draw();cmFirst();
-</script><script>window.PATRUL_ROLE='zam';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script></body></html>
+</script><script>window.PATRUL_ROLE='zam';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="personnel-workspace.js"></script></body></html>
