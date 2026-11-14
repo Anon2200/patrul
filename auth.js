@@ -366,6 +366,18 @@ function createAuth(pool,send,readJson) {
         loginFailures.delete(key);await audit(match.id,'patrol_senior_login',match.id,{departmentId:profile.department.id});
         const csrf=await newSession(match,res);send(res,200,{user:publicUser(match),csrfToken:csrf,department:profile.department.name});return true;
       }
+      if(p==='/api/patrol-senior/reports'&&req.method==='GET') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)){send(res,403,{error:'Доклады доступны только вышестоящим должностным лицам'});return true;}
+        const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit')||100)));
+        const q=await pool.query(
+          'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
+          'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
+          'WHERE e.entry_date >= CURRENT_DATE - INTERVAL \\'30 days\\' ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
+        send(res,200,{entries:q.rows});return true;
+      }
       if(p==='/api/patrol-senior/workspace'&&req.method==='GET') {
         const session=await sessionFor(req);
         if(!session){send(res,401,{error:'Требуется вход'});return true;}
