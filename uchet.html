@@ -373,6 +373,7 @@ exp,csv,impb:()=>$('#imp').click(),
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все ваши изменения и журнал будут удалены, вернётся исходная опись. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
  rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('input',ev=>{const t=ev.target,c=t.dataset&&t.dataset.chg;if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const id=t.dataset.id,i=id&&D.items.find(x=>x.id==id),v=t.value;
  if(c=='fact'||c=='ifact'){aud('Факт: '+i.name+' = '+(v||'—'));i.fact=v===''?null:+v;i.inv=Date.now();i.date=v===''?'':today();draw(1);toast('Сохранено')}
  else if(c=='min'){i.min=v===''?null:+v;draw(1)}
@@ -383,7 +384,7 @@ document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)
  else if(c=='pf'){pf=v;draw(1)}else if(c=='defect'){i.defect=v;save()}else if(c=='notes'){D.notes=v;save();toast('Сохранено')}
  else if(c=='sel'){t.checked?sel.add(id):sel.delete(id);draw(1)}else if(c=='selall'){t.checked?list().forEach(x=>sel.add(x.id)):sel.clear();draw(1)}
  else if(c=='ckq'){ckg(id).q=+v}else if(c=='cks'){ckg(id).s=v}else if(c=='ckn'){ckg(id).n=v}else if(c=='ckw'){ckw=v}else if(c=='ckd'){ckd=v||today()}
- else if(c.startsWith('s_')){const k=c.slice(2);D.set[k]=['interval','coef'].includes(k)?(+v||1):v;draw(1);toast('Сохранено')}});
+ else if(c.startsWith('s_')){const k=c.slice(2);D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save();toast('Настройка сохранена')}});
 document.addEventListener('input',ev=>{const t=ev.target;if(t.id=='q'){q=t.value;$('#tb').innerHTML=rows();cnt()}else if(t.id=='iq'){iq=t.value;$('#ib').innerHTML=irows()}else if(t.id=='gq'){const x=pc(t.value);$('#gr').innerHTML=D.items.filter(i=>x&&pc(i.id+' '+i.name+' '+i.place).includes(x)).slice(0,12).map(i=>`<div class="r" data-act="qsgo" data-id="${e(i.id)}" style="padding:9px 6px;cursor:pointer;border-bottom:1px solid var(--bd)"><b>${e(i.name)}</b> <span class="mu">${e(i.id)} · ${e(i.place||'—')} · остаток ${cur(i)}</span></div>`).join('')||(x?'<p class="mu">Ничего не найдено</p>':'')}else if(t.id=='jq'){jq=t.value;$('#jb').innerHTML=jrows()}});
 document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM();if(ev.code=='KeyN'&&!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&!/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)&&!$('#md').innerHTML){ev.preventDefault();edit()}if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()=='k'){ev.preventDefault();qs()}if(ev.key=='Enter'&&ev.target.id=='gq'){const f=$('#gr [data-act=qsgo]');f&&f.click()}});
 $('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.items)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит')}});ev.target.value=''};
