@@ -815,7 +815,7 @@ function createAuth(pool,send,readJson) {
         if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
         if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
-        const canViewAll=s.role==='nachalnik';
+        const canViewAll=['nachalnik','uchet'].includes(s.role);
         const [tasks,unread]=await Promise.all([
           pool.query(
             'SELECT t.id,t.title,t.description,t.priority,t.status,t.due_date AS "dueDate",t.created_at AS "createdAt",t.updated_at AS "updatedAt",'+
