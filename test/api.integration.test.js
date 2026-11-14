@@ -497,7 +497,7 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
       title: 'Проверить тестовое поручение',
       description: 'Проверить получение и изменение статуса',
       priority: 'Важный',
-      dueDate: '2026-12-01'
+      dueDate: new Date().toISOString().slice(0,10)
     })
   }, adminCookie, adminCsrf);
   assert.equal(create.status, 201);
@@ -514,7 +514,12 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   const inboxBody = await inbox.json();
   assert.equal(inboxBody.canViewAll, false);
   assert.ok(inboxBody.tasks.some(task => task.id === created.task.id));
-  assert.ok(inboxBody.unreadNotifications >= 1);
+  assert.ok(inboxBody.unreadNotifications >= 2);
+  assert.ok(inboxBody.notifications.some(item => item.type === 'assigned'));
+  assert.ok(inboxBody.notifications.some(item => item.type === 'due_today'));
+  const repeatedInbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal(repeatedInbox.status, 200);
+  assert.equal((await repeatedInbox.json()).notifications.filter(item => item.type === 'due_today').length, 1);
 
   const blockedStatus = await sessionApi('/api/tasks/' + created.task.id, {
     method: 'PATCH',
@@ -589,6 +594,14 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   assert.equal(historyBody.events.length, 7);
   assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed','status_changed','status_changed','status_changed','status_changed']);
   assert.equal(historyBody.events[3].details.comment, 'Уточнить итоговую дату и приложить акт проверки.');
+
+  const employeeRead = await sessionApi('/api/tasks/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, employeeCookie, employeeCsrf);
+  assert.equal(employeeRead.status, 200);
+  const employeeReadInbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal((await employeeReadInbox.json()).unreadNotifications, 0);
 
   const doneRead = await sessionApi('/api/tasks/notifications/read', {
     method: 'POST',
@@ -674,6 +687,11 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes('startTaskFromRecord'));
   assert.ok(workspace.includes('/api/documents/next-number'));
   assert.ok(workspace.includes('minimumSequence'));
+  assert.ok(workspace.includes('notificationMarkup'));
+  assert.ok(workspace.includes('due_today'));
+  const seniorUi = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(seniorUi.includes('r.result.notifications'));
+  assert.ok(seniorUi.includes('notificationMarkup'));
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(server.includes('008_document_numbering.sql'));
   const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
