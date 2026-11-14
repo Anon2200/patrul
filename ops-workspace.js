@@ -122,7 +122,65 @@
     const taskPanel='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Ближайшие личные задачи</h2><p class="ops-muted">Личный список текущей учётной записи</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="personalTasks">Открыть задачи</button></div>'+
       (lateTasks.length?'<h3>Просроченные задачи</h3>'+taskRows(lateTasks,'late'):'')+(todayTasks.length?'<h3>Срок сегодня</h3>'+taskRows(todayTasks,'today'):'')+(nextTasks.length?'<h3>Ближайшие задачи</h3>'+taskRows(nextTasks,'next'):'')+(undatedTasks.length?'<h3>Без срока</h3>'+taskRows(undatedTasks,'undated'):'')+(!lateTasks.length&&!todayTasks.length&&!nextTasks.length&&!undatedTasks.length?'<p class="ops-muted">Ближайших задач пока нет. Добавьте задачу, чтобы не забыть о важном.</p>':'')+'</div>';
     const recent=aud.length?aud.map(a=>'<div class="ops-history-row"><span>'+esc(new Date(a.at).toLocaleString())+'</span><b>'+esc(a.action)+'</b><span>'+esc(a.title)+'</span></div>').join(''):'<p class="ops-muted">История новых операций появится после добавления записей.</p>';
-    shell('<div class="ops-stats"><div><b>'+config.modules.length+'</b><span>рабочих разделов</span></div><div><b>'+data().records.filter(r=>!r.archived).length+'</b><span>активных записей</span></div><div><b>'+countOpen()+'</b><span>незакрытых записей</span></div><div><b>'+due.length+'</b><span>просроченных сроков</span></div></div>'+alerts+'<div id="ops-crossrole-task-summary"></div>'+taskPanel+'<div class="ops-grid">'+cards+'</div><div class="ops-panel"><h2>Последние действия</h2>'+recent+'</div><div class="ops-panel"><h2>Общий поиск</h2><div class="ops-search"><input id="ops-global-search" placeholder="Номер, ФИО, название, содержание…"><button type="button" class="ops-primary" data-ops="search">Найти</button></div><p class="ops-muted">Поиск охватывает записи рабочего центра этой роли, включая архивные.</p></div>');
+    const chiefOverviewHost=role==='nachalnik'?'<div id="ops-chief-overview"></div>':'';
+    shell('<div class="ops-stats"><div><b>'+config.modules.length+'</b><span>рабочих разделов</span></div><div><b>'+data().records.filter(r=>!r.archived).length+'</b><span>активных записей</span></div><div><b>'+countOpen()+'</b><span>незакрытых записей</span></div><div><b>'+due.length+'</b><span>просроченных сроков</span></div></div>'+alerts+chiefOverviewHost+'<div id="ops-crossrole-task-summary"></div>'+taskPanel+'<div class="ops-grid">'+cards+'</div><div class="ops-panel"><h2>Последние действия</h2>'+recent+'</div><div class="ops-panel"><h2>Общий поиск</h2><div class="ops-search"><input id="ops-global-search" placeholder="Номер, ФИО, название, содержание…"><button type="button" class="ops-primary" data-ops="search">Найти</button></div><p class="ops-muted">Поиск охватывает записи рабочего центра этой роли, включая архивные.</p></div>');
+    if(role==='nachalnik')loadChiefOperationalOverview();
+  }
+  async function loadChiefOperationalOverview(){
+    const host=$('#ops-chief-overview');if(!host)return;
+    host.innerHTML='<div class="ops-panel"><p class="ops-muted">Загружаем данные отделений, наряда и докладов старших патрулей…</p></div>';
+    try{
+      const [staffResponse,reportsResponse]=await Promise.all([
+        fetch('/api/shared-staff',{credentials:'same-origin',cache:'no-store'}),
+        fetch('/api/patrol-senior/reports?limit=200',{credentials:'same-origin',cache:'no-store'})
+      ]);
+      let staffResult={},reportsResult={};
+      try{staffResult=await staffResponse.json();}catch(_){}
+      try{reportsResult=await reportsResponse.json();}catch(_){}
+      if(!staffResponse.ok||!reportsResponse.ok){
+        host.innerHTML='<div class="ops-panel"><p class="ops-muted">'+esc(staffResult.error||reportsResult.error||'Оперативная сводка временно недоступна')+'</p></div>';
+        return;
+      }
+      const shared=staffResult.data||{},staff=Array.isArray(shared.staff)?shared.staff:[],departments=Array.isArray(shared.departments)?shared.departments:[];
+      const entries=Array.isArray(reportsResult.entries)?reportsResult.entries:[];
+      const latestAttendance=new Map();
+      for(const entry of entries){
+        if(entry.type==='attendance'&&entry.staffKey&&!latestAttendance.has(String(entry.staffKey)))latestAttendance.set(String(entry.staffKey),entry.status);
+      }
+      const departmentCards=departments.map(department=>{
+        const people=staff.filter(person=>String(person.departmentId||'')===String(department.id));
+        const active=people.filter(person=>String(person.st||'').toLocaleLowerCase('ru-RU')!=='уволен');
+        const marked=people.map(person=>latestAttendance.get(String(person.k))).filter(Boolean);
+        const present=marked.filter(status=>status==='present').length;
+        const late=marked.filter(status=>status==='late').length;
+        const absent=marked.filter(status=>status==='absent').length;
+        const excused=marked.filter(status=>status==='excused').length;
+        const unmarked=Math.max(0,active.length-marked.length);
+        return '<article class="ops-record"><div class="ops-record-head"><div><b>'+esc(department.name)+'</b><small>Активный личный состав</small></div><span class="ops-status">'+active.length+' сотрудников</span></div>'+
+          '<p><b>Прибыли:</b> '+present+' · <b>Опоздали:</b> '+late+' · <b>Отсутствуют:</b> '+absent+' · <b>Уважительная причина:</b> '+excused+'</p>'+
+          '<p class="ops-muted">Без отметки: '+unmarked+' · Всего отметок: '+marked.length+'</p></article>';
+      }).join('');
+      const dutyRoot=D&&D.duty&&D.duty[today()]&&D.duty[today()].rows&&typeof D.duty[today()].rows==='object'?D.duty[today()].rows:{};
+      const postRows=Object.entries(dutyRoot).map(([post,list])=>{
+        const assigned=Array.isArray(list)?list:[];
+        return '<div class="ops-history-row"><b>'+esc(post)+'</b><span>'+assigned.length+' назначено</span><span>'+esc(assigned.map(person=>person&&person.fio||'').filter(Boolean).join(', ')||'Состав не указан')+'</span></div>';
+      }).join('');
+      const recent=entries.slice(0,8).map(entry=>{
+        const excerpt=String(entry.body||'').trim().slice(0,220);
+        return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(String(entry.date||''))+' · '+esc(entry.departmentName||'Отделение')+'</small><h3>'+esc(entry.title||'Запись старшего патруля')+'</h3></div><span class="ops-status">'+esc(entry.status||entry.type)+'</span></div>'+
+          '<p><b>'+esc(entry.seniorName||'Старший патруля')+'</b> · '+esc(entry.type||'')+'</p>'+(excerpt?'<p>'+esc(excerpt)+'</p>':'')+'</article>';
+      }).join('');
+      const reportCount=entries.filter(entry=>entry.type==='report').length;
+      const seniorNames=new Set(entries.map(entry=>entry.seniorName).filter(Boolean));
+      const attendanceCount=entries.filter(entry=>entry.type==='attendance').length;
+      host.innerHTML='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Оперативная сводка</h2><p class="ops-muted">Общий личный состав и журнал старших патрулей · данные за последние 30 дней</p></div><button class="ops-secondary" type="button" data-ops="chief-refresh">Обновить</button></div>'+
+        '<div class="ops-stats"><div><b>'+departments.length+'</b><span>отделений</span></div><div><b>'+staff.length+'</b><span>всего в списке</span></div><div><b>'+attendanceCount+'</b><span>отметок явки</span></div><div><b>'+reportCount+'</b><span>докладов</span></div><div><b>'+seniorNames.size+'</b><span>старших патрулей с записями</span></div></div>'+
+        '<div class="ops-panel-head"><h3>Наряд на сегодня · '+dateText(today())+'</h3><button type="button" class="ops-secondary" data-ops="module" data-id="seniorReports">Доклады и журналы</button></div><div class="ops-list">'+(postRows||'<p class="ops-muted">В наряде на сегодня посты не назначены или данные недоступны.</p>')+'</div>'+
+        '<div class="ops-panel-head"><h3>Отделения и последние отметки явки</h3><span class="ops-muted">Без отметки не считается прибывшим</span></div><div class="ops-grid">'+(departmentCards||'<div class="ops-empty">Отделения ещё не настроены.</div>')+'</div>'+
+        '<div class="ops-panel-head"><h3>Последние доклады и записи</h3></div><div class="ops-list">'+(recent||'<div class="ops-empty">За последние 30 дней записей не найдено.</div>')+'</div></div>';
+    }catch(_){
+      host.innerHTML='<div class="ops-panel"><p class="ops-muted">Не удалось загрузить оперативную сводку.</p></div>';
+    }
   }
   async function loadTaskSummary(){
     const host=$('#ops-crossrole-task-summary');if(!host)return;
@@ -643,6 +701,7 @@
       if(action==='module'){filterText='';filterStatus='Все записи';list(id);return;}
       if(action==='new'){form(currentModule||'numbering',null);return;}
       if(action==='task-from-record'){startTaskFromRecord(id);return;}
+       if(action==='chief-refresh'){loadChiefOperationalOverview();return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
       if(action==='cancel'){list(currentModule);return;}
       if(action==='complete'){const r=data().records.find(x=>x.id===id);if(r){r.status='Выполнено';r.updatedAt=new Date().toISOString();log('Задача отмечена выполненной',r);persist();if(active)home();}return;}
