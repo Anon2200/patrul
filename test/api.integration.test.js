@@ -598,6 +598,63 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
 
 });
 
+test('document numbers are server-issued sequentially per year and role-protected', async () => {
+  const createUser = await sessionApi('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ci.documenter', displayName: 'CI Documenter', role: 'dokumentoved' })
+  }, adminCookie, adminCsrf);
+  assert.equal(createUser.status, 201);
+  const temporaryPassword = (await createUser.json()).temporaryPassword;
+  const login = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: 'ci.documenter', password: temporaryPassword })
+  });
+  assert.equal(login.status, 200);
+  const loginBody = await login.json();
+  const docCookie = (login.headers.get('set-cookie') || '').split(';')[0];
+  const docCsrf = loginBody.csrfToken;
+
+  const withoutCsrf = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, docCookie);
+  assert.equal(withoutCsrf.status, 403);
+
+  const wrongRole = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(wrongRole.status, 403);
+
+  const invalidDate = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-02-31' })
+  }, docCookie, docCsrf);
+  assert.equal(invalidDate.status, 400);
+
+  const concurrent = await Promise.all(Array.from({ length: 6 }, () => sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2026-12-01' })
+  }, docCookie, docCsrf)));
+  assert.deepEqual(concurrent.map(response => response.status), [201,201,201,201,201,201]);
+  const numbers = await Promise.all(concurrent.map(async response => (await response.json()).number));
+  assert.deepEqual(numbers.slice().sort(), ['001/2026','002/2026','003/2026','004/2026','005/2026','006/2026']);
+
+  const nextYear = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2027-01-01' })
+  }, docCookie, docCsrf);
+  assert.equal(nextYear.status, 201);
+  assert.equal((await nextYear.json()).number, '001/2027');
+
+  const legacySeed = await sessionApi('/api/documents/next-number', {
+    method: 'POST',
+    body: JSON.stringify({ date: '2027-02-01', minimumSequence: 10 })
+  }, docCookie, docCsrf);
+  assert.equal(legacySeed.status, 201);
+  assert.equal((await legacySeed.json()).number, '011/2027');
+});
+
 test('role workspaces expose shared task and controlled inspection modules', () => {
   const workspace = fs.readFileSync(path.join(__dirname, '..', 'ops-workspace.js'), 'utf8');
   assert.ok(workspace.includes("id:'sharedTasks'"));
