@@ -66,7 +66,7 @@ function render(){
 }
 function closeModal(){const m=$('#pw-modal');if(m)m.remove();}
 function form(p){
- const editing=!!p,dept=p?.departmentId||'',pos=p?.pos||'Патрульный';
+ const editing=!!(p&&p.k),dept=p?.departmentId||'',pos=p?.pos||'Патрульный';
  const options=state.departments.map(d=>'<option value="'+esc(d.id)+'" '+(d.id===dept?'selected':'')+'>'+esc(d.name)+'</option>').join('');
  const roleOptions=POS.map(x=>'<option '+(x===pos?'selected':'')+'>'+esc(x)+'</option>').join('');
  const m=document.createElement('div');m.id='pw-modal';m.className='pw-modal';
