@@ -506,19 +506,41 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
   
-  const seniorWrongBirthDate = await sessionApi('/api/patrol-senior/enroll', {
+  const seniorListResponse = await sessionApi('/api/patrol-senior/eligible', {}, adminCookie);
+  assert.equal(seniorListResponse.status, 200);
+  const seniorList = await seniorListResponse.json();
+  assert.ok(seniorList.seniors.some(person => person.staffKey === 'senior-sidorov' && !person.registered));
+  const activationWithoutCsrf = await sessionApi('/api/patrol-senior/activation-code', {
     method: 'POST',
-    body: JSON.stringify({ surname: 'Сидоров', birthDate: '1998-04-13', pin: '246810' })
+    body: JSON.stringify({ staffKey: 'senior-sidorov' })
+  }, adminCookie);
+  assert.equal(activationWithoutCsrf.status, 403);
+  const invalidActivation = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: '11111111', pin: '246810' })
   });
-  assert.equal(seniorWrongBirthDate.status, 401);
+  assert.equal(invalidActivation.status, 401);
+  const issueCode = await sessionApi('/api/patrol-senior/activation-code', {
+    method: 'POST',
+    body: JSON.stringify({ staffKey: 'senior-sidorov' })
+  }, adminCookie, adminCsrf);
+  assert.equal(issueCode.status, 201);
+  const issuedCode = await issueCode.json();
+  assert.match(issuedCode.code, /^\\d{8}$/);
+  assert.equal(issuedCode.staffName, 'Сидоров Сергей Сергеевич');
   const seniorEnroll = await sessionApi('/api/patrol-senior/enroll', {
     method: 'POST',
-    body: JSON.stringify({ surname: 'Сидоров', birthDate: '1998-04-12', pin: '246810' })
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '246810' })
   });
   assert.equal(seniorEnroll.status, 201);
   const seniorBody = await seniorEnroll.json();
   assert.equal(seniorBody.user.role, 'starshiy_patrulya');
   const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const reusedCode = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '135790' })
+  });
+  assert.equal(reusedCode.status, 409);
   const seniorWorkspace = await sessionApi('/api/patrol-senior/workspace?date=' + new Date().toISOString().slice(0,10), {}, seniorCookie);
   assert.equal(seniorWorkspace.status, 200);
   const seniorWorkspaceBody = await seniorWorkspace.json();
@@ -527,6 +549,8 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(seniorWorkspaceBody.roster.length, 2);
   const seniorSharedDenied = await sessionApi('/api/shared-staff', {}, seniorCookie);
   assert.equal(seniorSharedDenied.status, 403);
+  const seniorEligibleDenied = await sessionApi('/api/patrol-senior/eligible', {}, seniorCookie);
+  assert.equal(seniorEligibleDenied.status, 403);
   const seniorOtherRoleDenied = await sessionApi('/api/session-data/nachalnik', {}, seniorCookie);
   assert.equal(seniorOtherRoleDenied.status, 403);
   const seniorAdminDenied = await sessionApi('/api/admin/users', {}, seniorCookie);
@@ -541,11 +565,28 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.ok((await supervisorReports.json()).entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
   const seniorReportsDenied = await sessionApi('/api/patrol-senior/reports', {}, seniorCookie);
   assert.equal(seniorReportsDenied.status, 403);
-  const seniorReenroll = await sessionApi('/api/patrol-senior/enroll', {
+  const seniorLogin = await sessionApi('/api/patrol-senior/login', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+  });
+  assert.equal(seniorLogin.status, 200);
+  const seniorLoginBody = await seniorLogin.json();
+  const seniorLoginCookie = (seniorLogin.headers.get('set-cookie') || '').split(';')[0];
+  const changedPin = await sessionApi('/api/patrol-senior/change-pin', {
+    method: 'POST',
+    body: JSON.stringify({ currentPin: '246810', newPin: '135790' })
+  }, seniorLoginCookie, seniorLoginBody.csrfToken);
+  assert.equal(changedPin.status, 200);
+  const oldPinLogin = await sessionApi('/api/patrol-senior/login', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+  });
+  assert.equal(oldPinLogin.status, 401);
+  const newPinLogin = await sessionApi('/api/patrol-senior/login', {
     method: 'POST',
     body: JSON.stringify({ surname: 'Сидоров', pin: '135790' })
   });
-  assert.equal(seniorReenroll.status, 409);
+  assert.equal(newPinLogin.status, 200);
   const seniorPasswordLoginDenied = await sessionApi('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username: seniorBody.user.username, password: 'not-a-patrol-senior-password' })
