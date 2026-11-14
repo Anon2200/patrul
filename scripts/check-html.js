@@ -70,6 +70,7 @@ if (!cloudSync.includes("const localDataKey = role + '_v1'") ||
     !cloudSync.includes('localStorage.removeItem(localDataKey)')) {
   fail('cloud sync must remove the plaintext role-data cache after server confirmation');
 }
+if (!cloudSync.includes('window.PATRUL_SAVE_NOW=async function()') || !cloudSync.includes('while(busy)await new Promise')) fail('personnel save confirmation must wait for an acknowledged server write');
 if (cloudSync.includes('originalSave()')) {
   fail('cloud sync must not persist full application data through the legacy localStorage save function');
 }
@@ -114,6 +115,8 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
   if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
+  if (!html.includes("window.addEventListener('patrul:ready',cmFirst)") || !html.includes('cmfirst:async()=>') || !html.includes('await window.PATRUL_SAVE_NOW()') || !html.includes('Первоначальные настройки сохранены на сервере')) fail(file + ' first-run setup must wait for authenticated server data and confirmed save');
+  if (!html.includes("if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()") || !html.includes("toast('Настройка сохранена')")) fail(file + ' initial role settings must persist as they are edited');
   if (!html.includes('delete copy.sx.pw')) fail(file + ' manual backup must not export the shared exchange password');
   if (!html.includes("if(!pw)throw new Error('needpw')") || !html.includes("throw new Error('unencrypted')") || html.includes("return useZ?'ПАТРУЛЬ1Z'")) fail(file + ' inter-role exchange must reject unencrypted packets');
 
@@ -144,10 +147,12 @@ if (!server.includes("['/ops-workspace.js', 'ops-workspace.js']")) fail('server 
 if (!server.includes("['/personal-workspace.js', 'personal-workspace.js']")) fail('server public-file allowlist missing personal-workspace.js');
 if (!server.includes("['/staff-workspace.js', 'staff-workspace.js']")) fail('server public-file allowlist missing staff-workspace.js');
 if (!cacheManifest || !cacheManifest[1].includes("'/staff-workspace.js'")) fail('service worker static cache must include staff-workspace.js');
-if (!staffWorkspace.includes('SQN=9') || !staffWorkspace.includes('Нач. состав') || !staffWorkspace.includes('Отделения') || !staffWorkspace.includes('Поставить отделение')) fail('staff workspace must provide the management roster, nine departments and duty-post assignment');
+if (!staffWorkspace.includes('SQ_DEFAULT_COUNT=9') || !staffWorkspace.includes('function sqDepartments()') || !staffWorkspace.includes('sqdepnew') || !staffWorkspace.includes('sqdepdel') || !staffWorkspace.includes('sqdepsave') || !staffWorkspace.includes('Нач. состав') || !staffWorkspace.includes('Отделения') || !staffWorkspace.includes('Поставить отделение')) fail('staff workspace must provide nine initial departments, dynamic department management and duty-post assignment');
 if (!staffWorkspace.includes('id="q_birth" type="date"') || !staffWorkspace.includes('birthDate') || !staffWorkspace.includes('Дата рождения') || !staffWorkspace.includes('Укажите корректную дату рождения') || !staffWorkspace.includes('sqInfo(s)')) fail('each patrol officer and patrol senior must have an editable, validated birth date displayed in the roster and department cards');
 if (!staffWorkspaceLoader.includes("button.dataset.act = 'sqedit'") || !staffWorkspaceLoader.includes("button.dataset.act = 'sqleadedit'") || !staffWorkspaceLoader.includes('A.sqleadedit = function')) fail('department editor must provide direct edit controls for each patrol officer and the selected senior patrol member');
 if (!staffWorkspace.includes("SXC.inn.st=sxISt") || !staffWorkspace.includes("SXC.out=()=>")) fail('personnel records must remain available through the encrypted role-exchange workflow');
+if (!staffWorkspace.includes('SXC.inn.dpt=') || !staffWorkspace.includes("k:'staff-departments'") || !staffWorkspace.includes('D.departmentUpdatedAt')) fail('department names and changes must use the encrypted cross-role exchange');
+if (!staffWorkspace.includes('await sqPersist()') || !staffWorkspace.includes('Сохранено на сервере')) fail('personnel and department forms must wait for confirmed cloud saving');
 if (!staffWorkspace.includes("st!='не в составе'") || !staffWorkspace.includes("x.st='не в составе'")) fail('staff removal must preserve roster history instead of deleting records');
 if (staffWorkspace.includes('localStorage.setItem') || staffWorkspace.includes('ntfy')) fail('staff workspace must use existing server-backed role data, not the uploaded standalone storage or ntfy workflow');
 if (!staffWorkspace.includes('data-act="sqput"') || !staffWorkspace.includes('gdw()') || !staffWorkspace.includes("s.st=='отстранён'")) fail('duty assignment must write into the current duty record and exclude suspended personnel');
