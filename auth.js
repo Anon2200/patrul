@@ -464,13 +464,24 @@ function createAuth(pool,send,readJson) {
         if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
         if(!SHARED_STAFF_ROLES.includes(session.role)){send(res,403,{error:'Доклады доступны только вышестоящим должностным лицам'});return true;}
         const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit')||100)));
-        const q=await pool.query(
-          'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
-          'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
-          'WHERE e.entry_date >= CURRENT_DATE - 30 ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
+        const [q,attendanceQuery]=await Promise.all([
+          pool.query(
+            'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
+            'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
+            'WHERE e.entry_date >= CURRENT_DATE - 30 ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]
+          ),
+          pool.query(
+            'SELECT DISTINCT ON (e.department_id,e.staff_key) e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.status,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
+            'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
+            "WHERE e.entry_type='attendance' AND e.staff_key IS NOT NULL AND e.entry_date >= CURRENT_DATE - 30 "+
+            'ORDER BY e.department_id,e.staff_key,e.entry_date DESC,e.created_at DESC,e.id DESC'
+          )
+        ]);
         const shared=await readSharedStaffForSenior();
-        const entries=q.rows.map(entry=>({...entry,departmentName:(shared.departments||[]).find(department=>String(department.id)===String(entry.departmentId))?.name||entry.departmentId}));
-        send(res,200,{entries});return true;
+        const departmentNames=new Map((shared.departments||[]).map(department=>[String(department.id),String(department.name||department.id)]));
+        const entries=q.rows.map(entry=>({...entry,departmentName:departmentNames.get(String(entry.departmentId))||entry.departmentId}));
+        const latestAttendance=attendanceQuery.rows.map(entry=>({...entry,departmentName:departmentNames.get(String(entry.departmentId))||entry.departmentId}));
+        send(res,200,{entries,latestAttendance});return true;
       }
       if(p==='/api/patrol-senior/workspace'&&req.method==='GET') {
         const session=await sessionFor(req);
