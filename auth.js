@@ -911,7 +911,7 @@ function createAuth(pool,send,readJson) {
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
         if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
         if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
-        const b=await readJson(req),status=String(b.status||'');
+        const b=await readJson(req),status=String(b.status||''),comment=typeof b.comment==='string'?b.comment.trim():'';
         if(!['Новая','В работе','На проверке','На доработку','Выполнено','Отменено'].includes(status)){send(res,400,{error:'Недопустимый статус поручения'});return true;}
         const client=await pool.connect();
         let updated,notifyUser;
@@ -925,11 +925,12 @@ function createAuth(pool,send,readJson) {
           const creatorAllowed=row.status==='На проверке'?['Новая','На доработку','Отменено']:['Новая','Отменено'];
           const allowed=new Set([...(isAssignee?assigneeAllowed:[]),...(isCreator?creatorAllowed:[])]);
           if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может отметить работу, проверку или выполнение':'Постановщик может вернуть поручение на доработку только после отправки на проверку, перевести в новые или отменить его'});return true;}
+          if(comment.length>1000||(status==='На доработку'&&!comment)){await client.query('ROLLBACK');send(res,400,{error:'Для возврата на доработку укажите причину (до 1000 символов)'});return true;}
           const q=await client.query("UPDATE patrul_tasks SET status=$2,updated_at=NOW(),completed_at=CASE WHEN $2='Выполнено' THEN NOW() ELSE NULL END WHERE id=$1 RETURNING id,title,description,priority,status,due_date AS \"dueDate\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"",[taskMatch[1],status]);
           updated=q.rows[0];
-          await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status})]);
+          await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status,...(comment?{comment}:{})})]);
           notifyUser=isAssignee?row.creator_user_id:row.assignee_user_id;
-          if(notifyUser!==s.id)await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»']);
+          if(notifyUser!==s.id)await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»'+(comment?'. Причина: '+comment:'')]);
           await client.query('COMMIT');
         }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
         finally{client.release();}
