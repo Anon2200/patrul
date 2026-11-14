@@ -672,6 +672,10 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes('ops-crossrole-task-summary'));
   assert.ok(workspace.includes('task-from-record'));
   assert.ok(workspace.includes('startTaskFromRecord'));
+  assert.ok(workspace.includes('/api/documents/next-number'));
+  assert.ok(workspace.includes('minimumSequence'));
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(server.includes('008_document_numbering.sql'));
   const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
   assert.ok(senior.includes('loadSeniorTasks'));
   assert.ok(senior.includes('/api/tasks'));
