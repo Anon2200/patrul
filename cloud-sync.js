@@ -306,10 +306,13 @@
     const aliases=r.result.data&&r.result.data.aliases&&r.result.data.aliases[role]||{};
     const departmentAliases=r.result.data&&r.result.data.departmentAliases&&r.result.data.departmentAliases[role]||{};
     const remapped=applySharedRoster(r.result,false);
+    if(role==='uchet' && localPostEquipment.length && !(D.postEquipment||[]).length){
+      D.postEquipment=localPostEquipment;
+      if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))scheduleSharedUpload();
+    }
     if(mergeLocal){
       D.staff=mergeLocalRosterList(D.staff,localStaff,'k',aliases);
       D.departments=mergeLocalRosterList(D.departments,localDepartments,'id',departmentAliases);
-      if(role==='uchet' && localPostEquipment.length && !(D.postEquipment||[]).length)D.postEquipment=localPostEquipment;
       if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))scheduleSharedUpload();
     }
     return remapped;
