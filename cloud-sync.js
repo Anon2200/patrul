@@ -167,22 +167,208 @@
     return saved;
   }
   function scheduleUpload(){if(!ready)return;unsavedChanges=true;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
-  save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();};
+  save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();if(ready&&!suppressSharedUpload)scheduleSharedUpload();};
   window.PATRUL_SAVE_NOW=async function(){
     if(!ready)return false;
     if(timer){clearTimeout(timer);timer=null;}
+    if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
     for(let attempt=0;attempt<5;attempt++){
-      while(busy)await new Promise(resolve=>setTimeout(resolve,80));
+      while(busy)await new Promise(resolve=>setTimeout(resolve,80));while(sharedBusy)await new Promise(resolve=>setTimeout(resolve,80));
       if(!ready)return false;
+      if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
+      if(sharedReady&&sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline)){
+        const sharedSaved=await uploadSharedRoster();
+        if(!sharedSaved)return false;
+      }
       if(timer){clearTimeout(timer);timer=null;}
       queued=false;unsavedChanges=true;
       const saved=await upload(localSnapshot());
       if(!saved)return false;
-      if(!unsavedChanges)return true;
+      const sharedPending=sharedReady&&sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline);
+      if(!unsavedChanges&&!sharedPending)return true;
     }
     status('сохранение не завершено — остались новые изменения','#9a6700');
     return false;
   };
+
+
+  let sharedVersion=0, sharedReady=false, sharedBusy=false, sharedTimer=null, sharedPollTimer=null;
+  let sharedBaseline=null, suppressSharedUpload=false;
+  function copyJson(value){return value==null?value:JSON.parse(JSON.stringify(value));}
+  function sharedNameKey(value){return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
+  function sharedPayload(){return{staff:Array.isArray(D.staff)?D.staff:[],departments:Array.isArray(D.departments)?D.departments:[]};}
+  function sharedPayloadJson(value){return JSON.stringify({staff:value.staff||[],departments:value.departments||[]});}
+  function mergeRemappedObject(target,source){
+    if(!source||typeof source!=='object')return target;
+    if(!target||typeof target!=='object')return copyJson(source);
+    for(const [key,value] of Object.entries(source)){
+      if(target[key]===undefined){target[key]=copyJson(value);continue;}
+      if(target[key]&&value&&typeof target[key]==='object'&&typeof value==='object'&&!Array.isArray(target[key])&&!Array.isArray(value))mergeRemappedObject(target[key],value);
+    }
+    return target;
+  }
+  function remapStaffReferences(value,staffAliases,departmentAliases,depth=0){
+    if(!value||typeof value!=='object'||depth>32)return value;
+    if(Array.isArray(value)){value.forEach(item=>remapStaffReferences(item,staffAliases,departmentAliases,depth+1));return value;}
+    for(const key of Object.keys(value)){
+      const child=value[key];
+      if(key==='k'&&typeof child==='string'&&staffAliases[child])value[key]=staffAliases[child];
+      if((key==='departmentId'||key==='deptId'||key==='department_id')&&child!=null&&departmentAliases[String(child)])value[key]=departmentAliases[String(child)];
+      if(child&&typeof child==='object')remapStaffReferences(child,staffAliases,departmentAliases,depth+1);
+      const mappedKey=staffAliases[key];
+      if(mappedKey&&mappedKey!==key){
+        if(value[mappedKey]===undefined)value[mappedKey]=value[key];
+        else if(value[mappedKey]&&value[key]&&typeof value[mappedKey]==='object'&&typeof value[key]==='object'&&!Array.isArray(value[mappedKey])&&!Array.isArray(value[key]))mergeRemappedObject(value[mappedKey],value[key]);
+        delete value[key];
+      }
+    }
+    return value;
+  }
+  function mergeLocalRosterList(remote,local,idField,aliases){
+    const result=copyJson(Array.isArray(remote)?remote:[]);
+    for(const raw of Array.isArray(local)?local:[]){
+      if(!raw||typeof raw!=='object')continue;
+      const item=copyJson(raw),oldId=String(item[idField]||'');
+      if(aliases&&aliases[oldId])item[idField]=aliases[oldId];
+      const nameKey=sharedNameKey(item.name);
+      let index=result.findIndex(entry=>String(entry&&entry[idField]||'')===String(item[idField]||''));
+      if(index<0&&nameKey)index=result.findIndex(entry=>sharedNameKey(entry&&entry.name)===nameKey);
+      if(index>=0){const canonicalId=result[index][idField];result[index]={...result[index],...item,[idField]:canonicalId};}
+      else if(nameKey)result.push(item);
+    }
+    const seen=new Set();
+    return result.filter(item=>{const key=sharedNameKey(item&&item.name);if(!key||seen.has(key))return false;seen.add(key);return true;});
+  }
+  function mergeSharedList(base,local,remote,idField){
+    const keyOf=item=>String(item&&item[idField]||'');
+    const baseMap=new Map((base||[]).map(item=>[keyOf(item),item]).filter(entry=>entry[0]));
+    const localMap=new Map((local||[]).map(item=>[keyOf(item),item]).filter(entry=>entry[0]));
+    const result=copyJson(remote||[]),remoteMap=new Map();
+    result.forEach((item,index)=>remoteMap.set(keyOf(item),index));
+    for(const [id,oldItem] of baseMap){
+      const localItem=localMap.get(id);
+      if(!localItem){
+        const remoteIndex=remoteMap.get(id);
+        if(remoteIndex!==undefined)result.splice(remoteIndex,1);
+        remoteMap.clear();result.forEach((item,index)=>remoteMap.set(keyOf(item),index));
+      }else if(JSON.stringify(localItem)!==JSON.stringify(oldItem)){
+        const remoteIndex=remoteMap.get(id);
+        if(remoteIndex===undefined){remoteMap.set(id,result.length);result.push(copyJson(localItem));}
+        else{
+          const merged=copyJson(result[remoteIndex]),fields=new Set([...Object.keys(oldItem||{}),...Object.keys(localItem||{})]);
+          for(const field of fields)if(JSON.stringify(localItem[field])!==JSON.stringify(oldItem[field])){
+            if(Object.prototype.hasOwnProperty.call(localItem,field))merged[field]=copyJson(localItem[field]);
+            else delete merged[field];
+          }
+          result[remoteIndex]=merged;
+        }
+      }
+    }
+    for(const [id,item] of localMap)if(!baseMap.has(id)&&!remoteMap.has(id)){remoteMap.set(id,result.length);result.push(copyJson(item));}
+    const byName=new Map(),deduped=[];
+    for(const item of result){
+      const key=sharedNameKey(item&&item.name);
+      if(!key){deduped.push(item);continue;}
+      if(!byName.has(key)){byName.set(key,item);deduped.push(item);}
+      else Object.assign(byName.get(key),item,{[idField]:byName.get(key)[idField]});
+    }
+    return deduped;
+  }
+  function applySharedRoster(response,redraw){
+    const before=localSnapshot(),data=response&&response.data?response.data:{staff:[],departments:[],aliases:{},departmentAliases:{}};
+    const staffAliases={...(data.aliases&&data.aliases[role]||{})},departmentAliases={...(data.departmentAliases&&data.departmentAliases[role]||{})};
+    const canonicalStaff=new Map((Array.isArray(data.staff)?data.staff:[]).map(item=>[sharedNameKey(item&&item.name),item]).filter(entry=>entry[0]));
+    for(const item of Array.isArray(D.staff)?D.staff:[]){
+      const canonical=canonicalStaff.get(sharedNameKey(item&&item.name));
+      if(canonical&&item.k&&canonical.k&&String(item.k)!==String(canonical.k))staffAliases[String(item.k)]=String(canonical.k);
+    }
+    const canonicalDepartments=new Map((Array.isArray(data.departments)?data.departments:[]).map(item=>[sharedNameKey(item&&item.name),item]).filter(entry=>entry[0]));
+    for(const item of Array.isArray(D.departments)?D.departments:[]){
+      const canonical=canonicalDepartments.get(sharedNameKey(item&&item.name));
+      if(canonical&&item.id&&canonical.id&&String(item.id)!==String(canonical.id))departmentAliases[String(item.id)]=String(canonical.id);
+    }
+    remapStaffReferences(D,staffAliases,departmentAliases);
+    D.staff=copyJson(Array.isArray(data.staff)?data.staff:[]);
+    D.departments=copyJson(Array.isArray(data.departments)?data.departments:[]);
+    sharedVersion=Number(response.version||sharedVersion||1);
+    sharedBaseline={staff:copyJson(D.staff),departments:copyJson(D.departments)};
+    sharedReady=true;
+    const changed=localSnapshot()!==before;
+    if(changed&&ready)scheduleUpload();
+    if(redraw&&ready){suppressUpload=true;suppressSharedUpload=true;try{if(typeof draw==='function')draw(1);}finally{suppressUpload=false;suppressSharedUpload=false;}}
+    return changed;
+  }
+  async function initializeSharedRoster(mergeLocal){
+    const localStaff=copyJson(Array.isArray(D.staff)?D.staff:[]),localDepartments=copyJson(Array.isArray(D.departments)?D.departments:[]);
+    const r=await request('/api/shared-staff');
+    if(!r.response.ok)throw new Error(r.result.error||'Не удалось загрузить общий список личного состава');
+    const aliases=r.result.data&&r.result.data.aliases&&r.result.data.aliases[role]||{};
+    const departmentAliases=r.result.data&&r.result.data.departmentAliases&&r.result.data.departmentAliases[role]||{};
+    const remapped=applySharedRoster(r.result,false);
+    if(mergeLocal){
+      D.staff=mergeLocalRosterList(D.staff,localStaff,'k',aliases);
+      D.departments=mergeLocalRosterList(D.departments,localDepartments,'id',departmentAliases);
+      if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))scheduleSharedUpload();
+    }
+    return remapped;
+  }
+  async function uploadSharedRoster(){
+    if(!sharedReady||!ready||sharedBusy)return false;
+    if(sharedPayloadJson(sharedPayload())===sharedPayloadJson(sharedBaseline))return true;
+    sharedBusy=true;
+    try{
+      let payload=copyJson(sharedPayload());
+      for(let attempt=0;attempt<4;attempt++){
+        const r=await request('/api/shared-staff','PUT',{expectedVersion:sharedVersion,data:payload});
+        if(r.response.status===409&&r.result&&r.result.data){
+          const remote=r.result.data,latest=copyJson(sharedPayload());
+          const merged={
+            staff:mergeSharedList(sharedBaseline.staff,latest.staff,remote.staff,'k'),
+            departments:mergeSharedList(sharedBaseline.departments,latest.departments,remote.departments,'id')
+          };
+          applySharedRoster({data:remote,version:r.result.version},false);
+          const aliases=remote.aliases&&remote.aliases[role]||{},departmentAliases=remote.departmentAliases&&remote.departmentAliases[role]||{};
+          D.staff=mergeLocalRosterList(D.staff,merged.staff,'k',aliases);
+          D.departments=mergeLocalRosterList(D.departments,merged.departments,'id',departmentAliases);
+          payload=copyJson(sharedPayload());
+          continue;
+        }
+        if(!r.response.ok)throw new Error(r.result.error||'Не удалось сохранить общий список личного состава');
+        const latest=copyJson(sharedPayload()),changedDuringUpload=sharedPayloadJson(latest)!==sharedPayloadJson(payload);
+        applySharedRoster(r.result,false);
+        if(changedDuringUpload){
+          const aliases=r.result.data&&r.result.data.aliases&&r.result.data.aliases[role]||{},departmentAliases=r.result.data&&r.result.data.departmentAliases&&r.result.data.departmentAliases[role]||{};
+          D.staff=mergeLocalRosterList(D.staff,latest.staff,'k',aliases);
+          D.departments=mergeLocalRosterList(D.departments,latest.departments,'id',departmentAliases);
+          scheduleSharedUpload();
+        }
+        return true;
+      }
+      status('личный состав изменился параллельно · повторяем синхронизацию','#9a6700');
+      scheduleSharedUpload();return false;
+    }catch(error){
+      status('ошибка синхронизации личного состава · повторяем отправку','#9a6700');
+      clearTimeout(sharedTimer);sharedTimer=setTimeout(uploadSharedRoster,2500);return false;
+    }finally{sharedBusy=false;}
+  }
+  function scheduleSharedUpload(){
+    if(!sharedReady||!ready||suppressSharedUpload)return;
+    if(sharedPayloadJson(sharedPayload())===sharedPayloadJson(sharedBaseline))return;
+    clearTimeout(sharedTimer);sharedTimer=setTimeout(()=>uploadSharedRoster(),350);
+  }
+  async function pollSharedRoster(){
+    if(!ready||!sharedReady||document.visibilityState==='hidden')return;
+    try{
+      const r=await request('/api/shared-staff');if(!r.response.ok)return;
+      if(Number(r.result.version||0)===sharedVersion)return;
+      if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))await uploadSharedRoster();
+      else{
+        const changed=applySharedRoster(r.result,false);
+        if(changed){suppressUpload=true;suppressSharedUpload=true;try{if(typeof draw==='function')draw(1);}finally{suppressUpload=false;suppressSharedUpload=false;}scheduleUpload();}
+      }
+    }catch(_){}
+  }
+  function startSharedPolling(){if(sharedPollTimer)clearInterval(sharedPollTimer);sharedPollTimer=setInterval(pollSharedRoster,8000);}
 
   async function adminPanel() {
     const p=panel(`
@@ -392,7 +578,13 @@
         catch(_){throw new Error('Старый локальный кэш не удалось безопасно прочитать; он не удалён.');}
       }
       const local=localSnapshot(),previous=meta(),localFingerprint=await fingerprint(local);
-      if(data.data===null){ready=true;if(!(await upload(local)))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');draw();window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();return;}
+      if(data.data===null){
+        await initializeSharedRoster(!!hadLocalData);
+        ready=true;
+        if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline)&&!(await uploadSharedRoster()))throw new Error('Не удалось синхронизировать общий список личного состава; раздел оставлен закрытым.');
+        if(!(await upload(localSnapshot())))throw new Error('Не удалось сохранить начальные данные на сервере; раздел оставлен закрытым.');
+        draw();window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();startSharedPolling();return;
+      }
       const remote=norm(data.data);
       const remoteSnapshot=JSON.stringify(remote);
       const localChanged=hadLocalData&&!!previous&&previous.fingerprint!==localFingerprint;
@@ -402,9 +594,18 @@
         const useCloud=window.confirm('На этом устройстве и в облаке разные данные.\n\nОК — скачать НЕЗАШИФРОВАННУЮ копию локальных данных и загрузить облачную версию.\\nОтмена — оставить раздел закрытым; локальные данные не удаляются.');
         if(!useCloud){status('версии различаются — раздел закрыт до разрешения конфликта','#9a6700');throw new Error('Локальная и серверная версии различаются. Раздел оставлен закрытым, локальный кэш сохранён. Повторите вход и выберите серверную версию после сохранения локальной копии.');}
         if(!backup(local))throw new Error('Не удалось создать локальную резервную копию; данные не изменены.');
-      }else if(localChanged&&!serverChanged){ready=true;if(!(await upload(local)))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');draw();window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();return;}
-      loadCloudData(data.data);const mergedSnapshot=localSnapshot(),needsUpload=mergedSnapshot!==remoteSnapshot;await saveMeta(mergedSnapshot);clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
-      status('подключено · данные загружены','#176b50');window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();if(needsUpload)scheduleUpload();
+      }else if(localChanged&&!serverChanged){
+        await initializeSharedRoster(true);
+        ready=true;
+        if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline)&&!(await uploadSharedRoster()))throw new Error('Не удалось синхронизировать общий список личного состава; раздел оставлен закрытым.');
+        if(!(await upload(localSnapshot())))throw new Error('Не удалось синхронизировать локальные изменения; раздел оставлен закрытым.');
+        draw();window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();startSharedPolling();return;
+      }
+      loadCloudData(data.data);
+      await initializeSharedRoster(false);
+      const mergedSnapshot=localSnapshot(),needsUpload=mergedSnapshot!==remoteSnapshot;
+      await saveMeta(mergedSnapshot);clearLocalData();ready=true;suppressUpload=true;try{draw();}finally{suppressUpload=false;}
+      status('подключено · данные загружены','#176b50');window.PATRUL_USER=currentUser;window.PATRUL_READY=true;window.dispatchEvent(new Event('patrul:ready'));unlockPage();if(needsUpload)scheduleUpload();startSharedPolling();
     }catch(e){status('ошибка подключения; доступ закрыт','#9a6700');console.error('Patrul session sync:',e);const locked=panel('<h3>Нет подтверждённого доступа</h3><p>Не удалось проверить личную учётную запись и загрузить данные с сервера. Локальные сведения скрыты. Проверьте соединение и попробуйте ещё раз.</p><button type="button" data-retry style="width:100%;padding:11px;background:#167d70;color:white;border:0;border-radius:8px">Повторить проверку</button>');locked.box.querySelector('[data-retry]').addEventListener('click',()=>location.reload());}
   }
   start();

@@ -1,6 +1,6 @@
 'use strict';
 const crypto = require('node:crypto');
-const { encryptData, readRoleData } = require('./data-crypto');
+const { encryptData, decryptData, readRoleData } = require('./data-crypto');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const ROLES = new Set(['nachalnik','zam','uchet','dokumentoved']);
@@ -85,6 +85,155 @@ async function insertMailAttachments(client,threadId,messageId,items) {
   return saved;
 }
 
+
+const SHARED_STAFF_ROLES = ['nachalnik','zam','uchet','dokumentoved'];
+function sharedNameKey(value) {
+  return String(value || '').normalize('NFKC').toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+function cloneSharedValue(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+function defaultSharedDepartments() {
+  return Array.from({length:9}, (_, index) => ({
+    id:'legacy-' + (index + 1), name:'Отделение ' + (index + 1), order:index + 1
+  }));
+}
+function buildLegacySharedStaff(roleData) {
+  const data = { staff:[], departments:[], aliases:{}, departmentAliases:{} };
+  const staffByName = new Map(), departmentById = new Map(), departmentByName = new Map();
+  for (const role of SHARED_STAFF_ROLES) {
+    data.aliases[role] = {};
+    data.departmentAliases[role] = {};
+    const departments = Array.isArray(roleData[role] && roleData[role].departments)
+      ? roleData[role].departments : [];
+    departments.forEach((item, index) => {
+      if (!item || typeof item !== 'object') return;
+      const id = String(item.id || ('legacy-' + (Number(item.order) || index + 1))).slice(0,120);
+      const name = String(item.name || ('Отделение ' + (index + 1))).trim().slice(0,120);
+      const key = sharedNameKey(name);
+      const existing = departmentById.get(id) || (key && departmentByName.get(key));
+      if (existing) {
+        if (id !== existing.id) data.departmentAliases[role][id] = existing.id;
+        for (const [field, value] of Object.entries(item)) {
+          if ((existing[field] == null || existing[field] === '') && value != null && value !== '') existing[field] = cloneSharedValue(value);
+        }
+      } else {
+        const department = {...cloneSharedValue(item), id, name};
+        departmentById.set(id, department);
+        if (key) departmentByName.set(key, department);
+        data.departments.push(department);
+      }
+    });
+  }
+  if (!data.departments.length) data.departments = defaultSharedDepartments();
+  data.departments.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
+  data.departments.forEach(department => departmentById.set(String(department.id), department));
+  for (const role of SHARED_STAFF_ROLES) {
+    const list = Array.isArray(roleData[role] && roleData[role].staff) ? roleData[role].staff : [];
+    for (const source of list) {
+      if (!source || typeof source !== 'object') continue;
+      const name = String(source.name || '').trim().slice(0,160);
+      const nameKey = sharedNameKey(name);
+      if (!nameKey) continue;
+      const incomingKey = String(source.k || ('staff-' + crypto.randomUUID())).slice(0,120);
+      const existing = staffByName.get(nameKey);
+      if (existing) {
+        if (incomingKey !== existing.k) data.aliases[role][incomingKey] = existing.k;
+        for (const [field, value] of Object.entries(source)) {
+          if ((existing[field] == null || existing[field] === '') && value != null && value !== '') existing[field] = cloneSharedValue(value);
+        }
+      } else {
+        const staff = {...cloneSharedValue(source), k:incomingKey, name};
+        if (staff.departmentId != null) {
+          const oldDepartmentId = String(staff.departmentId);
+          const mapped = data.departmentAliases[role][oldDepartmentId];
+          if (mapped) staff.departmentId = mapped;
+        } else {
+          const legacyOrder = Number(staff.sq);
+          if (Number.isInteger(legacyOrder) && legacyOrder > 0) {
+            const orderedDepartment = data.departments.find(department => Number(department.order) === legacyOrder);
+            staff.departmentId = orderedDepartment ? String(orderedDepartment.id) :
+              (data.departmentAliases[role]['legacy-' + legacyOrder] || 'legacy-' + legacyOrder);
+          }
+        }
+        data.staff.push(staff);
+        staffByName.set(nameKey, staff);
+      }
+    }
+  }
+  return data;
+}
+function normalizeSharedStaffWrite(source, current, role) {
+  const prior = current && typeof current === 'object' ? current : {staff:[],departments:[],aliases:{},departmentAliases:{}};
+  const aliases = cloneSharedValue(prior.aliases || {});
+  const departmentAliases = cloneSharedValue(prior.departmentAliases || {});
+  for (const name of SHARED_STAFF_ROLES) {
+    if (!aliases[name]) aliases[name] = {};
+    if (!departmentAliases[name]) departmentAliases[name] = {};
+  }
+  const currentDepartments = Array.isArray(prior.departments) ? prior.departments : [];
+  const departmentById = new Map(currentDepartments.map(item => [String(item.id), item]));
+  const departmentByName = new Map(currentDepartments.map(item => [sharedNameKey(item.name), item]).filter(entry => entry[0]));
+  const departments = [], nextDepartmentByName = new Map(), nextDepartmentById = new Map();
+  for (const item of source.departments) {
+    const incoming = cloneSharedValue(item);
+    const incomingId = String(incoming.id || ('department-' + crypto.randomUUID())).slice(0,120);
+    const name = String(incoming.name || '').trim().slice(0,120);
+    if (!name) continue;
+    const nameKey = sharedNameKey(name);
+    const match = departmentById.get(incomingId) || departmentByName.get(nameKey) ||
+      nextDepartmentById.get(incomingId) || nextDepartmentByName.get(nameKey);
+    const id = match ? String(match.id) : incomingId;
+    if (incomingId !== id) departmentAliases[role][incomingId] = id;
+    const department = {...(match || {}), ...incoming, id, name};
+    const duplicate = nextDepartmentById.get(id);
+    if (duplicate) {
+      Object.assign(duplicate, department);
+      continue;
+    }
+    departments.push(department);
+    nextDepartmentById.set(id, department);
+    nextDepartmentByName.set(nameKey, department);
+  }
+  const currentStaff = Array.isArray(prior.staff) ? prior.staff : [];
+  const staffById = new Map(currentStaff.map(item => [String(item.k), item]));
+  const staffByName = new Map(currentStaff.map(item => [sharedNameKey(item.name), item]).filter(entry => entry[0]));
+  const nextStaff = [], nextStaffById = new Map(), nextStaffByName = new Map();
+  for (const item of source.staff) {
+    const incoming = cloneSharedValue(item);
+    const name = String(incoming.name || '').trim().slice(0,160);
+    const nameKey = sharedNameKey(name);
+    if (!nameKey) continue;
+    const incomingId = String(incoming.k || ('staff-' + crypto.randomUUID())).slice(0,120);
+    const match = staffById.get(incomingId) || staffByName.get(nameKey) ||
+      nextStaffById.get(incomingId) || nextStaffByName.get(nameKey);
+    const id = match ? String(match.k) : incomingId;
+    if (incomingId !== id) aliases[role][incomingId] = id;
+    const staff = {...(match || {}), ...incoming, k:id, name};
+    if (staff.departmentId != null) {
+      const oldDepartmentId = String(staff.departmentId);
+      if (departmentAliases[role][oldDepartmentId]) staff.departmentId = departmentAliases[role][oldDepartmentId];
+      else if (nextDepartmentById.has(oldDepartmentId)) staff.departmentId = oldDepartmentId;
+    } else {
+      const legacyOrder = Number(staff.sq);
+      if (Number.isInteger(legacyOrder) && legacyOrder > 0) {
+        const orderedDepartment = departments.find(department => Number(department.order) === legacyOrder);
+        if (orderedDepartment) staff.departmentId = String(orderedDepartment.id);
+      }
+    }
+    const duplicate = nextStaffById.get(id);
+    if (duplicate) {
+      Object.assign(duplicate, staff);
+      continue;
+    }
+    nextStaff.push(staff);
+    nextStaffById.set(id, staff);
+    nextStaffByName.set(nameKey, staff);
+  }
+  return {staff:nextStaff, departments, aliases, departmentAliases};
+}
+
 function createAuth(pool,send,readJson) {
   async function audit(actor,event,target,details={}) {
     await pool.query('INSERT INTO patrul_audit_log(actor_user_id,event_type,target_user_id,details) VALUES($1,$2,$3,$4::jsonb)',
@@ -114,7 +263,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&!p.startsWith('/api/mail/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')) return false;
     try {
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
         if(!sameOrigin(req)) {send(res,403,{error:'Недопустимый источник'});return true;}
@@ -340,6 +489,73 @@ function createAuth(pool,send,readJson) {
         }
         send(res,404,{error:'Маршрут почты не найден'});return true;
       }
+
+      if(p==='/api/shared-staff') {
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(req.method==='GET') {
+          const client=await pool.connect();
+          try {
+            await client.query('BEGIN');
+            await client.query('INSERT INTO patrul_shared_staff(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+            let q=await client.query('SELECT data,version,updated_at FROM patrul_shared_staff WHERE id=1 FOR UPDATE');
+            let row=q.rows[0];
+            if(!row.data) {
+              const legacyRows=await client.query("SELECT role,data FROM patrul_role_data WHERE role = ANY($1::text[]) ORDER BY CASE role WHEN 'nachalnik' THEN 1 WHEN 'zam' THEN 2 WHEN 'uchet' THEN 3 ELSE 4 END",[SHARED_STAFF_ROLES]);
+              const roleData={};
+              for(const legacy of legacyRows.rows) roleData[legacy.role]=decryptData(legacy.data,legacy.role);
+              const initial=buildLegacySharedStaff(roleData);
+              q=await client.query('UPDATE patrul_shared_staff SET data=$1::jsonb,version=1,updated_at=NOW() WHERE id=1 RETURNING data,version,updated_at',[JSON.stringify(encryptData(initial,'shared_staff'))]);
+              row=q.rows[0];
+            }
+            const data=decryptData(row.data,'shared_staff');
+            await client.query('COMMIT');
+            send(res,200,{data,version:Number(row.version),updatedAt:row.updated_at});
+          } catch(e) {
+            await client.query('ROLLBACK').catch(()=>{});
+            throw e;
+          } finally { client.release(); }
+          return true;
+        }
+        if(req.method==='PUT') {
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req);
+          if(!b||typeof b!=='object'||Array.isArray(b)||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<1||
+            !b.data||typeof b.data!=='object'||!Array.isArray(b.data.staff)||!Array.isArray(b.data.departments)||
+            b.data.staff.length>2000||b.data.departments.length>100) {
+            send(res,400,{error:'Некорректный общий список личного состава'});return true;
+          }
+          const client=await pool.connect();
+          let result;
+          try {
+            await client.query('BEGIN');
+            await client.query('INSERT INTO patrul_shared_staff(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+            const q=await client.query('SELECT data,version,updated_at FROM patrul_shared_staff WHERE id=1 FOR UPDATE');
+            const row=q.rows[0], current=row.data?decryptData(row.data,'shared_staff'):buildLegacySharedStaff({});
+            if(Number(row.version)!==b.expectedVersion) {
+              await client.query('ROLLBACK');
+              send(res,409,{error:'Общий список уже изменился',data:current,version:Number(row.version),updatedAt:row.updated_at});
+              return true;
+            }
+            const next=normalizeSharedStaffWrite(b.data,current,s.role);
+            const updated=await client.query(
+              'UPDATE patrul_shared_staff SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE id=1 RETURNING data,version,updated_at',
+              [JSON.stringify(encryptData(next,'shared_staff'))]
+            );
+            result={data:next,version:Number(updated.rows[0].version),updatedAt:updated.rows[0].updated_at};
+            await client.query('COMMIT');
+          } catch(e) {
+            await client.query('ROLLBACK').catch(()=>{});
+            throw e;
+          } finally { client.release(); }
+          await audit(s.id,'shared_staff_updated',s.id,{role:s.role,staffCount:result.data.staff.length,departmentCount:result.data.departments.length});
+          send(res,200,result);
+          return true;
+        }
+        send(res,405,{error:'Метод не поддерживается'});return true;
+      }
+
       if(p.startsWith('/api/session-data/')){
         const s=await sessionFor(req);if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}

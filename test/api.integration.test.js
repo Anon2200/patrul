@@ -95,7 +95,7 @@ before(async () => {
   serverProcess.stderr.on('data', chunk => { startupOutput += chunk.toString(); });
   try {
     await waitForServer();
-    await pool.query('TRUNCATE TABLE patrul_role_data');
+    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff');
   } catch (error) {
     throw new Error(`${error.message}\n${startupOutput}`);
   }
@@ -456,6 +456,108 @@ test('personal login session, CSRF protection, and role authorization work', asy
   const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(latest.status, 200);
   assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
+});
+
+
+test('shared personnel roster deduplicates legacy role lists and synchronizes across roles', async () => {
+  const legacyHead = {
+    set: {},
+    staff: [
+      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Старший патруля', grp: '1', tel: '', st: 'в строю', sq: 1 },
+      { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' }
+    ],
+    departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }]
+  };
+  const legacyDok = {
+    set: {},
+    staff: [
+      { k: 'dok-ivanov', name: 'иванов иван иванович', pos: 'Патрульный', grp: '1', tel: '555-01', st: 'в строю' },
+      { k: 'dok-petrov', name: 'Петров Пётр Петрович', pos: 'Патрульный', grp: '2', tel: '', st: 'в строю' }
+    ],
+    departments: [
+      { id: 'dok-dep-1', name: 'Отделение 1', order: 1 },
+      { id: 'dok-dep-2', name: 'Отделение 2', order: 2 }
+    ]
+  };
+  for (const [role, data] of [['nachalnik', legacyHead], ['dokumentoved', legacyDok]]) {
+    await pool.query(
+      'INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ' +
+      'ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW()',
+      [role, JSON.stringify(encryptData(data, role))]
+    );
+  }
+
+  const deniedWrite = await sessionApi('/api/shared-staff', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: 1, data: { staff: [], departments: [] } })
+  }, employeeCookie);
+  assert.equal(deniedWrite.status, 403);
+
+  const initial = await sessionApi('/api/shared-staff', {}, employeeCookie);
+  assert.equal(initial.status, 200);
+  const initialBody = await initial.json();
+  assert.equal(initialBody.data.staff.length, 2);
+  assert.equal(initialBody.data.departments.length, 2);
+  assert.equal(initialBody.data.aliases.nachalnik['head-duplicate'], 'head-ivanov');
+  assert.equal(initialBody.data.aliases.dokumentoved['dok-ivanov'], 'head-ivanov');
+  assert.equal(initialBody.data.departmentAliases.dokumentoved['dok-dep-1'], 'head-dep-1');
+  assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
+  assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
+
+  const duplicateAndNew = {
+    staff: [
+      ...initialBody.data.staff,
+      { k: 'duplicate-from-zam', name: 'ИВАНОВ Иван Иванович', pos: 'Патрульный' },
+      { k: 'zam-sidorov', name: 'Сидоров Сидор Сидорович', pos: 'Патрульный', grp: '3', tel: '', st: 'в строю' }
+    ],
+    departments: initialBody.data.departments
+  };
+  const write = await sessionApi('/api/shared-staff', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: initialBody.version, data: duplicateAndNew })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(write.status, 200);
+  const written = await write.json();
+  assert.equal(written.data.staff.length, 3);
+  assert.equal(written.data.aliases.zam['duplicate-from-zam'], 'head-ivanov');
+
+  const visibleToOtherRole = await sessionApi('/api/shared-staff', {}, adminCookie);
+  assert.equal(visibleToOtherRole.status, 200);
+  assert.deepEqual((await visibleToOtherRole.json()).data.staff, written.data.staff);
+
+  const stored = await pool.query('SELECT data FROM patrul_shared_staff WHERE id=1');
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes('Иванов'), false);
+
+  const expectedVersion = written.version;
+  const race = await Promise.all([
+    sessionApi('/api/shared-staff', {
+      method: 'PUT',
+      body: JSON.stringify({
+        expectedVersion,
+        data: { staff: [...written.data.staff, { k: 'race-a', name: 'Кузнецов Алексей' }], departments: written.data.departments }
+      })
+    }, employeeCookie, employeeCsrf),
+    sessionApi('/api/shared-staff', {
+      method: 'PUT',
+      body: JSON.stringify({
+        expectedVersion,
+        data: { staff: [...written.data.staff, { k: 'race-b', name: 'Орлов Олег' }], departments: written.data.departments }
+      })
+    }, adminCookie, adminCsrf)
+  ]);
+  assert.deepEqual(race.map(response => response.status).sort(), [200, 409]);
+  const latest = await sessionApi('/api/shared-staff', {}, adminCookie);
+  assert.equal(latest.status, 200);
+  assert.equal((await latest.json()).version, expectedVersion + 1);
+});
+
+test('role client loads and polls the shared personnel roster', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
+  assert.ok(source.includes("request('/api/shared-staff')"));
+  assert.ok(source.includes("request('/api/shared-staff','PUT'"));
+  assert.ok(source.includes('startSharedPolling'));
+  assert.ok(source.includes('remapStaffReferences'));
 });
 
 
