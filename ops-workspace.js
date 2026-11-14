@@ -165,7 +165,7 @@
       const entries=Array.isArray(result.entries)?result.entries:[];
       const rows=entries.map(entry=>{
         const stamp=entry.createdAt?new Date(entry.createdAt).toLocaleString('ru-RU'):'';
-        return '<article class="ops-record"><div class="ops-record-head"><b>'+esc(entry.title||labels[entry.type]||entry.type)+'</b><span class="ops-badge">'+esc(labels[entry.type]||entry.type)+'</span></div><div class="ops-muted">'+esc(entry.departmentName||entry.departmentId)+' · '+esc(entry.seniorName||'Старший патруля')+' · '+esc(dateText(String(entry.date||'')))+' '+esc(stamp)+'</div>'+(entry.status?'<p><b>Отметка:</b> '+esc(entry.status)+'</p>':'')+(entry.body?'<p>'+esc(entry.body)+'</p>':'')+'</article>';
+        return '<article class="ops-record"><div class="ops-record-head"><b>'+esc(entry.title||labels[entry.type]||entry.type)+'</b><span class="ops-status">'+esc(labels[entry.type]||entry.type)+'</span></div><div class="ops-muted">'+esc(entry.departmentName||entry.departmentId)+' · '+esc(entry.seniorName||'Старший патруля')+' · '+esc(dateText(String(entry.date||'')))+' '+esc(stamp)+'</div>'+(entry.status?'<p><b>Отметка:</b> '+esc(entry.status)+'</p>':'')+(entry.body?'<p>'+esc(entry.body)+'</p>':'')+'</article>';
       }).join('');
       shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">К разделам</button><button class="ops-secondary" id="ops-senior-refresh">Обновить</button></div><div class="ops-count">Записей за последние 30 дней: '+entries.length+'</div><div class="ops-list">'+(rows||'<div class="ops-empty">Записей от старших патруля пока нет.</div>')+'</div>');
       const refresh=$('#ops-senior-refresh');if(refresh)refresh.addEventListener('click',seniorReports);
