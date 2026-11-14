@@ -2002,5 +2002,9 @@ function exWeekItems(){const t=today(),f=add(t,-6),L=[],mw=D.mat.filter(m=>m.d>=
  const od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t).length;L.push('Просроченных поручений: '+od);return L}
 
 
+window.PATRUL_PERSONNEL_BRIDGE={
+ getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
+ setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
+};
 draw();cmFirst();
-</script><script>window.PATRUL_ROLE='dokumentoved';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script></body></html>
+</script><script>window.PATRUL_ROLE='dokumentoved';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="personnel-workspace.js"></script></body></html>

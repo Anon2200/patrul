@@ -21,6 +21,7 @@ const serviceWorker = fs.readFileSync('sw.js', 'utf8');
 const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
+const personnelWorkspace = fs.readFileSync('personnel-workspace.js', 'utf8');
 const mailClient = fs.readFileSync('mail.js', 'utf8');
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
@@ -88,6 +89,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
   if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
   if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
+  if (!html.includes('src="personnel-workspace.js"') || !html.includes('window.PATRUL_PERSONNEL_BRIDGE')) fail(file + ' does not expose the shared personnel workspace');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);
   const homeStyles = html.match(/<style id="patrul-home-styles">([\s\S]*?)<\/style>/);
@@ -127,7 +129,9 @@ for (const asset of ['cloud-sync.js', 'sw.js', 'icon-180.png', 'icon-192.png', '
 
 if (!server.includes("['/ops-workspace.js', 'ops-workspace.js']")) fail('server public-file allowlist missing ops-workspace.js');
 if (!server.includes("['/personal-workspace.js', 'personal-workspace.js']")) fail('server public-file allowlist missing personal-workspace.js');
-if (!cacheManifest || !cacheManifest[1].includes("'/personal-workspace.js'")) fail('service worker static cache must include personal-workspace.js');
+if (!server.includes("['/personnel-workspace.js', 'personnel-workspace.js']")) fail('server public-file allowlist missing personnel-workspace.js');
+if (!cacheManifest || !cacheManifest[1].includes("'/personal-workspace.js'") || !cacheManifest[1].includes("'/personnel-workspace.js'")) fail('service worker static cache must include both personnel workspaces');
+if (!personnelWorkspace.includes('/api/shared-personnel') || !personnelWorkspace.includes('Нач. состав') || !personnelWorkspace.includes('Отделения') || !personnelWorkspace.includes('Старший патруля') || !personnelWorkspace.includes('Патрульные')) fail('shared personnel workspace must contain office staff and nine department roster views');
 if (!personalWorkspace.includes('patrul:ready') || !personalWorkspace.includes('Уведомления') || !personalWorkspace.includes('Телефон')) fail('personal workspace must expose its ready event, notifications and device mode');
 if (!personalWorkspace.includes('localDay=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,\'0\'),String(d.getDate()).padStart(2,\'0\')].join(\'-\')') || !personalWorkspace.includes("r.fields.deadline||r.fields.due") || !personalWorkspace.includes("/^\\d{4}-\\d{2}-\\d{2}$/")) fail('personal notifications must use local calendar dates, accept due aliases and ignore malformed dates');
 if (!personalWorkspace.includes('parsed.getFullYear()===y&&parsed.getMonth()===m-1&&parsed.getDate()===d')) fail('personal notifications must reject impossible calendar dates');

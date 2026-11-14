@@ -114,7 +114,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&!p.startsWith('/api/mail/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-personnel'&&!p.startsWith('/api/mail/')) return false;
     try {
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
         if(!sameOrigin(req)) {send(res,403,{error:'Недопустимый источник'});return true;}
@@ -339,6 +339,74 @@ function createAuth(pool,send,readJson) {
           return true;
         }
         send(res,404,{error:'Маршрут почты не найден'});return true;
+      }
+      if(p==='/api/shared-personnel'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        const defaultPersonnel=()=>({staff:[],departments:Array.from({length:9},(_,i)=>({id:'dept-'+(i+1),name:'Отделение '+(i+1)}))});
+        const ensurePersonnel=async()=>{
+          let q=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='shared_personnel'");
+          if(!q.rowCount){
+            let staff=[];
+            const old=await pool.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
+            if(old.rowCount){
+              const legacy=await readRoleData(pool,'nachalnik',old.rows[0]);
+              if(legacy&&Array.isArray(legacy.staff))staff=legacy.staff.filter(p=>p&&typeof p==='object'&&String(p.name||'').trim()).map((p,i)=>({...p,k:String(p.k||'legacy-staff-'+i),name:String(p.name).trim(),pos:String(p.pos||'Патрульный'),st:String(p.st||'в строю'),departmentId:p.departmentId||null}));
+            }
+            const initial=defaultPersonnel();initial.staff=staff;
+            await pool.query("INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES('shared_personnel',$1::jsonb,1,NOW()) ON CONFLICT(role) DO NOTHING",[JSON.stringify(encryptData(initial,'shared_personnel'))]);
+            q=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='shared_personnel'");
+          }
+          return q.rows[0];
+        };
+        if(req.method==='GET'){
+          const row=await ensurePersonnel();
+          send(res,200,{data:await readRoleData(pool,'shared_personnel',row),version:Number(row.version),updatedAt:row.updated_at,canManage:s.role==='nachalnik'||s.role==='zam'});
+          return true;
+        }
+        if(req.method==='PUT'){
+          if(s.role!=='nachalnik'&&s.role!=='zam'){send(res,403,{error:'Изменять личный состав могут начальник и заместитель'});return true;}
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req);
+          if(!b||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<1||!b.data||typeof b.data!=='object'||Array.isArray(b.data)||!Array.isArray(b.data.staff)||!Array.isArray(b.data.departments)||b.data.departments.length!==9||b.data.staff.length>500){
+            send(res,400,{error:'Некорректный формат личного состава'});return true;
+          }
+          const deptIds=new Set();
+          for(const d of b.data.departments){
+            if(!d||typeof d.id!=='string'||typeof d.name!=='string'||!d.name.trim()||d.name.trim().length>80||deptIds.has(d.id)){send(res,400,{error:'Проверьте названия девяти отделений'});return true;}
+            deptIds.add(d.id);
+          }
+          const staffKeys=new Set(),seniorByDept=new Set();
+          for(const person of b.data.staff){
+            if(!person||typeof person!=='object'||typeof person.k!=='string'||!person.k||staffKeys.has(person.k)||typeof person.name!=='string'||!person.name.trim()||person.name.trim().length>160||typeof person.pos!=='string'||person.pos.length>100||typeof person.st!=='string'||person.st.length>60){
+              send(res,400,{error:'В карточках сотрудников есть некорректные или повторяющиеся данные'});return true;
+            }
+            staffKeys.add(person.k);
+            if(person.departmentId&&!deptIds.has(person.departmentId)){send(res,400,{error:'Сотрудник назначен в неизвестное отделение'});return true;}
+            if(person.pos==='Старший патруля'&&person.departmentId&&person.st==='в строю'){
+              if(seniorByDept.has(person.departmentId)){send(res,409,{error:'В одном отделении может быть только один действующий старший патруля'});return true;}
+              seniorByDept.add(person.departmentId);
+            }
+          }
+          const client=await pool.connect();
+          try{
+            await client.query('BEGIN');
+            await client.query("INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES('shared_personnel',$1::jsonb,1,NOW()) ON CONFLICT(role) DO NOTHING",[JSON.stringify(encryptData(defaultPersonnel(),'shared_personnel'))]);
+            const current=await client.query("SELECT data,version FROM patrul_role_data WHERE role='shared_personnel' FOR UPDATE");
+            if(!current.rowCount){await client.query('ROLLBACK');send(res,500,{error:'Не удалось открыть общий список'});return true;}
+            const version=Number(current.rows[0].version);
+            if(version!==b.expectedVersion){await client.query('ROLLBACK');send(res,409,{error:'Список изменился в другом окне. Обновите данные и повторите сохранение.',currentVersion:version});return true;}
+            const next={staff:b.data.staff,departments:b.data.departments};
+            const updated=await client.query("UPDATE patrul_role_data SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE role='shared_personnel' RETURNING version,updated_at",[JSON.stringify(encryptData(next,'shared_personnel'))]);
+            await client.query('COMMIT');
+            await audit(s.id,'shared_personnel_updated',s.id,{version:Number(updated.rows[0].version),staffCount:next.staff.length});
+            send(res,200,{data:next,version:Number(updated.rows[0].version),updatedAt:updated.rows[0].updated_at,canManage:true});
+          }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}
+          finally{client.release();}
+          return true;
+        }
+        send(res,405,{error:'Метод не поддерживается'});return true;
       }
       if(p.startsWith('/api/session-data/')){
         const s=await sessionFor(req);if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
