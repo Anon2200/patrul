@@ -22,6 +22,20 @@ CREATE TABLE IF NOT EXISTS patrul_patrol_senior_credentials (
 CREATE INDEX IF NOT EXISTS patrol_senior_surname_lookup_idx
   ON patrul_patrol_senior_credentials (surname_key);
 
+CREATE TABLE IF NOT EXISTS patrul_patrol_senior_invites (
+  staff_key TEXT PRIMARY KEY,
+  activation_code_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_by UUID REFERENCES patrul_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  consumed_at TIMESTAMPTZ,
+  CONSTRAINT patrol_senior_invite_hash_nonempty CHECK (length(activation_code_hash) BETWEEN 20 AND 500)
+);
+
+CREATE INDEX IF NOT EXISTS patrol_senior_invites_expiry_idx
+  ON patrul_patrol_senior_invites (expires_at)
+  WHERE consumed_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS patrul_patrol_senior_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   senior_user_id UUID NOT NULL REFERENCES patrul_users(id) ON DELETE RESTRICT,
