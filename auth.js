@@ -390,7 +390,9 @@ function createAuth(pool,send,readJson) {
           'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
           'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
           'WHERE e.entry_date >= CURRENT_DATE - 30 ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
-        send(res,200,{entries:q.rows});return true;
+        const shared=await readSharedStaffForSenior();
+        const entries=q.rows.map(entry=>({...entry,departmentName:(shared.departments||[]).find(department=>String(department.id)===String(entry.departmentId))?.name||entry.departmentId}));
+        send(res,200,{entries});return true;
       }
       if(p==='/api/patrol-senior/workspace'&&req.method==='GET') {
         const session=await sessionFor(req);
@@ -399,19 +401,21 @@ function createAuth(pool,send,readJson) {
         const profile=await currentSeniorProfile(session);
         if(!profile){send(res,403,{error:'Доступ к кабинету старшего патруля отсутствует'});return true;}
         const today=String(url.searchParams.get('date')||new Date().toISOString().slice(0,10));
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(today)){send(res,400,{error:'Некорректная дата'});return true;}
+        const parsedDutyDate=new Date(today+'T00:00:00.000Z');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||Number.isNaN(parsedDutyDate.getTime())||parsedDutyDate.toISOString().slice(0,10)!==today){send(res,400,{error:'Некорректная дата'});return true;}
         const head=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
-        let assignedPost='';
+        let assignedPost='',postConflict=false;
         if(head.rowCount){
           const headData=await readRoleData(pool,'nachalnik',head.rows[0]),duty=headData&&headData.duty&&headData.duty[today],rows=duty&&duty.rows&&typeof duty.rows==='object'?duty.rows:{};
-          for(const [post,list] of Object.entries(rows)){
-            if(Array.isArray(list)&&list.some(row=>sharedNameKey(row&&row.fio)===sharedNameKey(profile.person.name))){assignedPost=String(post);break;}
-          }
+          const departmentNames=new Set(profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>sharedNameKey(person.name)).filter(Boolean));
+          const assignedPosts=Object.entries(rows).filter(([post,list])=>Array.isArray(list)&&list.some(row=>departmentNames.has(sharedNameKey(row&&row.fio)))).map(([post])=>String(post));
+          postConflict=assignedPosts.length>1;
+          if(assignedPosts.length===1)assignedPost=assignedPosts[0];
         }
         const equipment=(profile.data.postEquipment||[]).find(item=>sharedNameKey(item.name)===sharedNameKey(assignedPost));
         const entries=await pool.query('SELECT id,staff_key,entry_date,entry_type,status,title,body,created_at FROM patrul_patrol_senior_entries WHERE department_id=$1 AND entry_date=$2 ORDER BY created_at DESC,id DESC',[String(profile.department.id),today]);
         const roster=profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>({key:String(person.k),name:String(person.name||''),position:String(person.pos||''),phone:String(person.tel||''),status:String(person.st||'')}));
-        send(res,200,{date:today,user:publicUser(session),department:{id:profile.department.id,name:profile.department.name},senior:{key:String(profile.person.k),name:profile.person.name},roster,post:assignedPost||null,equipment:equipment&&Array.isArray(equipment.items)?equipment.items:[],entries:entries.rows});return true;
+        send(res,200,{date:today,user:publicUser(session),department:{id:profile.department.id,name:profile.department.name},senior:{key:String(profile.person.k),name:profile.person.name},roster,post:assignedPost||null,postConflict,equipment:equipment&&Array.isArray(equipment.items)?equipment.items:[],entries:entries.rows});return true;
       }
       if(p==='/api/patrol-senior/entries'&&req.method==='POST') {
         const session=await sessionFor(req);
@@ -421,7 +425,8 @@ function createAuth(pool,send,readJson) {
         const profile=await currentSeniorProfile(session);
         if(!profile){send(res,403,{error:'Старший больше не закреплён за отделением'});return true;}
         const b=await readJson(req),date=String(b.date||new Date().toISOString().slice(0,10)),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000);
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Math.abs(Date.parse(date+'T12:00:00Z')-Date.now())>31*86400000){send(res,400,{error:'Дата должна быть в пределах 31 дня от текущей'});return true;}
+        const parsedEntryDate=new Date(date+'T00:00:00.000Z');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsedEntryDate.getTime())||parsedEntryDate.toISOString().slice(0,10)!==date||Math.abs(parsedEntryDate.getTime()-Date.now())>31*86400000){send(res,400,{error:'Дата должна быть корректной и находиться в пределах 31 дня от текущей'});return true;}
         const allowedTypes=new Set(['attendance','report','equipment','shift_start','shift_end','task_update']);
         if(!allowedTypes.has(type)){send(res,400,{error:'Неизвестный тип записи'});return true;}
         if(staffKey&&!profile.data.staff.some(person=>String(person.k)===staffKey&&String(person.departmentId)===String(profile.department.id))){send(res,403,{error:'Можно отмечать только сотрудников своего отделения'});return true;}
