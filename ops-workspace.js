@@ -195,13 +195,17 @@
       const shared=staffResult.data||{},staff=Array.isArray(shared.staff)?shared.staff:[],departments=Array.isArray(shared.departments)?shared.departments:[];
       const entries=Array.isArray(reportsResult.entries)?reportsResult.entries:[];
       const latestAttendance=new Map();
-      for(const entry of entries){
-        if(entry.type==='attendance'&&entry.staffKey&&!latestAttendance.has(String(entry.staffKey)))latestAttendance.set(String(entry.staffKey),entry.status);
+      const attendanceRows=Array.isArray(reportsResult.latestAttendance)?reportsResult.latestAttendance:entries;
+      for(const entry of attendanceRows){
+        if(entry.type==='attendance'&&entry.staffKey||entry.staffKey){
+          const key=String(entry.departmentId||'')+':'+String(entry.staffKey||'');
+          if(entry.staffKey&&!latestAttendance.has(key))latestAttendance.set(key,entry.status);
+        }
       }
       const departmentCards=departments.map(department=>{
         const people=staff.filter(person=>String(person.departmentId||'')===String(department.id));
         const active=people.filter(person=>String(person.st||'').toLocaleLowerCase('ru-RU')!=='уволен');
-        const marked=people.map(person=>latestAttendance.get(String(person.k))).filter(Boolean);
+        const marked=people.map(person=>latestAttendance.get(String(department.id)+':'+String(person.k))).filter(Boolean);
         const present=marked.filter(status=>status==='present').length;
         const late=marked.filter(status=>status==='late').length;
         const absent=marked.filter(status=>status==='absent').length;
