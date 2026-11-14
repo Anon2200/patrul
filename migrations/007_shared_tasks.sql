@@ -18,6 +18,12 @@ CREATE TABLE IF NOT EXISTS patrul_tasks (
   CONSTRAINT patrul_tasks_assignee_not_null CHECK (assignee_user_id IS NOT NULL)
 );
 
+-- Extend the status constraint for the manager's return-for-revision stage.
+-- Drop/recreate by name so this also upgrades databases where the table already exists.
+ALTER TABLE patrul_tasks DROP CONSTRAINT IF EXISTS patrul_tasks_status_check;
+ALTER TABLE patrul_tasks ADD CONSTRAINT patrul_tasks_status_check
+  CHECK (status IN ('Новая','В работе','На проверке','На доработку','Выполнено','Отменено'));
+
 CREATE INDEX IF NOT EXISTS patrul_tasks_assignee_status_idx
   ON patrul_tasks (assignee_user_id, status, due_date);
 CREATE INDEX IF NOT EXISTS patrul_tasks_creator_created_idx
