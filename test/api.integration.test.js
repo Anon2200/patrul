@@ -460,18 +460,27 @@ test('personal login session, CSRF protection, and role authorization work', asy
 
 
 test('senior master has audited read-only access to every role cabinet', async () => {
-  const read = await sessionApi('/api/control/role-data/nachalnik', {}, adminCookie);
-  assert.equal(read.status, 200);
-  const body = await read.json();
-  assert.equal(body.role, 'nachalnik');
-  assert.equal(body.readOnly, true);
-  assert.equal(body.actorRole, 'uchet');
+  const roleList = await sessionApi('/api/control/roles', {}, adminCookie);
+  assert.equal(roleList.status, 200);
+  assert.deepEqual((await roleList.json()).roles.map(item => item.id), [
+    'nachalnik', 'zam', 'uchet', 'dokumentoved', 'starshiy_patrulya'
+  ]);
 
-  const audit = await pool.query(
-    "SELECT details FROM patrul_audit_log WHERE event_type='role_control_viewed' AND details->>'targetRole'='nachalnik' ORDER BY id DESC LIMIT 1"
-  );
-  assert.equal(audit.rowCount, 1);
-  assert.equal(audit.rows[0].details.mode, 'read_only');
+  for (const role of ['nachalnik', 'zam', 'uchet', 'dokumentoved']) {
+    const read = await sessionApi('/api/control/role-data/' + role, {}, adminCookie);
+    assert.equal(read.status, 200, 'control read should work for ' + role);
+    const body = await read.json();
+    assert.equal(body.role, role);
+    assert.equal(body.readOnly, true);
+    assert.equal(body.actorRole, 'uchet');
+
+    const audit = await pool.query(
+      "SELECT details FROM patrul_audit_log WHERE event_type='role_control_viewed' AND details->>'targetRole'=$1 ORDER BY id DESC LIMIT 1",
+      [role]
+    );
+    assert.equal(audit.rowCount, 1, 'audit row should exist for ' + role);
+    assert.equal(audit.rows[0].details.mode, 'read_only');
+  }
 
   const write = await sessionApi('/api/control/role-data/nachalnik', {
     method: 'PUT',
