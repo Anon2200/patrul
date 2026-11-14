@@ -767,7 +767,7 @@ function createAuth(pool,send,readJson) {
           const [accounts,entries]=await Promise.all([
             pool.query(
               'SELECT u.id AS "userId",u.display_name AS "displayName",u.is_active AS active,c.staff_key AS "staffKey",c.department_id AS "departmentId",'+
-              'COUNT(e.id) FILTER (WHERE e.entry_date>=CURRENT_DATE-7)::int AS "entriesLast7Days",MAX(e.created_at) AS "lastActivityAt" '+
+              '(COUNT(e.id) FILTER (WHERE e.entry_date>=CURRENT_DATE-7))::int AS "entriesLast7Days",MAX(e.created_at) AS "lastActivityAt" '+
               'FROM patrul_users u JOIN patrul_patrol_senior_credentials c ON c.user_id=u.id '+
               'LEFT JOIN patrul_patrol_senior_entries e ON e.senior_user_id=u.id '+
               "WHERE u.role='starshiy_patrulya' GROUP BY u.id,c.staff_key,c.department_id ORDER BY lower(u.display_name)"
