@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const vm = require('node:vm');
+const zlib = require('node:zlib');
 
 const rolePages = {
   'nachalnik.html': 'nachalnik',
@@ -22,6 +23,19 @@ const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
 const mailClient = fs.readFileSync('mail.js', 'utf8');
+const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
+const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
+let staffWorkspace = '';
+if (!staffPayload) {
+  fail('staff workspace bundle payload is missing');
+} else {
+  try {
+    staffWorkspace = zlib.inflateSync(Buffer.from(staffPayload[1], 'base64')).toString('utf8');
+    new vm.Script(staffWorkspace, { filename: 'staff-workspace.bundle.js' });
+  } catch (error) {
+    fail('staff workspace bundle: ' + error.message);
+  }
+}
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 function countMatches(source, pattern) {
@@ -88,6 +102,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
   if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
   if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
+  if (!html.includes('src="staff-workspace.js"') || html.indexOf('src="staff-workspace.js"') < html.indexOf('src="personal-workspace.js"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);
   const homeStyles = html.match(/<style id="patrul-home-styles">([\s\S]*?)<\/style>/);
@@ -119,7 +134,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   console.log(file + ': ' + inlineScripts.length + ' inline script(s) checked');
 }
 
-for (const asset of ['cloud-sync.js', 'sw.js', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
+for (const asset of ['cloud-sync.js', 'sw.js', 'staff-workspace.js', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
   if (!server.includes("['/" + asset + "', '" + asset + "']")) {
     fail('server public-file allowlist missing ' + asset);
   }
@@ -127,6 +142,13 @@ for (const asset of ['cloud-sync.js', 'sw.js', 'icon-180.png', 'icon-192.png', '
 
 if (!server.includes("['/ops-workspace.js', 'ops-workspace.js']")) fail('server public-file allowlist missing ops-workspace.js');
 if (!server.includes("['/personal-workspace.js', 'personal-workspace.js']")) fail('server public-file allowlist missing personal-workspace.js');
+if (!server.includes("['/staff-workspace.js', 'staff-workspace.js']")) fail('server public-file allowlist missing staff-workspace.js');
+if (!cacheManifest || !cacheManifest[1].includes("'/staff-workspace.js'")) fail('service worker static cache must include staff-workspace.js');
+if (!staffWorkspace.includes('SQN=9') || !staffWorkspace.includes('Нач. состав') || !staffWorkspace.includes('Отделения') || !staffWorkspace.includes('Поставить отделение')) fail('staff workspace must provide the management roster, nine departments and duty-post assignment');
+if (!staffWorkspace.includes("SXC.inn.st=sxISt") || !staffWorkspace.includes("SXC.out=()=>")) fail('personnel records must remain available through the encrypted role-exchange workflow');
+if (!staffWorkspace.includes("st!='не в составе'") || !staffWorkspace.includes("x.st='не в составе'")) fail('staff removal must preserve roster history instead of deleting records');
+if (staffWorkspace.includes('localStorage.setItem') || staffWorkspace.includes('ntfy')) fail('staff workspace must use existing server-backed role data, not the uploaded standalone storage or ntfy workflow');
+if (!staffWorkspace.includes("data-act=\\\"sqput\\\"") || !staffWorkspace.includes('gdw()') || !staffWorkspace.includes('suspended')) fail('duty assignment must write into the current duty record and exclude suspended personnel');
 if (!cacheManifest || !cacheManifest[1].includes("'/personal-workspace.js'")) fail('service worker static cache must include personal-workspace.js');
 if (!personalWorkspace.includes('patrul:ready') || !personalWorkspace.includes('Уведомления') || !personalWorkspace.includes('Телефон')) fail('personal workspace must expose its ready event, notifications and device mode');
 if (!personalWorkspace.includes('localDay=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,\'0\'),String(d.getDate()).padStart(2,\'0\')].join(\'-\')') || !personalWorkspace.includes("r.fields.deadline||r.fields.due") || !personalWorkspace.includes("/^\\d{4}-\\d{2}-\\d{2}$/")) fail('personal notifications must use local calendar dates, accept due aliases and ignore malformed dates');
