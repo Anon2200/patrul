@@ -89,7 +89,7 @@ async function insertMailAttachments(client,threadId,messageId,items) {
 const SHARED_STAFF_ROLES = ['nachalnik','zam','uchet','dokumentoved'];
 function sharedNameKey(value) {
   return String(value || '').normalize('NFKC').toLocaleLowerCase('ru-RU')
-    .replace(/ё/g, 'е').replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();
+    .replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 function cloneSharedValue(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
