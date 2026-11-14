@@ -540,6 +540,12 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   assert.equal(creatorInbox.status, 200);
   assert.ok((await creatorInbox.json()).unreadNotifications >= 1);
 
+  const history = await sessionApi('/api/tasks/' + created.task.id + '/events', {}, employeeCookie);
+  assert.equal(history.status, 200);
+  const historyBody = await history.json();
+  assert.equal(historyBody.events.length, 3);
+  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed']);
+
   const doneRead = await sessionApi('/api/tasks/notifications/read', {
     method: 'POST',
     body: JSON.stringify({})
