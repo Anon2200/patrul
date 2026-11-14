@@ -275,11 +275,12 @@
           let result={};try{result=await response.json();}catch(_){}
           if(!response.ok){host.innerHTML='<p class="ops-muted">'+esc(result.error||'История недоступна')+'</p>';return;}
           const labels={created:'Поручение создано',status_changed:'Изменён статус'};
-          host.innerHTML='<div class="ops-task-history-list">'+(result.events||[]).map(event=>{
+          const historyRows=(result.events||[]).map(event=>{
             const date=event.createdAt?new Date(event.createdAt).toLocaleString('ru-RU'):'';
             const details=event.details||{},description=event.type==='created'?'Назначено исполнителю. Приоритет: '+(details.priority||'—')+'. Срок: '+(details.dueDate||'без срока'):('Статус: '+(details.from||'—')+' → '+(details.to||'—'));
             return '<div class="ops-history-row"><span>'+esc(date)+'</span><b>'+esc(labels[event.type]||event.type)+'</b><span>'+esc(event.actorName||'Система')+' · '+esc(description)+'</span></div>';
-          }).join('')||'<p class="ops-muted">Событий пока нет.</p>')+'</div>';
+          }).join('');
+          host.innerHTML='<div class="ops-task-history-list">'+(historyRows||'<p class="ops-muted">Событий пока нет.</p>')+'</div>';
         }catch(_){host.innerHTML='<p class="ops-muted">Нет соединения с журналом исполнения.</p>';}
       }));
       $('#ops-task-refresh')?.addEventListener('click',sharedTasks);
