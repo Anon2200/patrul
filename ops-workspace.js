@@ -284,8 +284,8 @@
     }
   }
 
-  const controlRoleLabels={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед'};
-  const controlFieldLabels={staff:'Личный состав',departments:'Отделения',duty:'Наряды на службу',opsHub:'Рабочий центр',viol:'Журнал нарушений',inc:'Журнал происшествий',rounds:'Обходы',mat:'Материалы',settings:'Настройки',set:'Параметры'};
+  const controlRoleLabels={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед',starshiy_patrulya:'Старший патруля'};
+  const controlFieldLabels={staff:'Личный состав',departments:'Отделения',duty:'Наряды на службу',opsHub:'Рабочий центр',viol:'Журнал нарушений',inc:'Журнал происшествий',rounds:'Обходы',mat:'Материалы',settings:'Настройки',set:'Параметры',accounts:'Учётные записи старших патруля',entries:'Доклады и журнал старших патруля'};
   function controlPreview(value){
     try{
       return (JSON.stringify(value,(key,item)=>{
