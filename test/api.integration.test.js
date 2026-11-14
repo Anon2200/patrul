@@ -421,6 +421,40 @@ test('personal login session, CSRF protection, and role authorization work', asy
 
   const allowed = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(allowed.status, 200);
+  const sharedRead = await sessionApi('/api/shared-personnel', {}, employeeCookie);
+  assert.equal(sharedRead.status, 200);
+  const sharedInitial = await sharedRead.json();
+  assert.equal(sharedInitial.data.departments.length, 9);
+  assert.equal(sharedInitial.canManage, true);
+  const personnelData = {
+    departments: sharedInitial.data.departments,
+    staff: sharedInitial.data.staff.concat([
+      { k: 'ci-shared-senior', name: 'CI Senior Patrol', pos: 'Старший патруля', departmentId: 'dept-1', st: 'в строю' },
+      { k: 'ci-shared-patrol', name: 'CI Patrol Officer', pos: 'Патрульный', departmentId: 'dept-1', st: 'в строю' }
+    ])
+  };
+  const sharedWrite = await sessionApi('/api/shared-personnel', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: sharedInitial.version, data: personnelData })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(sharedWrite.status, 200);
+  const sharedSaved = await sharedWrite.json();
+  assert.equal(sharedSaved.version, sharedInitial.version + 1);
+  assert.equal(sharedSaved.data.staff.filter(x => x.departmentId === 'dept-1').length, 2);
+
+  const adminSharedRead = await sessionApi('/api/shared-personnel', {}, adminCookie);
+  assert.equal(adminSharedRead.status, 200);
+  assert.equal((await adminSharedRead.json()).data.staff.some(x => x.k === 'ci-shared-senior'), true);
+  const readonlyWrite = await sessionApi('/api/shared-personnel', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: sharedSaved.version, data: personnelData })
+  }, adminCookie, adminCsrf);
+  assert.equal(readonlyWrite.status, 403);
+  const encryptedShared = await pool.query("SELECT data FROM patrul_role_data WHERE role = 'shared_personnel'");
+  assert.equal(encryptedShared.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(encryptedShared.rows[0].data).includes('CI Senior Patrol'), false);
+  assert.equal(decryptData(encryptedShared.rows[0].data, 'shared_personnel').staff.some(x => x.k === 'ci-shared-senior'), true);
+
   const employeeAdminDenied = await sessionApi('/api/admin/users', {}, employeeCookie);
   assert.equal(employeeAdminDenied.status, 403);
   const forbidden = await sessionApi('/api/session-data/nachalnik', {}, employeeCookie);
