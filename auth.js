@@ -317,7 +317,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')) return false;
     try {
       if(p==='/api/patrol-senior/eligible'&&req.method==='GET') {
         const session=await sessionFor(req);
@@ -936,6 +936,39 @@ function createAuth(pool,send,readJson) {
         finally{client.release();}
         await audit(s.id,'task_status_updated',notifyUser||null,{taskId:updated.id,status});
         send(res,200,{task:updated});
+        return true;
+      }
+
+      if(p==='/api/documents/next-number'&&req.method==='POST'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(s.role!=='dokumentoved'){send(res,403,{error:'Нумерация документов доступна только документоведу'});return true;}
+        if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const body=await readJson(req);
+        const date=typeof body.date==='string'?body.date.trim():'';
+        const year=Number(date.slice(0,4));
+        const validDate=/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isInteger(year)&&year>=2000&&year<=9999&&
+          !Number.isNaN(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date;
+        const minimumSequence=body.minimumSequence===undefined?0:Number(body.minimumSequence);
+        if(!validDate||!Number.isInteger(minimumSequence)||minimumSequence<0||minimumSequence>9999999){
+          send(res,400,{error:'Укажите корректную дату документа и допустимый последний локальный номер'});return true;
+        }
+        const client=await pool.connect();
+        let sequence;
+        try{
+          await client.query('BEGIN');
+          const q=await client.query(
+            'INSERT INTO patrul_document_counters(year,last_number) VALUES($1,$2+1) '+
+            'ON CONFLICT(year) DO UPDATE SET last_number=GREATEST(patrul_document_counters.last_number,EXCLUDED.last_number-1)+1,updated_at=NOW() '+
+            'RETURNING last_number',[year,minimumSequence]
+          );
+          sequence=Number(q.rows[0].last_number);
+          await client.query('COMMIT');
+        }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
+        finally{client.release();}
+        await audit(s.id,'document_number_issued',null,{year,sequence});
+        send(res,201,{year,sequence,number:String(sequence).padStart(3,'0')+'/'+year});
         return true;
       }
 
