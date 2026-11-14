@@ -921,10 +921,10 @@ function createAuth(pool,send,readJson) {
           if(!current.rowCount){await client.query('ROLLBACK');send(res,404,{error:'Поручение не найдено'});return true;}
           const row=current.rows[0],isCreator=row.creator_user_id===s.id,isAssignee=row.assignee_user_id===s.id;
           if(!isCreator&&!isAssignee){await client.query('ROLLBACK');send(res,403,{error:'Это поручение назначено другому сотруднику'});return true;}
-          const assigneeAllowed=row.status==='Новая'||row.status==='На доработку'?['В работе']:row.status==='В работе'?['На проверке','Выполнено']:row.status==='На проверке'?['В работе','Выполнено']:[];
-          const creatorAllowed=row.status==='На проверке'?['Новая','На доработку','Отменено']:['Новая','Отменено'];
+          const assigneeAllowed=row.status==='Новая'||row.status==='На доработку'?['В работе']:row.status==='В работе'?['На проверке']:[];
+          const creatorAllowed=row.status==='На проверке'?['Новая','На доработку','Выполнено','Отменено']:['Новая','Отменено'];
           const allowed=new Set([...(isAssignee?assigneeAllowed:[]),...(isCreator?creatorAllowed:[])]);
-          if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может отметить работу, проверку или выполнение':'Постановщик может вернуть поручение на доработку только после отправки на проверку, перевести в новые или отменить его'});return true;}
+          if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может начать работу или отправить результат на проверку; итоговую приёмку подтверждает постановщик':'Постановщик может вернуть поручение на доработку только после отправки на проверку, перевести в новые или отменить его'});return true;}
           if(comment.length>1000||(status==='На доработку'&&!comment)){await client.query('ROLLBACK');send(res,400,{error:'Для возврата на доработку укажите причину (до 1000 символов)'});return true;}
           const q=await client.query("UPDATE patrul_tasks SET status=$2,updated_at=NOW(),completed_at=CASE WHEN $2='Выполнено' THEN NOW() ELSE NULL END WHERE id=$1 RETURNING id,title,description,priority,status,due_date AS \"dueDate\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"",[taskMatch[1],status]);
           updated=q.rows[0];
