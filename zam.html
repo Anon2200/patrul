@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>Зам. начальника патруля</title><link rel="manifest" href="zam.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Зам"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="theme-color" content="#1f5ea8">
+<!DOCTYPE html><html lang="ru"><head><style id="patrul-auth-gate">body{visibility:hidden}</style><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#16304f"><title>Зам. начальника патруля</title><link rel="manifest" href="zam.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Зам"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 
 :root{--bg:#eef1f5;--card:#fff;--tx:#18222f;--mu:#667487;--bd:#dce2ea;--nav:#16304f;--nav2:#0f2340;--ac:#1f8a7d;--ac2:#176f64;--acs:rgba(31,138,125,.12);--red:#c93c3c;--reds:rgba(201,60,60,.12);--yl:#a96f00;--yls:rgba(201,138,18,.16);--gr:#1f8a52;--grs:rgba(31,138,82,.13);--hv:rgba(60,90,130,.07);--sh:0 1px 2px rgba(16,32,56,.06),0 4px 14px rgba(16,32,56,.05);color-scheme:light}
@@ -98,6 +98,142 @@ input,select,textarea{font-size:16px;min-height:46px;max-width:100%}
 .note{font-size:14px}
 @media(min-width:700px){#bn{max-width:560px;margin:0 auto;border-radius:14px 14px 0 0;border:1px solid var(--bd)}}
 @media print{#hd,#bn,.noprint,.toast{display:none!important}main{padding:0;max-width:none}.paper{padding:0}@page{size:A4;margin:15mm}}
+</style><style id="patrul-home-styles">.home-screen{display:grid;gap:16px;max-width:1180px;margin:0 auto}.home-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:2px 0 4px}.home-kicker{font-size:11px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;color:var(--ac);margin-bottom:5px}.home-top h1{font-size:28px;line-height:1.15;margin:0}.home-date{color:var(--mu);font-size:13px}.home-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.home-shortcut{display:flex;align-items:center;gap:10px;min-height:58px;text-align:left;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);font:inherit;font-weight:650;cursor:pointer;transition:border-color .15s,transform .15s}.home-shortcut:hover{border-color:var(--ac);transform:translateY(-1px)}.home-shortcut svg{width:20px;height:20px;color:var(--ac);flex:none}.home-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.home-metric{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 15px;min-width:0}.home-metric b{display:block;font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums;margin-bottom:5px}.home-metric span{display:block;color:var(--mu);font-size:12px;line-height:1.35}.home-metric.is-alert b{color:var(--red)}.home-metric.is-warn b{color:var(--yl)}.home-columns{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:12px;align-items:start}.home-panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;min-width:0;box-shadow:var(--sh)}.home-panel h2{font-size:15px;margin:0 0 12px}.home-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.home-panel-head h2{margin:0}.home-muted{font-size:12px;color:var(--mu)}.home-list{display:grid;gap:8px}.home-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);min-width:0}.home-row:last-child{border-bottom:0;padding-bottom:0}.home-mark{width:8px;height:8px;border-radius:50%;background:var(--yl);margin:6px 2px 0 1px;flex:none}.home-mark.red{background:var(--red)}.home-mark.green{background:var(--gr)}.home-row-main{flex:1;min-width:0}.home-row strong{display:block;font-size:13px;line-height:1.35}.home-row small{display:block;color:var(--mu);font-size:11.5px;margin-top:3px;line-height:1.4}.home-row button{border:0;background:none;color:var(--ac);font:inherit;font-size:12px;font-weight:650;cursor:pointer;padding:2px 0;white-space:nowrap}.home-empty{padding:18px 8px;text-align:center;color:var(--mu);font-size:13px}.home-panel .ev{margin:5px 0}.home-panel .scroll{max-height:300px}.home-alert{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;margin:8px 0;background:var(--hv)}.home-alert.urgent{border-color:var(--reds);background:var(--reds)}.home-alert strong{display:block;font-size:13px}.home-alert small{display:block;color:var(--mu);font-size:11.5px;margin-top:3px}.home-alert button{margin-left:auto;flex:none;border:1px solid var(--bd);border-radius:8px;background:var(--card);padding:6px 9px;color:var(--tx);font:inherit;font-size:12px;font-weight:650;cursor:pointer}@media(max-width:900px){.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.home-columns{grid-template-columns:1fr}}@media(max-width:560px){.home-top h1{font-size:23px}.home-screen{gap:11px}.home-panel{padding:13px}.home-shortcut{min-height:54px;padding:10px}.home-metric{padding:12px}.home-metric b{font-size:23px}}@media print{.home-shortcuts{display:none}.home-screen{max-width:none}.home-columns{grid-template-columns:1fr 1fr}}
+
+/* Единая сетка главных страниц всех ролей */
+.home-screen{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;width:100%;max-width:1200px;min-width:0;margin:0 auto;align-content:start}
+.home-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:3px 0 12px;border-bottom:1px solid var(--bd)}
+.home-top h1{font-size:clamp(23px,2vw,29px);font-weight:750;letter-spacing:-.025em;line-height:1.15;margin:0}
+.home-kicker{font-size:11px;letter-spacing:.105em;text-transform:uppercase;font-weight:800;color:var(--ac);margin-bottom:7px}
+.home-date{color:var(--mu);font-size:13px;text-align:right}
+.home-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
+.home-shortcut{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;min-height:62px;padding:12px 14px;text-align:left;line-height:1.3;white-space:normal;border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);font:inherit;font-weight:650;cursor:pointer;box-shadow:var(--sh);transition:border-color .15s,transform .15s,background .15s}
+.home-shortcut span{display:block;min-width:0;overflow-wrap:anywhere}
+.home-shortcut:hover{border-color:var(--ac);background:var(--hv);transform:translateY(-1px)}
+.home-shortcut svg{width:20px;height:20px;color:var(--ac);flex:none}
+.home-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
+.home-metric{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0;min-height:94px;padding:15px 16px;border:1px solid var(--bd);border-radius:13px;background:var(--card);box-shadow:var(--sh)}
+.home-metric b{display:block;margin:0;font-size:28px;font-weight:760;line-height:1.05;font-variant-numeric:tabular-nums}
+.home-metric span{display:block;color:var(--mu);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.home-metric.is-alert b{color:var(--red)}
+.home-metric.is-warn b{color:var(--yl)}
+.home-columns{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:14px;align-items:stretch}
+.home-panel{display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden;padding:18px;border:1px solid var(--bd);border-radius:14px;background:var(--card);box-shadow:var(--sh)}
+.home-panel h2{margin:0;font-size:16px;font-weight:720;line-height:1.3}
+.home-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 4px}
+.home-panel-head h2{margin:0}
+.home-muted{font-size:12px;color:var(--mu)}
+.home-list{display:grid;gap:0;width:100%;min-width:0}
+.home-row{display:flex;align-items:center;gap:11px;min-width:0;padding:12px 0;border-bottom:1px solid var(--bd)}
+.home-row:last-child{border-bottom:0;padding-bottom:2px}
+.home-row-main{flex:1;min-width:0;overflow-wrap:anywhere}
+.home-row strong{display:block;font-size:13px;font-weight:680;line-height:1.4}
+.home-row small{display:block;margin-top:3px;color:var(--mu);font-size:11.5px;line-height:1.4}
+.home-row button{flex:none;border:0;border-radius:8px;background:transparent;color:var(--ac);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:6px 8px;white-space:nowrap}
+.home-row button:hover{background:var(--acs)}
+.home-mark{width:9px;height:9px;border-radius:50%;background:var(--yl);margin:0 2px 0 1px;flex:none}
+.home-mark.red{background:var(--red)}
+.home-mark.green{background:var(--gr)}
+.home-empty{padding:18px 10px;text-align:center;color:var(--mu);font-size:13px;line-height:1.5;border:1px dashed var(--bd);border-radius:10px;background:var(--hv)}
+.home-alert{display:flex;align-items:center;gap:11px;min-width:0;margin:0;padding:12px 13px;border:1px solid var(--bd);border-radius:11px;background:var(--hv)}
+.home-alert.urgent{border-color:var(--reds);background:var(--reds)}
+.home-alert strong{display:block;font-size:13px;line-height:1.35}
+.home-alert small{display:block;margin-top:3px;color:var(--mu);font-size:11.5px;line-height:1.4}
+.home-alert button{flex:none;margin-left:auto;border:1px solid var(--bd);border-radius:8px;background:var(--card);padding:7px 10px;color:var(--tx);font:inherit;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer}
+.home-alert button:hover{border-color:var(--ac)}
+.home-panel .ev{margin:2px 0;padding:5px 0}
+.home-panel table{width:100%;border-collapse:collapse}
+.home-panel td{padding:9px 8px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.home-panel tr:last-child td{border-bottom:0}
+.home-panel .scroll{max-height:300px}
+@media(max-width:1000px){.home-columns{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:850px){.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.home-screen{gap:12px}.home-top{align-items:flex-start;padding-bottom:9px}.home-top h1{font-size:23px}.home-date{text-align:left}.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.home-shortcut{min-height:56px;padding:10px;font-size:12px}.home-metrics{gap:8px}.home-metric{min-height:82px;padding:12px}.home-metric b{font-size:23px}.home-panel{padding:13px;gap:8px}.home-alert{align-items:flex-start;flex-wrap:wrap}.home-alert button{margin-left:20px}}
+@media(max-width:380px){.home-shortcuts{grid-template-columns:minmax(0,1fr)}.home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{.home-shortcuts{display:none}.home-screen{max-width:none}.home-columns{grid-template-columns:1fr 1fr}.home-panel{box-shadow:none;break-inside:avoid}}
+
+/* Единая, ненавязчивая анимация и удобство интерфейса для всех ролей */
+.home-screen{animation:patrul-page-in .28s ease-out both}
+.home-screen>.home-top{animation:patrul-rise .32s .02s ease-out both}
+.home-screen>.home-shortcuts{animation:patrul-rise .34s .05s ease-out both}
+.home-screen>.home-metrics{animation:patrul-rise .36s .08s ease-out both}
+.home-screen>.home-columns{animation:patrul-rise .38s .11s ease-out both}
+.home-shortcut,.home-metric,.home-panel,.home-alert{transition:transform .18s ease,border-color .18s ease,background-color .18s ease,box-shadow .18s ease}
+.home-shortcut:hover,.home-alert:hover{transform:translateY(-2px);box-shadow:var(--sh)}
+.home-metric:hover{border-color:var(--ac)}
+.home-panel{transition:box-shadow .2s ease,border-color .2s ease}
+.home-panel:focus-within{border-color:var(--ac)}
+.home-row{transition:background-color .16s ease}
+.home-row:hover{background:var(--hv)}
+button,.btn,a,.home-row button,.home-alert button{transition:color .16s ease,background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+button:active,.btn:active,.home-shortcut:active{transform:translateY(1px) scale(.99)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.ov{animation:patrul-fade-in .18s ease-out both}
+.ov .mod{transform-origin:center;animation:patrul-modal-in .22s cubic-bezier(.2,.75,.25,1) both}
+.toast{animation:patrul-toast-in .2s ease-out both}
+@keyframes patrul-page-in{from{opacity:0}to{opacity:1}}
+@keyframes patrul-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes patrul-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes patrul-modal-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes patrul-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(hover:hover){.home-shortcut:hover{transform:translateY(-2px)}}
+@media(max-width:850px){.home-screen{gap:14px}.home-columns{grid-template-columns:minmax(0,1fr)}.home-panel{min-width:0}}
+@media(max-width:560px){.home-screen{gap:12px}.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.home-shortcut{min-height:56px;padding:10px}.home-metrics{gap:8px}.home-metric{min-height:82px;padding:12px}.home-panel{padding:14px}}
+@media(prefers-reduced-motion:reduce){.home-screen,.home-screen>*,.ov,.ov .mod,.toast{animation:none!important;transition:none!important}.home-shortcut:hover,.home-alert:hover,.home-shortcut:active{transform:none!important}}
+
+/* Финальная компоновка рабочих панелей ролей */
+.home-screen{max-width:1360px;gap:20px;padding:2px 0 18px}
+.home-top{align-items:center;padding:4px 0 14px}
+.home-top>div:first-child{min-width:0}
+.home-date{max-width:42%;line-height:1.45}
+.home-shortcuts{gap:12px}
+.home-shortcut{min-height:66px;border-radius:14px;padding:13px 16px}
+.home-shortcut:focus-visible,.home-row button:focus-visible,.home-alert button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+.home-metrics{gap:12px}
+.home-metric{min-height:100px;border-radius:14px;padding:16px 18px}
+.home-columns{grid-template-columns:minmax(0,1.4fr) minmax(320px,.86fr);gap:16px;align-items:start}
+.home-panel{align-self:start;gap:12px;padding:20px;border-radius:15px}
+.home-panel>h2,.home-panel>.home-panel-head h2{font-size:15px;letter-spacing:-.01em}
+.home-panel>.home-panel-head{padding-bottom:9px;border-bottom:1px solid var(--bd);margin-bottom:2px}
+.home-panel>.home-panel-head:not(:first-child){margin-top:14px!important}
+.home-panel .home-list{gap:2px}
+.home-panel .home-row{padding:11px 2px}
+.home-panel .home-row button{padding:4px 2px}
+.home-panel .home-alert{margin:2px 0;padding:12px 13px}
+.home-panel .home-empty{border:1px dashed var(--bd);border-radius:11px;padding:20px 12px}
+.home-panel .ev{margin:2px 0}
+.home-panel .home-muted{line-height:1.4}
+@media(min-width:1200px){
+ .home-columns{grid-template-columns:minmax(0,1.48fr) minmax(330px,.82fr);gap:18px}
+ .home-panel{padding:22px}
+}
+@media(max-width:1050px){
+ .home-screen{gap:16px}
+ .home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .home-columns{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+ .home-panel{padding:16px}
+}
+@media(max-width:760px){
+ .home-columns{grid-template-columns:minmax(0,1fr)}
+ .home-panel{padding:16px}
+ .home-date{max-width:100%;text-align:left}
+}
+@media(max-width:420px){
+ .home-screen{gap:12px}
+ .home-shortcuts{grid-template-columns:minmax(0,1fr);gap:8px}
+ .home-shortcut{min-height:54px;padding:10px 12px}
+ .home-metrics{gap:8px}
+ .home-metric{min-height:82px;padding:11px 12px}
+ .home-metric b{font-size:23px}
+ .home-panel{padding:13px;border-radius:12px}
+ .home-panel .home-row{gap:7px}
+ .home-panel .home-row button{font-size:11px}
+}
+@media(prefers-reduced-motion:no-preference){
+ .home-panel{transition:box-shadow .18s,border-color .18s}
+ .home-panel:hover{border-color:color-mix(in srgb,var(--ac) 24%,var(--bd))}
+}
 </style></head><body>
 <div id="hd"></div><main id="m"></main><nav id="bn"></nav><div id="md"></div><div id="ts"></div><input type="file" id="imp" hidden accept=".json">
 <datalist id="dl_staff"></datalist>
@@ -128,7 +264,7 @@ const fs=s=>{const d=P(s);return d.getDate()+' '+MG[d.getMonth()]};
 const fl=s=>{const d=P(s);return DS[wd(s)]+', '+d.getDate()+' '+MG[d.getMonth()]+' '+d.getFullYear()};
 const uid=()=>Math.random().toString(36).slice(2,9);
 IC.mr='<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(x){}}
+function save(){}
 function theme(){const t=D.set.theme;document.documentElement.dataset.t=t=='auto'?'':t}
 function toast(t,undo){const o=$('#ts');o.innerHTML=`<div class="toast">${e(t)}${undo?'<button data-act="undo">Отменить</button>':''}</div>`;lastUndo=undo||null;clearTimeout(toast.t);toast.t=setTimeout(()=>{o.innerHTML='';lastUndo=null},undo?6000:2200)}
 const pc=s=>String(s||'').replace(/ё/g,'е').toLowerCase();
@@ -142,7 +278,7 @@ function seed(){const t=today(),b=add(mon(t),-28);return{set:{...SET0},staff:[],
  {k:uid(),d:b,t:'16:30',te:'',title:'Доклад начальнику патруля об итогах',type:'Доклад',rec:'work',until:'',who:'',note:'Время условное, поправьте под свой график.'}],
  done:{},br:{},rounds:[],rep:[],tasks:[],jchk:[],prop:[],acting:false,bk:0}}
 function norm(j){j.set=Object.assign({},SET0,j.set);['staff','events','rounds','rep','tasks','jchk','prop'].forEach(k=>j[k]=j[k]||[]);j.done=j.done||{};j.br=j.br||{};j.bk=j.bk||0;j.acting=!!j.acting;return j}
-function load(){let j=null;try{j=JSON.parse(localStorage.getItem(KEY))}catch(x){}return norm(j&&j.set?j:seed())}
+function load(){return norm(seed())}
 let D=load(),tab='ov',wk=mon(today()),cm=today().slice(0,7)+'-01',csel=today(),plm='w',bsel=today(),lastUndo=null,rpf='',tkd='in',ssel=today();
 
 function eventsOn(s){const w=wd(s);return D.events.filter(v=>v.rec=='none'?v.d==s:(v.d<=s&&(!v.until||s<=v.until)&&(v.rec=='daily'||(v.rec=='work'&&w<5)||(v.rec=='week'&&wd(v.d)==w)))).sort((a,b)=>(a.t||'99').localeCompare(b.t||'99'))}
@@ -166,16 +302,20 @@ function draw(keep){save();theme();$('#dl_staff').innerHTML=D.staff.map(s=>`<opt
  $('#bn').innerHTML=nav();
  $('#m').innerHTML=({ov,br:brv,rd:rdv,rp:rpv,pl:plv,mr,tk:tkv,jc:jcv,ps,sm:smv,st:stt,sx:SXV,...EXV})[tab]();if(!keep)scrollTo(0,0)}
 /* ---------- сегодня ---------- */
-function ov(){const t=today(),ev=eventsOn(t),dn=ev.filter(v=>isDone(v,t)).length,b=gb(t),st=staffIn(),n=st.filter(x=>['+','оп'].includes(b.att[x.k])).length,R=D.rounds.filter(r=>r.d==t),bd=R.filter(r=>bad(r).length).length,nr=D.rep.filter(r=>r.st!='Доложено'),od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t);
- return`${D.acting?`<div class="note" style="background:var(--reds);color:var(--red)"><span><b>Вы исполняете обязанности начальника патруля.</b> Доклады по умолчанию идут педагогу-организатору.</span></div>`:''}
- ${nr.length?`<div class="note" style="background:var(--reds);color:var(--red)"><span><b>Не доложено: ${nr.length}.</b> ${nr.some(r=>URG.includes(r.type))?'Среди них срочные.':''}</span><button class="btn s" data-act="tab" data-v="rp">Открыть</button></div>`:''}
- ${!b.inst?`<div class="note"><span>Развод сегодня не отмечен.</span><button class="btn s" data-act="bopen" data-d="${t}">Отметить</button></div>`:''}
- ${bkNote()}
- <p class="sub" style="margin:0 0 10px">${fl(t)}</p>
- <div class="qa"><button data-act="tab" data-v="br">${ico('ps')}<b>Развод</b><span>${n}/${st.length} явились</span></button><button data-act="rdnew">${ico('vl')}<b>Проверить пост</b><span>${R.length} обходов${bd?', замечаний '+bd:''}</span></button><button class="u" data-act="rpnew" data-u="1">${ico('inc')}<b>Срочный доклад</b><span>начальнику / администрации</span></button><button data-act="evnew" data-d="${t}">${ico('pl')}<b>Событие</b><span>в планер</span></button></div>
- <div class="card"><h3>План на сегодня <span class="mu">${dn}/${ev.length}</span></h3>${ev.length?ev.map(v=>evRow(v,t)).join(''):'<div class="empty">На сегодня событий нет</div>'}${dueTasks(t).length?`<h3 style="margin:14px 0 6px">Сроки поручений</h3>${dueTasks(t).map(x=>`<div class="ev" style="--c:#b5423f"><span class="tt" data-act="tkedit" data-k="${x.k}">${e(x.text)}</span></div>`).join('')}`:''}</div>
- ${od.length?`<div class="card"><h3>Просроченные поручения</h3>${od.slice(0,5).map(x=>`<div class="li" data-act="tkedit" data-k="${x.k}"><div style="flex:1;min-width:0">${e(x.text)}<div class="mu">${e(x.who||x.src||'')}</div></div>${tag('b',fd(x.due))}</div>`).join('')}</div>`:''}
- <div class="card"><h3>Итоги смены</h3><p class="mu" style="margin:0 0 10px">Рапорт собирается из данных за день: явка, обходы, доклады.</p><button class="btn" style="width:100%" data-act="smopen" data-d="${t}">${ico('dc')}Открыть итоги смены</button></div>`}
+function ov(){
+ const t=today(),ev=eventsOn(t),dn=ev.filter(v=>isDone(v,t)).length,b=gb(t),st=staffIn(),n=st.filter(x=>['+','оп'].includes(b.att[x.k])).length,R=D.rounds.filter(r=>r.d==t),bd=R.filter(r=>bad(r).length).length,nr=D.rep.filter(r=>r.st!='Доложено'),od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t);
+ const attention=[];
+ if(!b.inst)attention.push(`<div class='home-alert'><span class='home-mark'></span><div><strong>Развод ещё не отмечен</strong><small>Проверьте явку и проведение инструктажа</small></div><button data-act='bopen' data-d='${t}'>Отметить</button></div>`);
+ if(bd)attention.push(`<div class='home-alert urgent'><span class='home-mark red'></span><div><strong>Замечания по постам: ${bd}</strong><small>Зафиксировано обходами сегодня</small></div><button data-act='tab' data-v='rd'>Открыть</button></div>`);
+ if(nr.length)attention.push(`<div class='home-alert urgent'><span class='home-mark red'></span><div><strong>Доклады не переданы: ${nr.length}</strong><small>${nr.some(r=>URG.includes(r.type))?'Есть срочные сообщения':'Проверьте и передайте доклады'}</small></div><button data-act='tab' data-v='rp'>Открыть</button></div>`);
+ if(od.length)attention.push(`<div class='home-alert urgent'><span class='home-mark red'></span><div><strong>Просроченные поручения: ${od.length}</strong><small>${e(od[0].text)}</small></div><button data-act='tab' data-v='tk'>Открыть</button></div>`);
+ if(!attention.length)attention.push(`<div class='home-empty'>На данный момент срочных замечаний нет.</div>`);
+ return `<section class='home-screen'><header class='home-top'><div><div class='home-kicker'>Рабочая панель · Заместитель начальника</div><h1>Главное за сегодня</h1></div><div class='home-date'>${fl(t)}${D.acting?' · Исполнение обязанностей начальника':''}</div></header>
+ <div class='home-shortcuts'><button class='home-shortcut' data-act='tab' data-v='br'>${ico('ps')}<span>Развод и явка</span></button><button class='home-shortcut' data-act='rdnew'>${ico('vl')}<span>Проверить пост</span></button><button class='home-shortcut' data-act='rpnew' data-u='1'>${ico('inc')}<span>Срочный доклад</span></button><button class='home-shortcut' data-act='tab' data-v='sm'>${ico('dc')}<span>Итоги смены</span></button></div>
+ <div class='home-metrics'><div class='home-metric ${!b.inst?'is-warn':''}'><b>${n}/${st.length}</b><span>Явились на развод</span></div><div class='home-metric ${bd?'is-alert':''}'><b>${bd}</b><span>Замечания по постам сегодня</span></div><div class='home-metric ${nr.length?'is-alert':''}'><b>${nr.length}</b><span>Непереданные доклады</span></div><div class='home-metric ${od.length?'is-alert':''}'><b>${od.length}</b><span>Просроченные поручения</span></div></div>
+ <div class='home-columns'><section class='home-panel'><div class='home-panel-head'><h2>Требует внимания</h2><span class='home-muted'>Приоритетные действия</span></div>${attention.join('')}<div class='home-panel-head' style='margin-top:18px'><h2>План на сегодня</h2><button class='btn s g' data-act='tab' data-v='pl'>Открыть план</button></div>${ev.length?ev.slice(0,5).map(v=>`<div class='ev'>${evRow(v,t)}</div>`).join(''):'<div class=home-empty>На сегодня событий нет</div>'}${dueTasks(t).length?`<div class='home-row'><span class='home-mark'></span><div class='home-row-main'><strong>Срок сегодня: ${dueTasks(t).length} поручений</strong><small>${e(dueTasks(t)[0].text)}</small></div><button data-act='tab' data-v='tk'>Открыть</button></div>`:''}</section>
+ <section class='home-panel'><h2>Контроль постов</h2><div class='home-list'><div class='home-row'><span class='home-mark ${R.length?'green':''}'></span><div class='home-row-main'><strong>Проверок сегодня: ${R.length}</strong><small>${bd?`Требуют внимания: ${bd}`:'Проверки за день'}</small></div><button data-act='tab' data-v='rd'>Открыть</button></div><div class='home-row'><span class='home-mark ${b.inst?'green':''}'></span><div class='home-row-main'><strong>${b.inst?'Развод проведён':'Развод не подтверждён'}</strong><small>Явка отмечена у ${n} из ${st.length}</small></div><button data-act='tab' data-v='br'>Открыть</button></div><div class='home-row'><span class='home-mark'></span><div class='home-row-main'><strong>Итоги смены</strong><small>Сводный рапорт: явка, обходы и доклады</small></div><button data-act='tab' data-v='sm'>Открыть</button></div></div><div class='home-panel-head' style='margin-top:18px'><h2>Другие разделы</h2></div><div class='home-list'><div class='home-row'><div class='home-row-main'><strong>Журналы и проверки</strong><small>Контроль заполнения документов</small></div><button data-act='tab' data-v='jc'>Открыть</button></div><div class='home-row'><div class='home-row-main'><strong>Поручения</strong><small>Сроки, исполнители и выполнение</small></div><button data-act='tab' data-v='tk'>Открыть</button></div></div></section></div></section>`;
+}
 function bkNote(){const d=D.bk?Math.floor((Date.now()-D.bk)/864e5):null;return d==null||d>7?`<div class="note"><span>${d==null?'Копия данных ещё не сохранялась.':'Копия сохранялась '+d+' дн. назад.'}</span><button class="btn s" data-act="exp">Сохранить</button></div>`:''}
 /* ---------- развод и явка ---------- */
 function brv(){const s=bsel,b=gb(s),st=staffIn(),n=st.filter(x=>['+','оп'].includes(b.att[x.k])).length;
@@ -237,7 +377,7 @@ function smv(){const s=ssel,L=smLines(s);return`<div class="bar dn noprint"><but
 function stt(){const s=D.set,f=(l,k,c='',p='')=>`<div class="${c}"><label>${l}</label><input value="${e(s[k])}" placeholder="${p}" data-chg="s_${k}"></div>`;
  return`<div class="card"><h3>Подписи</h3><div class="fg">${f('Ваше ФИО (заместитель начальника)','zam','w','Фамилия И.О.')}${f('Начальник патруля','boss')}${f('Ему (в дательном падеже)','bossD','','Иванову И.И.')}${f('Педагог-организатор','ped')}${f('Ему (в дательном падеже)','pedD','','Петрову П.П.')}${f('Подразделение','org','w')}${f('Посты (через запятую)','posts','w')}<div class="w"><label>Оформление</label><select data-chg="s_theme"><option value="auto" ${s.theme=='auto'?'selected':''}>Как в системе</option><option value="light" ${s.theme=='light'?'selected':''}>Светлое</option><option value="dark" ${s.theme=='dark'?'selected':''}>Тёмное</option></select></div></div></div>
  <div class="card"><h3>Резервная копия</h3><p class="mu" style="margin-top:0">Данные хранятся в браузере этого телефона. Раз в неделю сохраняйте копию и отправляйте её себе.${D.bk?`<br>Последняя копия: ${new Date(D.bk).toLocaleString('ru-RU')}`:''}</p><div class="bar"><button class="btn" style="flex:1" data-act="exp">Сохранить копию</button><button class="btn g" style="flex:1" data-act="impb">Загрузить</button></div><div class="bar"><button class="btn g" style="flex:1" data-act="bkcopy">Скопировать копию</button><button class="btn g" style="flex:1" data-act="bkpaste">Вставить копию</button></div><button class="btn g r" style="width:100%" data-act="rst">Сбросить данные</button></div>`}
-async function exp(){D.bk=Date.now();save();const txt=JSON.stringify(D),name='zam_kopiya_'+today()+'.json';let ok=false;try{const dl=window.claude&&await window.claude.use('downloads');if(dl){await dl.save({filename:name,data:new Blob([txt],{type:'application/json'})});ok=true}}catch(x){}
+async function exp(){D.bk=Date.now();save();const copy=JSON.parse(JSON.stringify(D));if(copy.sx)delete copy.sx.pw;const txt=JSON.stringify(copy),name='zam_kopiya_'+today()+'.json';let ok=false;try{const dl=window.claude&&await window.claude.use('downloads');if(dl){await dl.save({filename:name,data:new Blob([txt],{type:'application/json'})});ok=true}}catch(x){}
  if(!ok){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();ok=true}catch(x){}}
  draw(1);toast(ok?'Копия сохранена':'Не удалось сохранить файл. Нажмите «Скопировать копию»')}
 function copyT(t){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(t).then(()=>toast('Скопировано'),()=>fb());fb();function fb(){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Скопировано')}catch(x){toast('Не удалось скопировать')}a.remove()}}
@@ -290,13 +430,14 @@ const A={
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" style="flex:1" data-act="rst2">Да, сбросить</button><button class="btn" style="flex:1" data-act="cl">Отмена</button></div>`),
  rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{if(ev.target.closest('a[href]')||ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('input',ev=>{const t=ev.target,c=t.dataset&&t.dataset.chg;if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
  if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
  else if(c=='bsel'){bsel=v||today();draw(1)}else if(c=='ssel'){ssel=v||today();draw(1)}
  else if(c=='binst'){gbw().inst=v;if(v&&!gbw().instT)gbw().instT=rtime();draw(1)}else if(c=='binstT'){gbw().instT=v;save()}
  else if(c=='batt'){gbw().att[t.dataset.k]=v;draw(1)}else if(c=='bck'){gbw()[t.dataset.f][t.dataset.k]=v?1:0;save()}
  else if(c=='tkst'){D.tasks.find(x=>x.k==t.dataset.k).st=v;draw(1)}
- else if(c.startsWith('s_')){D.set[c.slice(2)]=v;draw(1);toast('Сохранено')}});
+ else if(c.startsWith('s_')){D.set[c.slice(2)]=v;save();toast('Настройка сохранена')}});
 document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM()});
 $('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.set||!j.rounds)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит: нужна копия этой программы')}});ev.target.value=''};const SXC={role:'zam',name:'Заместитель начальника патруля',h1:0,approve:0,sends:'доклады, итоги смены и явка, события, поручения',
  out:()=>{const t=today();return[...D.events.filter(v=>!sxSeedEv(v)).map(v=>({t:'ev',k:v.k,d:v})),...D.tasks.map(v=>({t:'tk',k:v.k,d:v})),...D.rep.filter(r=>r.d>=add(t,-30)).map(r=>({t:'rp',k:r.k,d:r})),...[t,add(t,-1)].filter(s=>D.br[s]||D.rounds.some(r=>r.d==s)||D.rep.some(r=>r.d==s)).map(s=>({t:'sh',k:'sh_zam_'+s,d:{date:s,role:'Заместитель начальника патруля',lines:smLines(s)}}))]},
@@ -315,27 +456,27 @@ function sxUn64(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='
 async function sxKey(pw,salt){const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function sxPack(o){const raw=new TextEncoder().encode(JSON.stringify(o));let z=null;try{z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())}catch(x){}
  const useZ=z&&z.length<raw.length,body=useZ?z:raw,pw=sxS().pw;
- if(pw){if(!(window.crypto&&crypto.subtle))throw new Error('nocrypto');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),pl=new Uint8Array(body.length+1);pl[0]=useZ?1:0;pl.set(body,1);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await sxKey(pw,salt),pl)),out=new Uint8Array(28+ct.length);out.set(salt,0);out.set(iv,16);out.set(ct,28);return'ПАТРУЛЬ1E:'+sxB64(out)}
- return useZ?'ПАТРУЛЬ1Z:'+sxB64(z):'ПАТРУЛЬ1R:'+sxB64(raw)}
-async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZE]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;let b=sxUn64(m[2]),z=m[1]=='Z';
- if(m[1]=='E'){const pw=sxS().pw;if(!pw)throw new Error('needpw');let pl;try{pl=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(16,28)},await sxKey(pw,b.slice(0,16)),b.slice(28)))}catch(x){throw new Error('badpw')}z=pl[0]==1;b=pl.slice(1)}
+ if(!pw)throw new Error('needpw');if(pw.length<16)throw new Error('weakpw');if(!(window.crypto&&crypto.subtle))throw new Error('nocrypto');
+ const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),pl=new Uint8Array(body.length+1);pl[0]=useZ?1:0;pl.set(body,1);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await sxKey(pw,salt),pl)),out=new Uint8Array(28+ct.length);out.set(salt,0);out.set(iv,16);out.set(ct,28);return'ПАТРУЛЬ1E:'+sxB64(out)}
+async function sxUnpack(s){const m=/ПАТРУЛЬ1([RZE]):([A-Za-z0-9_\-]+)/.exec(s);if(!m)throw 0;if(m[1]!='E')throw new Error('unencrypted');let b=sxUn64(m[2]),z=false;
+ const pw=sxS().pw;if(!pw)throw new Error('needpw');if(pw.length<16)throw new Error('weakpw');let pl;try{pl=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(16,28)},await sxKey(pw,b.slice(0,16)),b.slice(28)))}catch(x){throw new Error('badpw')}z=pl[0]==1;b=pl.slice(1);
  if(z)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());return JSON.parse(new TextDecoder().decode(b))}
 const SXCOL=()=>({ev:D.events,tk:D.tasks,mt:D.mat,rp:D.rep,ou:D.out});
 const SXDEL=['ev','tk','mt','rp'];
 function sxCollect(all){const S=sxS(),r=[],now=Date.now(),seen=new Set(),col=SXCOL();SXC.out().forEach(it=>{seen.add(it.k);const h=sxStable(it.d),m=S.meta[it.k];if(all||!m||m.h!=h)r.push({t:it.t,k:it.k,u:(m&&m.h==h&&m.u)?m.u:now,f:SXC.name,d:it.d,_h:h,_t:it.t})});
  Object.entries(S.meta).forEach(([k,m])=>{if(m.live&&!m.del&&!seen.has(k)&&SXDEL.includes(m.t)&&Array.isArray(col[m.t])&&!col[m.t].some(x=>x.k==k))r.push({t:m.t,k,u:now,f:SXC.name,del:1,_h:'del',_t:m.t})});return r}
 async function sxSend(all){const S=sxS(),it=sxCollect(all);if(!it.length)return toast('Нечего отправлять: после прошлой отправки изменений нет');
- let code;try{code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,_t,...r})=>r)})}catch(x){return toast('Не удалось зашифровать пакет: откройте программу по адресу с https')}
+ let code;try{code=await sxPack({v:1,from:SXC.name,role:SXC.role,ts:Date.now(),items:it.map(({_h,_t,...r})=>r)})}catch(x){return toast(x&&x.message=='needpw'?'Сначала задайте общий пароль патруля в настройках обмена':x&&x.message=='weakpw'?'Пароль патруля должен содержать не менее 16 символов':'Не удалось зашифровать пакет: нужен защищённый адрес https')}
  SXTXT='Пакет обмена · '+SXC.name+' · '+sxDT(Date.now())+'\n(в программе: Обмен → Принять пакет)\n'+code;it.forEach(x=>S.meta[x.k]=x.del?{h:'del',u:x.u,del:1}:{h:x._h,u:x.u,live:1,t:x._t});S.tOut=Date.now();save();
  modal(`<h3>Пакет готов</h3><p class="mu" style="margin-top:0">Позиций: ${it.length}. Отправьте текст в общий чат патруля. Остальные нажмут «Принять пакет» и вставят его.</p><textarea readonly rows="4" style="width:100%;font-size:12px">${e(SXTXT)}</textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxshare">Отправить</button><button class="btn g" style="flex:1" data-act="sxcopy">Копировать</button><button class="btn g" data-act="sxfile">Файл</button><button class="btn g" data-act="exqr">QR-код</button></div><div class="bar" style="margin:0"><button class="btn g" style="flex:1" data-act="sxcl">Готово</button></div>`);draw(1)}
-async function sxApplyTxt(txt,q){let pk;try{pk=await sxUnpack(txt)}catch(x){if(q)return x&&x.message=='badpw'?-2:-1;return toast(x&&x.message=='needpw'?'Пакет зашифрован. Задайте пароль патруля в «Обмен»':x&&x.message=='badpw'?'Неверный пароль патруля':'Это не пакет обмена. Скопируйте сообщение целиком')}
+async function sxApplyTxt(txt,q){let pk;try{pk=await sxUnpack(txt)}catch(x){if(q)return x&&x.message=='badpw'?-2:-1;return toast(x&&x.message=='needpw'?'Пакет зашифрован. Задайте пароль патруля в «Обмен»':x&&x.message=='weakpw'?'Пароль патруля должен содержать не менее 16 символов':x&&x.message=='badpw'?'Неверный пароль патруля':x&&x.message=='unencrypted'?'Незашифрованный пакет отклонён. Попросите отправителя включить пароль патруля.':'Это не пакет обмена. Скопируйте сообщение целиком')}
  const S=sxS();let n=0;(pk.items||[]).forEach(it=>{if(!it||!it.k||!it.t)return;const m=S.meta[it.k];if(m&&m.u>=it.u)return;
   if(it.del){const c=SXCOL()[it.t];if(Array.isArray(c)){const i=c.findIndex(x=>x.k==it.k);if(i>=0)c.splice(i,1)}if(S.in[it.t])delete S.in[it.t][it.k];S.meta[it.k]={h:'del',u:it.u,del:1};n++;return}
   const ap=SXC.inn[it.t];let loc=null;if(ap)try{loc=ap(it.d,it)}catch(x){loc=null}
   if(loc){S.meta[it.k]={h:sxStable(loc),u:it.u,live:1,t:it.t}}else{(S.in[it.t]=S.in[it.t]||{})[it.k]={t:it.t,k:it.k,u:it.u,f:it.f||pk.from,d:it.d};S.meta[it.k]={h:'in',u:it.u}}n++});
  S.tIn=Date.now();save();if(q){if(n&&$('#md').innerHTML==''&&!/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName||''))draw(1);if(n)toast('Синхронизация: получено записей '+n);return n}closeM();draw(1);toast(n?'Принято записей: '+n+' (от: '+(pk.from||'?')+')':'Новых записей нет: всё уже принято')}
 function sxUnread(){const S=sxS();let n=0;Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>{if(S.seen[x.k]!=x.u)n++}));return n}
-const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События'};
+const SXTT={ou:'Документы на согласование',rp:'Доклады',mt:'Материалы о нарушениях',sh:'Итоги смены и явка',tk:'Поручения',ev:'События',is:'Сводки по имуществу'};
 function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">новое</span>':'',fr=`${e(x.f||'')}`;let h='',s='',b='',a='';
  if(t=='rp'){h=d.type;s=sxD(d.d)+' '+(d.t||'')+' · '+fr+(d.st=='Доложено'?' · доложено':'');b=d.text;if(SXC.rpMat&&['Нарушение','Недостаток службы'].includes(d.type))a=`<button class="btn s" data-act="sxmat" data-k="${e(x.k)}">В журнал регистрации</button>`}
  else if(t=='mt'){h=(d.fio||'—')+(d.grp?' · '+d.grp:'');s=sxD(d.d)+' · '+(d.cat||'')+' · '+fr;b=[d.gist,d.res].filter(Boolean).join('. ')}
@@ -343,16 +484,17 @@ function sxCard(t,x){const d=x.d||{},nw=SXNEW.has(x.k)?' <span class="tag b">н�
  else if(t=='ou'){h=d.subj||d.kind;s=(d.kind||'')+' · '+sxD(d.d)+' · '+fr+' · статус: '+(d.st||'');b=d.text;if(SXC.approve)a=`<button class="btn s" data-act="sxou" data-k="${e(x.k)}" data-v="Согласовано">Согласовать</button><button class="btn s g" data-act="sxou" data-k="${e(x.k)}" data-v="На доработку">На доработку</button>`}
  else if(t=='tk'){h=d.text;s=(d.who||d.src||'')+(d.due?' · срок '+sxD(d.due):'')+' · '+(d.st||'');}
  else if(t=='ev'){h=(d.t?d.t+' ':'')+d.title;s=sxD(d.d)+' · '+fr}
+ else if(t=='is'){h='Сводка имущества';s=sxD(d.d)+' · позиций: '+(d.n||0)+' · на руках: '+(d.onh||0)+' · просрочено: '+(d.od||0)+(d.master?' · '+d.master:'');const parts=[];if(d.att&&d.att.length)parts.push('Требуют внимания: '+d.att.join('; '));if(d.rep&&d.rep.length)parts.push('Ремонт: '+d.rep.join('; '));if(d.buy&&d.buy.length)parts.push('Закупка: '+d.buy.join('; '));b=parts.length?parts.join('\n'):'Замечаний нет'}
  return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${e(h)}</b>${nw}</div>${s?`<div class="mu">${e(s)}</div>`:''}${b?`<div style="margin-top:6px;white-space:pre-line">${e(b)}</div>`:''}${a?`<div class="bar" style="margin:10px 0 0">${a}</div>`:''}</div>`}
-function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
+function sxInbox(){const S=sxS();SXNEW=new Set();let h='';['ou','rp','mt','sh','tk','ev','is'].forEach(t=>{if(t=='ou'&&!SXC.approve)return;const a=Object.values(S.in[t]||{}).sort((x,y)=>y.u-x.u).slice(0,25);if(!a.length)return;a.forEach(x=>{if(S.seen[x.k]!=x.u)SXNEW.add(x.k)});h+=`<h3 style="margin:18px 0 8px">${SXTT[t]} <span class="mu">${a.length}</span></h3>`+a.map(x=>sxCard(t,x)).join('')});
  Object.values(S.in).forEach(o=>Object.values(o).forEach(x=>S.seen[x.k]=x.u));
  return h||'<div class="empty" style="margin-top:14px">Входящих пока нет. Здесь появится то, что пришлют другие роли.</div>'}
 function SXV(){const S=sxS(),ch=sxCollect(false).length,ib=sxInbox();
- return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: вы отправляете свои изменения одним сообщением, остальные принимают его в программе. Данные идут только в ваш чат.</p>
- <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><div class="bar" style="margin:10px 0 0"><button class="btn s g" data-act="sxall">Отправить всё заново</button><button class="btn s g" data-act="sxpw">${S.pw?'Пароль патруля: задан':'Пароль патруля'}</button></div></div>${ib}`}
+ return`${SXC.h1?'<h1>Обмен данными</h1>':''}<p class="sub">Общий чат патруля в Телеграме: изменения передаются пакетами, зашифрованными общим паролем. Незашифрованные пакеты не принимаются.</p>
+ <div class="card"><div class="bar"><button class="btn" data-act="sxsend">Отправить пакет${ch?' ('+ch+')':''}</button><button class="btn g" data-act="sxrecv">Принять пакет</button></div><p class="mu" style="margin:0">${ch?'Готово к отправке: '+ch+' (изменено с прошлой отправки).':'Новых изменений для отправки нет.'}<br>Эта роль отправляет: ${SXC.sends}.<br>Последняя отправка: ${sxDT(S.tOut)}. Последний приём: ${sxDT(S.tIn)}.</p><div class="bar" style="margin:10px 0 0"><button class="btn s g" data-act="sxall">Отправить всё заново</button><button class="btn s g" data-act="sxpw">${S.pw&&S.pw.length>=16?'Пароль патруля: задан':'Задать пароль патруля (16+)'}</button></div></div>${ib}`}
 const SXA={
- sxcl:()=>closeM(),sxpw:()=>modal(`<h3>Пароль патруля</h3><p class="mu" style="margin-top:0">Если задать пароль, пакеты в чате будут зашифрованы и посторонний их не прочитает. Пароль должен быть <b>одинаковым у всех</b> ролей. Передайте его лично, не в чат.</p><input id="sx_pw" type="password" autocomplete="off" placeholder="Пароль" value="${e(sxS().pw||'')}"><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="sxpw2">Сохранить</button><button class="btn g" data-act="sxpw3">Убрать пароль</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
- sxpw2:()=>{const v=$('#sx_pw').value.trim();if(v&&!(window.crypto&&crypto.subtle))return toast('Шифрование недоступно: откройте программу по адресу с https');sxS().pw=v;save();closeM();draw(1);toast(v?'Пароль задан':'Пароль убран')},sxpw3:()=>{sxS().pw='';save();closeM();draw(1);toast('Пароль убран')},sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
+ sxcl:()=>closeM(),sxpw:()=>modal(`<h3>Пароль патруля</h3><p class="mu" style="margin-top:0">Общий пароль обязателен: без него отправка и приём пакетов отключены. Используйте не менее <b>16 символов</b> и задайте одинаковый пароль на всех четырёх ролях. Передайте его лично, не в чат.</p><input id="sx_pw" type="password" autocomplete="off" placeholder="Пароль" value="${e(sxS().pw||'')}"><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="sxpw2">Сохранить</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
+ sxpw2:()=>{const v=$('#sx_pw').value.trim();if(v.length<16)return toast('Пароль должен содержать не менее 16 символов');if(!(window.crypto&&crypto.subtle))return toast('Шифрование недоступно: откройте программу по адресу с https');sxS().pw=v;save();closeM();draw(1);toast('Пароль задан')},sxsend:()=>sxSend(false),sxall:()=>sxSend(true),
  sxrecv:()=>modal(`<h3>Принять пакет</h3><p class="mu" style="margin-top:0">Скопируйте сообщение с пакетом из чата и вставьте сюда.</p><textarea id="sx_t" rows="5" style="width:100%;font-size:13px"></textarea><div class="bar" style="margin:12px 0 0"><button class="btn" style="flex:1" data-act="sxapply">Принять</button><button class="btn g" data-act="sxpaste">Вставить из буфера</button><button class="btn g" data-act="exscan">Сканировать QR</button><button class="btn g" data-act="sxcl">Отмена</button></div>`),
  sxapply:()=>sxApplyTxt($('#sx_t').value),
  sxpaste:()=>{(navigator.clipboard&&navigator.clipboard.readText?navigator.clipboard.readText():Promise.reject()).then(t=>{$('#sx_t').value=t},()=>toast('Не удалось прочитать буфер: вставьте текст вручную'))},
@@ -373,7 +515,7 @@ const cmH=s=>{let h=2166136261;s='patrul:'+s;for(let i=0;i<s.length;i++){h^=s.ch
 const cmK=n=>KEY+'_'+n;
 function cmZoom(){const z=parseFloat(cmLS.g(cmK('zoom'))||'1');document.documentElement.style.zoom=z==1?'':z}
 function cmFirst(){if(D.set.init||document.getElementById('cm_n'))return;const c=CMC,f=(k,l,ph)=>`<div class="w"><label>${l}</label><input id="cm_${k}" value="${e(D.set[k]||'')}" placeholder="${ph||''}"></div>`;
- modal(`<h3>Первый запуск: кто вы?</h3><p class="mu" style="margin-top:0">Роль: <b>${c.title}</b>. Эти данные нужны для подписей в документах. Всё хранится только на этом устройстве, потом можно изменить в «Настройках».</p><div class="fg"><div class="w"><label>${c.nameLabel}</label><input id="cm_n" value="${e(D.set[c.nameKey]||'')}" placeholder="Фамилия И.О."></div>${(c.others||[]).map(o=>f(o[0],o[1],o[2])).join('')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmfirst">Готово</button></div>`);const o=document.querySelector('.ov');if(o)o.removeAttribute('data-act')}
+ modal(`<h3>Первый запуск: кто вы?</h3><p class="mu" style="margin-top:0">Роль: <b>${c.title}</b>. Эти данные нужны для подписей в документах. Они сохраняются на сервере и остаются после обновления страницы; изменить их можно в «Настройках».</p><div class="fg"><div class="w"><label>${c.nameLabel}</label><input id="cm_n" value="${e(D.set[c.nameKey]||'')}" placeholder="Фамилия И.О."></div>${(c.others||[]).map(o=>f(o[0],o[1],o[2])).join('')}</div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmfirst">Готово</button></div>`);const o=document.querySelector('.ov');if(o)o.removeAttribute('data-act')}
 function cmLockShow(){if(document.getElementById('cmlock'))return;const d=document.createElement('div');d.id='cmlock';d.style.cssText='position:fixed;inset:0;z-index:99;background:var(--bg,#eef1f6);display:flex;align-items:center;justify-content:center;padding:20px';d.innerHTML='<div style="background:var(--card,#fff);color:var(--tx,#1a2433);border:1px solid var(--bd,#dbe2ec);border-radius:16px;padding:24px;width:min(340px,100%);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.2)"><h3 style="margin:0 0 6px">Программа заблокирована</h3><p style="margin:0 0 14px;opacity:.7;font-size:14px">Введите ПИН-код</p><input id="cm_pin" type="password" inputmode="numeric" autocomplete="off" style="width:100%;text-align:center;font-size:24px;letter-spacing:6px;box-sizing:border-box"><div id="cm_err" style="color:#c0463f;min-height:20px;margin:6px 0;font-size:14px"></div><button id="cm_ok" class="btn" style="width:100%">Открыть</button></div>';document.body.appendChild(d);
  const go=()=>{if(cmH($('#cm_pin').value)==cmLS.g(cmK('pin'))){d.remove();cmLS.s(cmK('last'),String(Date.now()))}else{$('#cm_err').textContent='Неверный ПИН-код';$('#cm_pin').value=''}};$('#cm_ok').onclick=go;$('#cm_pin').onkeydown=e=>{if(e.key=='Enter')go()};setTimeout(()=>$('#cm_pin').focus(),50)}
 function cmLockCheck(force){if(!cmLS.g(cmK('pin')))return;const mins=parseInt(cmLS.g(cmK('lockmin'))||'5'),last=parseInt(cmLS.g(cmK('last'))||'0');if(force||mins==0||Date.now()-last>mins*60000)cmLockShow()}
@@ -382,9 +524,9 @@ function cmCard(){const pin=!!cmLS.g(cmK('pin')),zm=cmLS.g(cmK('zoom'))||'1',lm=
  ${pin?`<div class="fg"><div class="w"><label>Блокировать при возврате в программу</label><select data-cm="lockmin">${[[0,'Всегда'],[1,'Через 1 минуту'],[5,'Через 5 минут'],[15,'Через 15 минут'],[60,'Через час']].map(x=>`<option value="${x[0]}" ${lm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div>`:''}
  <div class="fg"><div class="w"><label>Размер текста</label><select data-cm="zoom">${[['1','Обычный'],['1.15','Крупный'],['1.3','Очень крупный']].map(x=>`<option value="${x[0]}" ${zm==x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`}
 const CMA={
- cmfirst:()=>{const c=CMC,n=$('#cm_n').value.trim();if(!n)return toast('Впишите ваше ФИО');D.set[c.nameKey]=n;(c.others||[]).forEach(o=>{const el=$('#cm_'+o[0]);if(el)D.set[o[0]]=el.value.trim()});D.set.init=1;
-  if(Array.isArray(D.staff)){const add=(name,pos)=>{if(name&&!D.staff.some(x=>x.name==name))D.staff.push({k:uid(),name,pos,grp:'',tel:'',st:'в строю'})};add(n,c.staffPos);if(D.set.boss&&c.role!='nach')add(D.set.boss,'Начальник патруля')}
-  save();closeM();draw();toast('Готово, данные сохранены')},
+ cmfirst:async()=>{const c=CMC,n=$('#cm_n').value.trim();if(!n)return toast('Впишите ваше ФИО');D.set[c.nameKey]=n;(c.others||[]).forEach(o=>{const el=$('#cm_'+o[0]);if(el)D.set[o[0]]=el.value.trim()});D.set.init=1;
+   if(Array.isArray(D.staff)){const add=(name,pos)=>{if(name&&!D.staff.some(x=>x.name==name))D.staff.push({k:uid(),name,pos,grp:'',tel:'',st:'в строю'})};add(n,c.staffPos);if(D.set.boss&&c.role!='nach')add(D.set.boss,'Начальник патруля')}
+   save();if(typeof window.PATRUL_SAVE_NOW!=='function'||!(await window.PATRUL_SAVE_NOW())){toast('Не удалось сохранить настройки на сервере. Проверьте соединение и нажмите «Готово» ещё раз');return}closeM();draw();toast('Первоначальные настройки сохранены на сервере')},
  cmpin:()=>modal(`<h3>ПИН-код</h3><div class="fg"><div class="w"><label>Новый ПИН-код (4–8 цифр)</label><input id="cm_p1" type="password" inputmode="numeric" autocomplete="off"></div><div class="w"><label>Повторите</label><input id="cm_p2" type="password" inputmode="numeric" autocomplete="off"></div></div><div class="bar" style="margin:14px 0 0"><button class="btn" style="flex:1" data-act="cmpin2">Сохранить</button><button class="btn g" data-act="cl">Отмена</button></div>`),
  cmpin2:()=>{const a=$('#cm_p1').value,b=$('#cm_p2').value;if(!/^\d{4,8}$/.test(a))return toast('ПИН-код: от 4 до 8 цифр');if(a!=b)return toast('ПИН-коды не совпадают');cmLS.s(cmK('pin'),cmH(a));cmLS.s(cmK('last'),String(Date.now()));closeM();draw(1);toast('ПИН-код установлен. Запомните его: восстановить нельзя')},
  cmpinrm:()=>{cmLS.s(cmK('pin'),null);draw(1);toast('ПИН-код снят')},cmlock:()=>cmLockCheck(true)};
@@ -1702,11 +1844,11 @@ save=(function(o){return function(){const r=o();try{exSched()}catch(x){}return r
 function exStatTxt(){const au=exAu();if(!au.on)return'Выключена';return(EXR.err?'<span class="exer">Ошибка: '+e(EXR.err)+'</span> · ':'<span class="exok">Включена</span> · ')+'последняя связь: '+(au.lastOk?sxDT(au.lastOk):'ещё не было')}
 function exIndTxt(){const au=exAu();if(!au.on)return'<span class="mu">Синхронизация выключена</span>';if(EXR.err)return'<span class="exer">Нет связи: '+e(EXR.err)+'</span>';return au.lastOk?'<span class="exok">Синхронизировано '+new Date(au.lastOk).toTimeString().slice(0,5)+'</span>':'<span class="mu">Синхронизация: ждём первой связи</span>'}
 function exStat(){const h=$('#ex_stat');if(h)h.innerHTML=exStatTxt();const i=$('#ex_ind');if(i)i.innerHTML=exIndTxt()}
-function exAuto(){const au=exAu(),pw=!!sxS().pw;return`<div class="card" style="margin-top:14px"><h3>Автосинхронизация</h3><p class="mu" style="margin-top:0">Программы сами обмениваются изменениями через бесплатный сервер-посредник (ntfy). Всё шифруется паролем патруля, сервер видит только шифротекст. Нужны интернет и <b>одинаковый пароль патруля у всех ролей</b>. Если сервер недоступен, работает обмен пакетами и QR.</p>
+function exAuto(){const au=exAu(),pw=!!sxS().pw&&sxS().pw.length>=16;return`<div class="card" style="margin-top:14px"><h3>Автосинхронизация</h3><p class="mu" style="margin-top:0">Программы обмениваются изменениями через сервер-посредник (ntfy). Пакеты всегда шифруются общим паролем патруля; без него отправка и приём отключены. Нужны интернет и <b>одинаковый пароль длиной не менее 16 символов на всех ролях</b>. Сервер-посредник видит только шифротекст.</p>
  <div class="bar"><label style="flex-direction:row;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx)"><input type="checkbox" style="width:auto;min-height:0" data-ex="on" ${au.on?'checked':''}> Включить автосинхронизацию</label><button class="btn s g" data-act="sxpw">${pw?'Пароль патруля: задан':'Задать пароль патруля'}</button></div>
  <div class="fg"><div class="w"><label>Адрес сервера (ntfy-совместимый)</label><input data-ex="url" value="${e(au.url)}"></div></div>
  <div class="bar"><button class="btn g" data-act="exnow">Синхронизировать сейчас</button><button class="btn g" data-act="exfull">Отправить всё заново</button><button class="btn g" data-act="exdiag">Проверить связь</button></div><p class="mu" style="margin:0" id="ex_stat">${exStatTxt()}</p></div>`}
-EXA.exdiag=async()=>{const au=exAu(),L=[];const ok=(n,v,h)=>L.push([n,v,h||'']);const pw=!!sxS().pw;ok('Пароль патруля задан',pw,pw?'':'Задайте одинаковый пароль у всех ролей');
+EXA.exdiag=async()=>{const au=exAu(),L=[];const ok=(n,v,h)=>L.push([n,v,h||'']);const pw=!!sxS().pw&&sxS().pw.length>=16;ok('Общий пароль патруля (16+ символов)',pw,pw?'':'Задайте одинаковый пароль не менее 16 символов на всех ролях');
  ok('Автосинхронизация включена',!!au.on,au.on?'':'Поставьте галочку выше');
  const sec=!!(window.crypto&&crypto.subtle);ok('Защищённое соединение (https)',sec,sec?'':'Откройте сайт по адресу https://');
  let top='';if(pw&&sec)top=await exTopic();let sent=false,id='';
@@ -1717,12 +1859,12 @@ EXA.exsys=()=>{const u=(D.set.sysurl||'').trim();if(u)window.open(u,'_blank','no
 EXA.exnow=async()=>{if(!exAu().on)return toast('Сначала включите автосинхронизацию');await exSync();draw(1);toast(EXR.err?'Ошибка: '+EXR.err:'Синхронизировано')};
 EXA.exfull=async()=>{if(!exAu().on)return toast('Сначала включите автосинхронизацию');await exSync(true);draw(1);toast(EXR.err?'Ошибка: '+EXR.err:'Всё отправлено')};
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset&&t.dataset.ex;if(!c)return;const au=exAu();
- if(c=='on'){if(t.checked){if(!sxS().pw){t.checked=false;toast('Сначала задайте пароль патруля (одинаковый у всех)');return A.sxpw()}if(!(window.crypto&&crypto.subtle)){t.checked=false;return toast('Нужен адрес https')}au.on=1;au.lastFull=0;save();setTimeout(()=>exSync(true).then(()=>{draw(1)}),50)}else{au.on=0;save()}draw(1)}
+ if(c=='on'){if(t.checked){if(!sxS().pw||sxS().pw.length<16){t.checked=false;toast('Сначала задайте общий пароль патруля длиной не менее 16 символов');return A.sxpw()}if(!(window.crypto&&crypto.subtle)){t.checked=false;return toast('Нужен адрес https')}au.on=1;au.lastFull=0;save();setTimeout(()=>exSync(true).then(()=>{draw(1)}),50)}else{au.on=0;save()}draw(1)}
  else if(c=='sys'){const v=t.value.trim();if(v&&!/^https?:\/\//.test(v)){t.value=D.set.sysurl||'';return toast('Адрес должен начинаться с https://')}D.set.sysurl=v;save();toast('Сохранено');draw(1)}
  else if(c=='url'){const v=t.value.trim();if(!/^https?:\/\//.test(v)){t.value=au.url;return toast('Адрес должен начинаться с https://')}au.url=v;au.since='';save();toast('Сохранено')}});
 setInterval(()=>{if(!document.hidden)exSync()},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)exSync()});window.addEventListener('online',()=>exSync());setTimeout(()=>exSync(),2500);
 SXV=(function(o){return function(){return exAuto()+o()}})(SXV);
-function exInst(){return`<div class="card" style="margin-top:14px"><h3>Система учёта</h3><p class="mu" style="margin-top:0">Адрес вашей основной системы (где фиксируются записи). Появится кнопка «Система учёта» вверху экранов.</p><div class="fg"><div class="w"><label>Адрес</label><input data-ex="sys" placeholder="https://..." value="${e(D.set.sysurl||'')}"></div></div></div><div class="card" style="margin-top:14px"><h3>Установка на телефон</h3><p class="mu" style="margin-top:0">Можно добавить программу на экран «Домой», и она будет открываться как приложение, в том числе без интернета.<br><b>iPhone (Safari):</b> кнопка «Поделиться» → «На экран «Домой»».<br><b>Android (Chrome):</b> меню ⋮ → «Установить приложение» или «Добавить на главный экран».<br>Данные хранятся в этом браузере/приложении, делайте резервные копии.</p></div>`}
+function exInst(){return`<div class="card" style="margin-top:14px"><h3>Система учёта</h3><p class="mu" style="margin-top:0">Адрес вашей основной системы (где фиксируются записи). Появится кнопка «Система учёта» вверху экранов.</p><div class="fg"><div class="w"><label>Адрес</label><input data-ex="sys" placeholder="https://..." value="${e(D.set.sysurl||'')}"></div></div></div><div class="card" style="margin-top:14px"><h3>Установка на телефон</h3><p class="mu" style="margin-top:0">Можно добавить программу на экран «Домой». Для входа и работы с данными требуется подключение к интернету.<br><b>iPhone (Safari):</b> кнопка «Поделиться» → «На экран «Домой»».<br><b>Android (Chrome):</b> меню ⋮ → «Установить приложение» или «Добавить на главный экран».<br>Данные синхронизируются с сервером; резервные копии скачивайте и храните в защищённом месте.</p></div>`}
 /* --- сводка дня --- */
 function exBriefCard(){let L=[];try{L=exBriefItems()}catch(x){L=[]}
  const t=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
@@ -1825,5 +1967,5 @@ function exWeekItems(){const t=today(),f=add(t,-6),L=[],R=D.rounds.filter(r=>r.d
  const od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t).length;L.push('Просроченных поручений: '+od);return L}
 
 
-draw();cmFirst();
-</script></body></html>
+draw();window.addEventListener('patrul:ready',cmFirst);if(window.PATRUL_READY)cmFirst();
+</script><script>window.PATRUL_ROLE='zam';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="staff-workspace.js"></script></body></html>

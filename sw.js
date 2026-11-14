@@ -1,5 +1,55 @@
-const C='patrul-202611091407';const F=["index.html", "icon-180.png", "icon-192.png", "icon-512.png", "zam.html", "zam.webmanifest", "dokumentoved.html", "dokumentoved.webmanifest", "nachalnik.html", "nachalnik.webmanifest", "uchet.html", "uchet.webmanifest"];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(F)).then(()=>self.skipWaiting()))});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!=C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
-self.addEventListener('fetch',e=>{if(e.request.method!='GET')return;const u=new URL(e.request.url);if(u.origin!=location.origin)return;
-e.respondWith(fetch(e.request).then(r=>{if(r.ok){const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp))}return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('index.html'))))});
+'use strict';
+
+const CACHE_NAME = 'patrul-static-20261115-01';
+const ASSETS = [
+  '/', '/index.html', '/icon-180.png', '/icon-192.png', '/icon-512.png',
+  '/cloud-sync.js', '/ops-workspace.js', '/personal-workspace.js', '/staff-workspace.js', '/mail.html', '/mail.js', '/mail-viewer.html', '/mail-viewer.js',
+  '/zam.html', '/zam.webmanifest',
+  '/dokumentoved.html', '/dokumentoved.webmanifest',
+  '/patrol-senior.html', '/patrol-senior.js',
+  '/nachalnik.html', '/nachalnik.webmanifest',
+  '/uchet.html', '/uchet.webmanifest'
+];
+const ASSET_PATHS = new Set(ASSETS);
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Никогда не кешируем API: ответы могут содержать служебные данные.
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Кешируем только заранее перечисленные статические файлы.
+  if (!ASSET_PATHS.has(url.pathname)) return;
+
+  event.respondWith(
+    fetch(request).then(response => {
+      if (response.ok && response.type === 'basic') {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+      }
+      return response;
+    }).catch(() => caches.match(request))
+  );
+});
