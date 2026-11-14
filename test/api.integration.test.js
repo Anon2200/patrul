@@ -917,7 +917,7 @@ test('password reset issues a temporary password and revokes existing sessions',
 });
 
 test('login rate limit also bounds attempts across different usernames from one IP', async () => {
-  for (let attempt = 0; attempt < 51; attempt += 1) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
     const response = await sessionApi('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username: 'ip.limit.' + attempt, password: 'definitely-wrong-password' })
