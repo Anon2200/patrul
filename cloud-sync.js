@@ -456,7 +456,7 @@
           toggle.addEventListener('click',async()=>{if(!confirm((u.active?'Заблокировать':'Разблокировать')+' учётную запись '+u.displayName+'?'))return;toggle.disabled=true;const x=await request('/api/admin/users/'+u.id,'PATCH',{role:u.role,active:!u.active,displayName:u.displayName});if(!x.response.ok){toggle.disabled=false;notice(x.result.error||'Не удалось изменить доступ','error');}else{notice(u.active?'Учётная запись заблокирована.':'Доступ восстановлен.','success');await refresh();}});
           const reset=document.createElement('button');reset.type='button';reset.textContent='Сбросить пароль';reset.style.cssText='padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer';
           reset.addEventListener('click',async()=>{if(!confirm('Сбросить пароль для '+u.displayName+'? Сотруднику потребуется новый временный пароль.'))return;reset.disabled=true;const x=await request('/api/admin/users/'+u.id+'/reset-password','POST',{});reset.disabled=false;if(!x.response.ok)notice(x.result.error||'Не удалось сбросить пароль','error');else{notice('Временный пароль создан.','success');showTemporaryPassword(x.result.temporaryPassword,'Новый временный пароль для '+u.displayName);}});
-          actions.append(role,save,toggle);if(u.role!=='starshiy_patrulya')actions.appendChild(reset);card.appendChild(actions);
+          if(u.role==='starshiy_patrulya'){const note=document.createElement('span');note.textContent='Роль назначена через первое подключение старшего патруля';note.style.cssText='font-size:12px;color:#64748b';actions.append(note,toggle);}else{actions.append(role,save,toggle,reset);}card.appendChild(actions);
         }
         list.appendChild(card);
       });
