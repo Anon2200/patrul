@@ -752,15 +752,42 @@ function createAuth(pool,send,readJson) {
             {id:'nachalnik',name:'Начальник'},
             {id:'zam',name:'Заместитель'},
             {id:'uchet',name:'Старший мастер'},
-            {id:'dokumentoved',name:'Документовед'}
+            {id:'dokumentoved',name:'Документовед'},
+            {id:'starshiy_patrulya',name:'Старший патруля'}
           ]});
           return true;
         }
         const match=p.match(/^\/api\/control\/role-data\/([a-z_]+)$/);
         if(!match){send(res,404,{error:'Маршрут контроля не найден'});return true;}
         const targetRole=match[1];
-        if(!ROLES.has(targetRole)){send(res,400,{error:'Неизвестная роль'});return true;}
+        if(!ROLES.has(targetRole)&&targetRole!=='starshiy_patrulya'){send(res,400,{error:'Неизвестная роль'});return true;}
         if(req.method!=='GET'){send(res,405,{error:'Контрольный режим доступен только для чтения'});return true;}
+        if(targetRole==='starshiy_patrulya'){
+          const shared=await readSharedStaffForSenior();
+          const [accounts,entries]=await Promise.all([
+            pool.query(
+              'SELECT u.id AS "userId",u.display_name AS "displayName",u.is_active AS active,c.staff_key AS "staffKey",c.department_id AS "departmentId",'+
+              'COUNT(e.id) FILTER (WHERE e.entry_date>=CURRENT_DATE-7)::int AS "entriesLast7Days",MAX(e.created_at) AS "lastActivityAt" '+
+              'FROM patrul_users u JOIN patrul_patrol_senior_credentials c ON c.user_id=u.id '+
+              'LEFT JOIN patrul_patrol_senior_entries e ON e.senior_user_id=u.id '+
+              "WHERE u.role='starshiy_patrulya' GROUP BY u.id,c.staff_key,c.department_id ORDER BY lower(u.display_name)"
+            ),
+            pool.query(
+              'SELECT e.id,e.department_id AS "departmentId",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",'+
+              'u.display_name AS "seniorName" FROM patrul_patrol_senior_entries e '+
+              'JOIN patrul_users u ON u.id=e.senior_user_id ORDER BY e.created_at DESC,e.id DESC LIMIT 200'
+            )
+          ]);
+          const departmentNames=new Map((shared.departments||[]).map(item=>[String(item.id),String(item.name||item.id)]));
+          const data={
+            accounts:accounts.rows.map(item=>({...item,departmentName:departmentNames.get(String(item.departmentId))||String(item.departmentId)})),
+            entries:entries.rows.map(item=>({...item,departmentName:departmentNames.get(String(item.departmentId))||String(item.departmentId)}))
+          };
+          const updatedAt=entries.rows[0]?.createdAt||null;
+          await audit(s.id,'role_control_viewed',null,{targetRole,mode:'read_only',accountCount:data.accounts.length,entryCount:data.entries.length});
+          send(res,200,{role:targetRole,data,version:0,updatedAt,readOnly:true,actorRole:s.role});
+          return true;
+        }
         const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[targetRole]);
         const version=q.rowCount?Number(q.rows[0].version):0;
         const updatedAt=q.rowCount?q.rows[0].updated_at:null;
