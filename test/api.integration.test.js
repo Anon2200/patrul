@@ -673,6 +673,46 @@ test('document numbers are server-issued sequentially per year and role-protecte
   assert.equal((await legacySeed.json()).number, '011/2027');
 });
 
+test('post kit issue aggregates duplicate rows and never over-issues stock', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  const start = source.indexOf('function issuePostKit(t){');
+  const end = source.indexOf('\nfunction returnPostKit', start);
+  assert.ok(start >= 0 && end > start, 'post kit issue function must exist');
+  const issueSource = source.slice(start, end);
+  const kit = { id: 'post-1', name: 'КПП', items: [{ id: 'radio-1', name: 'Рация', qty: 2 }, { id: 'radio-1', name: 'Рация', qty: 2 }] };
+  const item = { id: 'radio-1', name: 'Рация', state: 'Отличное' };
+  const D = { postEquipment: [kit], items: [item], ops: [], set: { master: 'CI' } };
+  let stock = 3, toastMessages = [], audit = [];
+  const context = {
+    D, GONE: ['Утеряно','Списано'], BAD: ['Требует ремонта','В ремонте','Неисправно'],
+    postRecipient: p => 'Пост: '+p.id,
+    postIssued: p => {
+      const target='Пост: '+p.id;
+      const qty=D.ops.filter(row=>row.w===target&&row.id==='radio-1').reduce((sum,row)=>sum+(row.op==='Выдача'?row.qty:row.op==='Возврат'?-row.qty:0),0);
+      return qty>0?[{id:'radio-1',qty,item}]:[];
+    },
+    cur: () => stock,
+    toast: message => toastMessages.push(message),
+    aud: message => audit.push(message),
+    draw: () => {},
+    today: () => '2026-11-15'
+  };
+  const issue = vm.runInNewContext(issueSource+'; issuePostKit',context);
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,0,'shortage must not partially issue any kit row');
+  assert.match(toastMessages[0],/Недостаточно на складе/);
+
+  stock=4;toastMessages=[];
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,1,'duplicate rows must collapse to one stock operation');
+  assert.equal(D.ops[0].qty,4,'duplicate quantities must be summed before issuing');
+  assert.equal(D.ops[0].op,'Выдача');
+
+  issue({dataset:{id:'post-1'}});
+  assert.equal(D.ops.length,1,'repeated issue must not issue the kit twice');
+  assert.match(toastMessages.at(-1),/уже выдан/);
+});
+
 test('role workspaces expose shared task and controlled inspection modules', () => {
   const workspace = fs.readFileSync(path.join(__dirname, '..', 'ops-workspace.js'), 'utf8');
   assert.ok(workspace.includes("id:'sharedTasks'"));
