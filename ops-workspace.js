@@ -237,7 +237,7 @@
         return '<article class="ops-record"><div class="ops-record-head"><div><small>'+esc(roleNames[task.creatorRole]||task.creatorRole)+' → '+esc(roleNames[task.assigneeRole]||task.assigneeRole)+'</small><h3>'+esc(task.title)+'</h3></div><span class="ops-status">'+esc(task.status)+'</span></div>'+
           '<p>'+esc(task.description||'Без дополнительного описания')+'</p><p><b>Постановщик:</b> '+esc(task.creatorName)+' · <b>Исполнитель:</b> '+esc(task.assigneeName)+'</p>'+
           '<p><b>Срок:</b> '+esc(due)+' · <b>Приоритет:</b> '+esc(task.priority)+'</p>'+
-          (actions.length?'<div class="ops-actions">'+actions.join('')+'</div>':'')+'</article>';
+          '<div class="ops-actions">'+(actions.length?actions.join(''):'')+'<button type="button" data-task-history="'+esc(task.id)+'">История</button></div><div class="ops-task-history" data-task-history-content="'+esc(task.id)+'" hidden></div>'+'</article>';
       }).join('');
       const options=recipients.map(person=>'<option value="'+esc(person.id)+'">'+esc(person.displayName)+' · '+esc(roleNames[person.role]||person.role)+'</option>').join('');
       shell('<div class="ops-control-banner"><b>Единый список поручений</b><span>Поручения хранятся на сервере и доступны постановщику и назначенному исполнителю. Исполнитель отмечает ход работы, постановщик видит результат.</span></div>'+
@@ -265,6 +265,23 @@
           sharedTasks();
         }catch(_){if(message)message.textContent='Нет соединения с сервером. Поручение не создано.';button.disabled=false;}
       });
+      document.querySelectorAll('[data-task-history]').forEach(button=>button.addEventListener('click',async()=>{
+        const id=button.dataset.taskHistory,host=document.querySelector('[data-task-history-content="'+CSS.escape(id)+'"]');
+        if(!host)return;
+        if(!host.hidden){host.hidden=true;button.textContent='История';return;}
+        host.hidden=false;host.innerHTML='<p class="ops-muted">Загружаем историю…</p>';button.textContent='Скрыть историю';
+        try{
+          const response=await fetch('/api/tasks/'+encodeURIComponent(id)+'/events',{credentials:'same-origin',cache:'no-store'});
+          let result={};try{result=await response.json();}catch(_){}
+          if(!response.ok){host.innerHTML='<p class="ops-muted">'+esc(result.error||'История недоступна')+'</p>';return;}
+          const labels={created:'Поручение создано',status_changed:'Изменён статус'};
+          host.innerHTML='<div class="ops-task-history-list">'+(result.events||[]).map(event=>{
+            const date=event.createdAt?new Date(event.createdAt).toLocaleString('ru-RU'):'';
+            const details=event.details||{},description=event.type==='created'?'Назначено исполнителю. Приоритет: '+(details.priority||'—')+'. Срок: '+(details.dueDate||'без срока'):('Статус: '+(details.from||'—')+' → '+(details.to||'—'));
+            return '<div class="ops-history-row"><span>'+esc(date)+'</span><b>'+esc(labels[event.type]||event.type)+'</b><span>'+esc(event.actorName||'Система')+' · '+esc(description)+'</span></div>';
+          }).join('')||'<p class="ops-muted">Событий пока нет.</p>')+'</div>';
+        }catch(_){host.innerHTML='<p class="ops-muted">Нет соединения с журналом исполнения.</p>';}
+      }));
       $('#ops-task-refresh')?.addEventListener('click',sharedTasks);
       $('#ops-task-read')?.addEventListener('click',async()=>{
         try{await fetch('/api/tasks/notifications/read',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:'{}'});sharedTasks();}
