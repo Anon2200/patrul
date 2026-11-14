@@ -515,7 +515,7 @@ function createAuth(pool,send,readJson) {
         }
         const reset=p.match(/^\/api\/admin\/users\/([0-9a-f-]{36})\/reset-password$/i);
         if(reset&&req.method==='POST'){
-          const id=reset[1],q=await pool.query('SELECT id FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}
+          const id=reset[1],q=await pool.query('SELECT id,role FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}if(q.rows[0].role==='starshiy_patrulya'){send(res,400,{error:'Для этой роли используется PIN-код, его можно изменить в кабинете старшего патруля'});return true;}
           const temp=token().slice(0,24),h=await hashPassword(temp),c=await pool.connect();
           try{await c.query('BEGIN');await c.query('UPDATE patrul_users SET password_hash=$1,must_change_password=TRUE,updated_at=NOW() WHERE id=$2',[h,id]);
             await c.query('UPDATE patrul_sessions SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL',[id]);
