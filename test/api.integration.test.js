@@ -531,6 +531,11 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'present', title: 'Проверка явки' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorAttendance.status, 201);
+  const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
+  assert.equal(supervisorReports.status, 200);
+  assert.ok((await supervisorReports.json()).entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  const seniorReportsDenied = await sessionApi('/api/patrol-senior/reports', {}, seniorCookie);
+  assert.equal(seniorReportsDenied.status, 403);
   const seniorReenroll = await sessionApi('/api/patrol-senior/enroll', {
     method: 'POST',
     body: JSON.stringify({ surname: 'Сидоров', pin: '135790' })
