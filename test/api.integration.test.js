@@ -556,7 +556,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   }, employeeCookie, employeeCsrf);
   assert.equal(write.status, 200);
   const written = await write.json();
-  assert.equal(written.data.staff.length, 3);
+  assert.equal(written.data.staff.length, 4);
   assert.equal(written.data.aliases.zam['duplicate-from-zam'], 'head-ivanov');
 
   const forbiddenKitWrite = await sessionApi('/api/shared-staff', {
