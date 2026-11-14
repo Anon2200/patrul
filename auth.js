@@ -317,7 +317,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')) return false;
     try {
       if(p==='/api/patrol-senior/eligible'&&req.method==='GET') {
         const session=await sessionFor(req);
@@ -740,6 +740,151 @@ function createAuth(pool,send,readJson) {
           return true;
         }
         send(res,404,{error:'Маршрут почты не найден'});return true;
+      }
+
+      if(p==='/api/control/roles' || p.startsWith('/api/control/role-data/')) {
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(s.role!=='uchet'){send(res,403,{error:'Контрольный просмотр доступен только старшему мастеру'});return true;}
+        if(p==='/api/control/roles'&&req.method==='GET'){
+          send(res,200,{roles:[
+            {id:'nachalnik',name:'Начальник'},
+            {id:'zam',name:'Заместитель'},
+            {id:'uchet',name:'Старший мастер'},
+            {id:'dokumentoved',name:'Документовед'}
+          ]});
+          return true;
+        }
+        const match=p.match(/^\/api\/control\/role-data\/([a-z_]+)$/);
+        if(!match){send(res,404,{error:'Маршрут контроля не найден'});return true;}
+        const targetRole=match[1];
+        if(!ROLES.has(targetRole)){send(res,400,{error:'Неизвестная роль'});return true;}
+        if(req.method!=='GET'){send(res,405,{error:'Контрольный режим доступен только для чтения'});return true;}
+        const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[targetRole]);
+        const version=q.rowCount?Number(q.rows[0].version):0;
+        const updatedAt=q.rowCount?q.rows[0].updated_at:null;
+        const data=q.rowCount?await readRoleData(pool,targetRole,q.rows[0]):null;
+        await audit(s.id,'role_control_viewed',null,{targetRole,mode:'read_only',version});
+        send(res,200,{role:targetRole,data,version,updatedAt,readOnly:true,actorRole:s.role});
+        return true;
+      }
+
+      if(p==='/api/tasks/recipients'&&req.method==='GET'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(s.role)){send(res,403,{error:'Создавать поручения могут только вышестоящие роли'});return true;}
+        const q=await pool.query(
+          "SELECT id,\"display_name\" AS \"displayName\",role FROM patrul_users WHERE is_active=TRUE AND role=ANY($1::text[]) ORDER BY CASE role WHEN 'nachalnik' THEN 1 WHEN 'zam' THEN 2 WHEN 'uchet' THEN 3 WHEN 'dokumentoved' THEN 4 ELSE 5 END,display_name",
+          [[...SHARED_STAFF_ROLES,'starshiy_patrulya']]
+        );
+        send(res,200,{recipients:q.rows});
+        return true;
+      }
+
+      if(p==='/api/tasks'&&req.method==='GET'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
+        const canViewAll=s.role==='nachalnik';
+        const [tasks,unread]=await Promise.all([
+          pool.query(
+            'SELECT t.id,t.title,t.description,t.priority,t.status,t.due_date AS "dueDate",t.created_at AS "createdAt",t.updated_at AS "updatedAt",'+
+            't.creator_user_id AS "creatorId",c.display_name AS "creatorName",c.role AS "creatorRole",'+
+            't.assignee_user_id AS "assigneeId",a.display_name AS "assigneeName",a.role AS "assigneeRole",'+
+            '(t.assignee_user_id=$1) AS "isAssignee",(t.creator_user_id=$1) AS "isCreator" '+
+            'FROM patrul_tasks t JOIN patrul_users c ON c.id=t.creator_user_id JOIN patrul_users a ON a.id=t.assignee_user_id '+
+            'WHERE ($2::boolean OR t.creator_user_id=$1 OR t.assignee_user_id=$1) '+
+            "ORDER BY CASE WHEN t.status IN ('Выполнено','Отменено') THEN 1 ELSE 0 END,t.due_date NULLS LAST,t.created_at DESC LIMIT 300",
+            [s.id,canViewAll]
+          ),
+          pool.query('SELECT COUNT(*)::int AS count FROM patrul_task_notifications WHERE user_id=$1 AND is_read=FALSE',[s.id])
+        ]);
+        send(res,200,{tasks:tasks.rows,unreadNotifications:Number(unread.rows[0].count)||0,actorId:s.id,canViewAll});
+        return true;
+      }
+
+      if(p==='/api/tasks'&&req.method==='POST'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(s.role)){send(res,403,{error:'Создавать поручения могут только вышестоящие роли'});return true;}
+        if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const b=await readJson(req);
+        const assigneeId=String(b.assigneeId||'').trim();
+        const title=typeof b.title==='string'?b.title.trim():'';
+        const description=typeof b.description==='string'?b.description.trim():'';
+        const priority=String(b.priority||'Обычный');
+        const dueDate=b.dueDate==null||b.dueDate===''?null:String(b.dueDate);
+        const validDate=dueDate===null||(/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)&&!Number.isNaN(Date.parse(dueDate+'T00:00:00Z'))&&new Date(dueDate+'T00:00:00Z').toISOString().slice(0,10)===dueDate);
+        if(!/^[0-9a-f-]{36}$/i.test(assigneeId)||!title||title.length>180||description.length>4000||
+          !['Обычный','Важный','Срочный'].includes(priority)||!validDate){
+          send(res,400,{error:'Проверьте получателя, тему, описание, приоритет и срок поручения'});return true;
+        }
+        const recipient=await pool.query('SELECT id,display_name,role FROM patrul_users WHERE id=$1 AND is_active=TRUE AND role=ANY($2::text[])',[assigneeId,[...SHARED_STAFF_ROLES,'starshiy_patrulya']]);
+        if(!recipient.rowCount){send(res,404,{error:'Получатель не найден или его учётная запись отключена'});return true;}
+        const client=await pool.connect();
+        let task;
+        try{
+          await client.query('BEGIN');
+          const created=await client.query(
+            'INSERT INTO patrul_tasks(creator_user_id,assignee_user_id,title,description,priority,due_date) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,title,description,priority,status,due_date AS "dueDate",created_at AS "createdAt",updated_at AS "updatedAt"',
+            [s.id,assigneeId,title,description,priority,dueDate]
+          );
+          task=created.rows[0];
+          await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[task.id,s.id,'created',JSON.stringify({assigneeId,priority,dueDate})]);
+          await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[assigneeId,task.id,'assigned','Новое поручение',String(s.display_name||s.username)+' назначил(а) вам поручение: '+title]);
+          await client.query('COMMIT');
+        }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
+        finally{client.release();}
+        await audit(s.id,'task_created',assigneeId,{taskId:task.id,priority,dueDate});
+        send(res,201,{task:{...task,creatorId:s.id,creatorName:s.display_name,assigneeId,assigneeName:recipient.rows[0].display_name,assigneeRole:recipient.rows[0].role,isCreator:true,isAssignee:s.id===assigneeId}});
+        return true;
+      }
+
+      if(p==='/api/tasks/notifications/read'&&req.method==='POST'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const q=await pool.query('UPDATE patrul_task_notifications SET is_read=TRUE,read_at=NOW() WHERE user_id=$1 AND is_read=FALSE RETURNING id',[s.id]);
+        await audit(s.id,'task_notifications_read',s.id,{count:q.rowCount});
+        send(res,200,{ok:true,count:q.rowCount});
+        return true;
+      }
+
+      const taskMatch=p.match(/^\/api\/tasks\/([0-9a-f-]{36})$/i);
+      if(taskMatch&&req.method==='PATCH'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
+        if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const b=await readJson(req),status=String(b.status||'');
+        if(!['Новая','В работе','На проверке','Выполнено','Отменено'].includes(status)){send(res,400,{error:'Недопустимый статус поручения'});return true;}
+        const client=await pool.connect();
+        let updated,notifyUser;
+        try{
+          await client.query('BEGIN');
+          const current=await client.query('SELECT id,creator_user_id,assignee_user_id,status,title FROM patrul_tasks WHERE id=$1 FOR UPDATE',[taskMatch[1]]);
+          if(!current.rowCount){await client.query('ROLLBACK');send(res,404,{error:'Поручение не найдено'});return true;}
+          const row=current.rows[0],isCreator=row.creator_user_id===s.id,isAssignee=row.assignee_user_id===s.id;
+          if(!isCreator&&!isAssignee){await client.query('ROLLBACK');send(res,403,{error:'Это поручение назначено другому сотруднику'});return true;}
+          const allowed=new Set([...(isAssignee?['В работе','На проверке','Выполнено']:[]),...(isCreator?['Новая','Отменено']:[])]);
+          if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может отметить работу, проверку или выполнение':'Постановщик может вернуть поручение в новые или отменить его'});return true;}
+          const q=await client.query("UPDATE patrul_tasks SET status=$2,updated_at=NOW(),completed_at=CASE WHEN $2='Выполнено' THEN NOW() ELSE NULL END WHERE id=$1 RETURNING id,title,description,priority,status,due_date AS \"dueDate\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"",[taskMatch[1],status]);
+          updated=q.rows[0];
+          await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status})]);
+          notifyUser=isAssignee?row.creator_user_id:row.assignee_user_id;
+          if(notifyUser!==s.id)await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»']);
+          await client.query('COMMIT');
+        }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
+        finally{client.release();}
+        await audit(s.id,'task_status_updated',notifyUser||null,{taskId:updated.id,status});
+        send(res,200,{task:updated});
+        return true;
       }
 
       if(p==='/api/shared-staff') {
