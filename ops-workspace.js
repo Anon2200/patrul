@@ -45,6 +45,8 @@
       ]
     }
   };
+  Object.keys(configs).forEach(roleKey=>configs[roleKey].modules.unshift({id:'sharedTasks',name:'Общие поручения',desc:'Назначенные задачи, сроки, исполнители и уведомления',kind:'sharedTasks'}));
+  configs.uchet.modules.unshift({id:'roleControl',name:'Контроль кабинетов',desc:'Просмотр данных любой роли в режиме только чтения',kind:'roleControl'});
   Object.keys(configs).forEach(roleKey=>{const cfg=configs[roleKey];if(!cfg.modules.some(m=>m.id==='seniorReports'))cfg.modules.push({id:'seniorReports',name:'Доклады старших патруля',desc:'Смены, явка, оборудование и доклады за последние 30 дней',kind:'seniorReports'});});
   Object.keys(configs).forEach(roleKey=>{const cfg=configs[roleKey];if(!cfg.modules.some(m=>m.id==='seniorActivation'))cfg.modules.push({id:'seniorActivation',name:'Активация старших патруля',desc:'Выдача одноразовых кодов для первого входа',kind:'seniorActivation'});});
   if(!configs[role]) return;
@@ -95,7 +97,7 @@
   }
   function shell(content){
     const root=$('#m');if(!root)return;
-    root.innerHTML='<section class="ops-shell"><div class="ops-top"><div><div class="ops-eyebrow">ПАТРУЛЬНАЯ СЛУЖБА · ИНСТРУМЕНТЫ</div><h1>'+esc(config.title)+'</h1><p>Новые записи хранятся вместе с данными вашей учётной записи и синхронизируются с сервером.</p></div><button type="button" class="ops-secondary" data-ops="exit">К обзору кабинета</button></div>'+content+'</section>';
+    root.innerHTML='<section class="ops-shell"><div class="ops-top"><div><div class="ops-eyebrow">ПАТРУЛЬНАЯ СЛУЖБА · ИНСТРУМЕНТЫ</div><h1>'+esc(config.title)+'</h1><p>Доступ и действия ограничены полномочиями текущей учётной записи.</p></div><button type="button" class="ops-secondary" data-ops="exit">К обзору кабинета</button></div>'+content+'</section>';
     mountNav();
   }
   function countOpen(){return data().records.filter(r=>!r.archived&&r.status!=='Выполнено'&&r.status!=='Закрыто'&&r.status!=='Исполнено'&&r.status!=='В архиве').length;}
@@ -206,9 +208,127 @@
       shell('<div class="ops-empty">Нет соединения с журналом старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
     }
   }
+  async function sharedTasks(){
+    currentModule='sharedTasks';
+    shell('<div class="ops-count">Загружаем общие поручения и уведомления…</div>');
+    try{
+      const [taskResponse,recipientResponse]=await Promise.all([
+        fetch('/api/tasks',{credentials:'same-origin',cache:'no-store'}),
+        fetch('/api/tasks/recipients',{credentials:'same-origin',cache:'no-store'})
+      ]);
+      let taskResult={},recipientResult={};
+      try{taskResult=await taskResponse.json();}catch(_){}
+      try{recipientResult=await recipientResponse.json();}catch(_){}
+      if(!taskResponse.ok){shell('<div class="ops-empty">'+esc(taskResult.error||'Не удалось загрузить поручения')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
+      if(!recipientResponse.ok){shell('<div class="ops-empty">'+esc(recipientResult.error||'Не удалось загрузить список исполнителей')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
+      const tasks=Array.isArray(taskResult.tasks)?taskResult.tasks:[];
+      const recipients=Array.isArray(recipientResult.recipients)?recipientResult.recipients:[];
+      const roleNames={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед',starshiy_patrulya:'Старший патруля'};
+      const terminal=['Выполнено','Отменено'];
+      const cards=tasks.map(task=>{
+        const due=task.dueDate?dateText(String(task.dueDate).slice(0,10)):'Без срока';
+        const actions=[];
+        if(task.isAssignee&&!terminal.includes(task.status)){
+          actions.push('<button type="button" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button>');
+          actions.push('<button type="button" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button>');
+          actions.push('<button type="button" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button>');
+        }
+        if(task.isCreator&&!terminal.includes(task.status))actions.push('<button type="button" data-task-status="Отменено" data-task-id="'+esc(task.id)+'">Отменить</button>');
+        return '<article class="ops-record"><div class="ops-record-head"><div><small>'+esc(roleNames[task.creatorRole]||task.creatorRole)+' → '+esc(roleNames[task.assigneeRole]||task.assigneeRole)+'</small><h3>'+esc(task.title)+'</h3></div><span class="ops-status">'+esc(task.status)+'</span></div>'+
+          '<p>'+esc(task.description||'Без дополнительного описания')+'</p><p><b>Постановщик:</b> '+esc(task.creatorName)+' · <b>Исполнитель:</b> '+esc(task.assigneeName)+'</p>'+
+          '<p><b>Срок:</b> '+esc(due)+' · <b>Приоритет:</b> '+esc(task.priority)+'</p>'+
+          (actions.length?'<div class="ops-actions">'+actions.join('')+'</div>':'')+'</article>';
+      }).join('');
+      const options=recipients.map(person=>'<option value="'+esc(person.id)+'">'+esc(person.displayName)+' · '+esc(roleNames[person.role]||person.role)+'</option>').join('');
+      shell('<div class="ops-control-banner"><b>Единый список поручений</b><span>Поручения хранятся на сервере и доступны постановщику и назначенному исполнителю. Исполнитель отмечает ход работы, постановщик видит результат.</span></div>'+
+        '<div class="ops-stats"><div><b>'+tasks.filter(x=>x.isAssignee&&!terminal.includes(x.status)).length+'</b><span>у меня на исполнении</span></div><div><b>'+tasks.filter(x=>x.isCreator&&!terminal.includes(x.status)).length+'</b><span>поставлено мной</span></div><div><b>'+Number(taskResult.unreadNotifications||0)+'</b><span>новых уведомлений</span></div></div>'+
+        '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Новое поручение</h2><p class="ops-muted">Получателем может быть сотрудник любой из пяти рабочих ролей.</p></div></div>'+
+        '<form id="ops-shared-task-form"><div class="ops-form-grid"><div class="ops-field"><label>Исполнитель<select name="assigneeId" required><option value="">Выберите сотрудника</option>'+options+'</select></label></div>'+
+        '<div class="ops-field"><label>Тема поручения<input name="title" required maxlength="180" placeholder="Кратко сформулируйте задачу"></label></div>'+
+        '<div class="ops-field"><label>Срок исполнения<input name="dueDate" type="date"></label></div>'+
+        '<div class="ops-field"><label>Приоритет<select name="priority"><option>Обычный</option><option>Важный</option><option>Срочный</option></select></label></div>'+
+        '<div class="ops-field" style="grid-column:1/-1"><label>Содержание поручения<textarea name="description" rows="3" maxlength="4000" placeholder="Укажите задачу, ожидаемый результат и важные детали"></textarea></label></div></div>'+
+        '<div class="ops-form-actions"><button class="ops-primary" type="submit">Назначить поручение</button></div><p class="ops-muted" id="ops-task-form-message" role="status"></p></form></div>'+
+        '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Поручения и исполнение</h2><p class="ops-muted">Показаны поручения, которые назначены вам или созданы вами.</p></div>'+
+        '<div class="ops-actions"><button type="button" class="ops-secondary" id="ops-task-read">Отметить уведомления прочитанными</button><button type="button" class="ops-secondary" id="ops-task-refresh">Обновить</button></div></div>'+
+        '<div class="ops-list">'+(cards||'<div class="ops-empty">Поручений пока нет.</div>')+'</div></div>');
+      const form=$('#ops-shared-task-form');
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+        const button=form.querySelector('[type=submit]'),message=$('#ops-task-form-message');
+        const values=Object.fromEntries(new FormData(form).entries());
+        button.disabled=true;if(message)message.textContent='Отправляем поручение…';
+        try{
+          const response=await fetch('/api/tasks',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:JSON.stringify(values)});
+          let result={};try{result=await response.json();}catch(_){}
+          if(!response.ok){if(message)message.textContent=result.error||'Не удалось назначить поручение';button.disabled=false;return;}
+          sharedTasks();
+        }catch(_){if(message)message.textContent='Нет соединения с сервером. Поручение не создано.';button.disabled=false;}
+      });
+      $('#ops-task-refresh')?.addEventListener('click',sharedTasks);
+      $('#ops-task-read')?.addEventListener('click',async()=>{
+        try{await fetch('/api/tasks/notifications/read',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:'{}'});sharedTasks();}
+        catch(_){alert('Не удалось обновить состояние уведомлений.');}
+      });
+      document.querySelectorAll('[data-task-status]').forEach(button=>button.addEventListener('click',async()=>{
+        button.disabled=true;
+        try{
+          const response=await fetch('/api/tasks/'+encodeURIComponent(button.dataset.taskId),{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:JSON.stringify({status:button.dataset.taskStatus})});
+          let result={};try{result=await response.json();}catch(_){}
+          if(!response.ok){alert(result.error||'Не удалось изменить статус поручения');button.disabled=false;return;}
+          sharedTasks();
+        }catch(_){alert('Нет соединения с сервером.');button.disabled=false;}
+      }));
+    }catch(_){
+      shell('<div class="ops-empty">Не удалось связаться с сервером поручений.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
+    }
+  }
+
+  const controlRoleLabels={nachalnik:'Начальник',zam:'Заместитель',uchet:'Старший мастер',dokumentoved:'Документовед'};
+  const controlFieldLabels={staff:'Личный состав',departments:'Отделения',duty:'Наряды на службу',opsHub:'Рабочий центр',viol:'Журнал нарушений',inc:'Журнал происшествий',rounds:'Обходы',mat:'Материалы',settings:'Настройки',set:'Параметры'};
+  function controlPreview(value){
+    try{
+      return (JSON.stringify(value,(key,item)=>{
+        if(typeof item==='string'&&item.startsWith('data:image/'))return '[изображение скрыто в контрольном просмотре]';
+        if(typeof item==='string'&&item.length>6000)return item.slice(0,6000)+'… [текст сокращён]';
+        return item;
+      },2)||'null').slice(0,26000);
+    }catch(_){return '[Не удалось сформировать представление данных]';}
+  }
+  async function roleControl(targetRole='nachalnik'){
+    if(role!=='uchet'){home();return;}
+    currentModule='roleControl';
+    const options=Object.entries(controlRoleLabels).map(([id,name])=>'<option value="'+id+'"'+(id===targetRole?' selected':'')+'>'+name+'</option>').join('');
+    shell('<div class="ops-control-banner"><b>КОНТРОЛЬНЫЙ ПРОСМОТР · ТОЛЬКО ЧТЕНИЕ</b><span>Вы остаетесь в своей учётной записи старшего мастера. Действия от имени другого сотрудника не выполняются; каждый просмотр фиксируется в журнале безопасности.</span></div>'+
+      '<div class="ops-panel"><div class="ops-toolbar"><label style="min-width:230px">Кабинет для просмотра<select id="ops-control-role">'+options+'</select></label><button class="ops-secondary" data-ops="home">Завершить просмотр</button></div><div id="ops-control-content" class="ops-muted">Загружаем данные выбранной роли…</div></div>');
+    const selector=$('#ops-control-role');
+    if(selector)selector.addEventListener('change',()=>roleControl(selector.value));
+    try{
+      const response=await fetch('/api/control/role-data/'+encodeURIComponent(targetRole),{credentials:'same-origin',cache:'no-store'});
+      let result={};try{result=await response.json();}catch(_){}
+      const target=$('#ops-control-content');if(!target)return;
+      if(!response.ok){target.innerHTML='<div class="ops-empty">'+esc(result.error||'Нет доступа к данным роли')+'</div>';return;}
+      const data=result.data&&typeof result.data==='object'?result.data:{};
+      const keys=Object.keys(data);
+      const blocks=keys.map(key=>{
+        const value=data[key],label=controlFieldLabels[key]||key;
+        const size=Array.isArray(value)?value.length:value&&typeof value==='object'?Object.keys(value).length:'';
+        return '<details class="ops-control-section"><summary>'+esc(label)+(size!==''?' · '+size+' элементов':'')+'</summary><pre>'+esc(controlPreview(value))+'</pre></details>';
+      }).join('');
+      const hub=data.opsHub&&typeof data.opsHub==='object'?data.opsHub:{};
+      const recent=Array.isArray(hub.records)?hub.records.filter(item=>item&&!item.archived).slice().sort((a,b)=>String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||''))).slice(0,20):[];
+      const recentMarkup=recent.length?'<div class="ops-panel"><h3>Последние записи рабочего центра</h3>'+recent.map(item=>'<article class="ops-record"><small>'+esc(item.module||'Раздел')+' · '+esc(dateText(String(item.date||'')))+'</small><h3>'+esc(item.title||'Без названия')+'</h3><span class="ops-status">'+esc(item.status||'Без статуса')+'</span></article>').join('')+'</div>':'';
+      target.innerHTML='<div class="ops-stats"><div><b>'+keys.length+'</b><span>разделов данных</span></div><div><b>'+recent.length+'</b><span>последних записей рабочего центра</span></div><div><b>'+Number(result.version||0)+'</b><span>версия данных</span></div></div><p class="ops-muted">Кабинет: <b>'+esc(controlRoleLabels[result.role]||result.role)+'</b> · Обновлено: '+esc(result.updatedAt?new Date(result.updatedAt).toLocaleString('ru-RU'):'нет сохранённых данных')+'</p>'+recentMarkup+
+        '<div class="ops-panel"><h3>Структура данных кабинета</h3>'+(blocks||'<div class="ops-empty">В этом кабинете пока нет сохранённых данных.</div>')+'</div>'+
+        '<p class="ops-muted">Контрольный режим не предоставляет кнопок сохранения, удаления или изменения чужих записей. Чтобы вернуться к работе старшего мастера, нажмите «Завершить просмотр».</p>';
+    }catch(_){
+      const target=$('#ops-control-content');if(target)target.innerHTML='<div class="ops-empty">Нет соединения с сервером контрольного просмотра.</div>';
+    }
+  }
+
   function list(id){
     currentModule=id;const m=moduleById(id);if(!m){home();return;}
-    if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}if(m.kind==='seniorReports'){seniorReports();return;}if(m.kind==='seniorActivation'){seniorActivation();return;}
+    if(m.kind==='sharedTasks'){sharedTasks();return;}if(m.kind==='roleControl'){roleControl();return;}if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}if(m.kind==='seniorReports'){seniorReports();return;}if(m.kind==='seniorActivation'){seniorActivation();return;}
     const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||matchesSearch(r,filterText))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rows=all.length?all.map(r=>card(r,m)).join(''):'<div class="ops-empty">Записей пока нет. Нажмите «Добавить запись», чтобы создать первую.</div>';
     shell('<div class="ops-toolbar"><button class="ops-primary" data-ops="new">＋ Добавить запись</button><button class="ops-secondary" data-ops="home">Все разделы</button><input id="ops-filter" placeholder="Поиск в разделе…" value="'+esc(filterText)+'"><select id="ops-status"><option>Все записи</option>'+statusOptions(filterStatus)+'</select></div><div class="ops-count">Найдено записей: '+all.length+'</div><div class="ops-list">'+rows+'</div>');
@@ -366,7 +486,7 @@
     document.addEventListener('change',e=>{if(e.target.id==='ops-status'){filterStatus=e.target.value;list(currentModule);}});
   }
   const style=document.createElement('style');
-  style.textContent='.ops-shell{max-width:1100px;margin:0 auto;padding:8px 0 36px;color:var(--tx,#172536)}.ops-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}.ops-top h1{margin:4px 0;font-size:clamp(22px,3vw,30px)}.ops-top p,.ops-muted{color:var(--mu,#718096);font-size:13px}.ops-eyebrow{font-size:10px;letter-spacing:1.4px;color:var(--mu)}.ops-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.ops-panel-head h2{margin:0}.ops-task-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd)}.ops-task-row:last-child{border-bottom:0}.ops-task-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.ops-deadline-tag{display:inline-flex;align-items:center;border:1px solid var(--bd);border-radius:999px;padding:5px 9px;font-size:11px;white-space:nowrap;background:var(--card)}.ops-deadline-tag.is-late{border-color:#d97757;color:#b5472b;background:#fff2ed}.ops-deadline-tag.is-today{border-color:#d49b35;color:#8a5a08;background:#fff8e8}.ops-search-result{margin:10px 0}.ops-task-done{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:6px 9px;font:inherit;font-size:12px;cursor:pointer}.ops-task-row>div{display:grid;gap:4px}.ops-task-row>div span{font-size:12px;color:var(--mu)}.ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:12px}.ops-card,.ops-panel,.ops-record{background:var(--card,#fff);border:1px solid var(--bd,#dbe3ec);border-radius:13px;padding:15px;color:var(--tx,#172536)}.ops-card{display:grid;gap:8px;text-align:left;cursor:pointer;min-height:130px}.ops-card b{font-size:15px}.ops-card span,.ops-card small{color:var(--mu,#718096);font-size:12px}.ops-card-icon{font-size:20px}.ops-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin:14px 0}.ops-stats>div{padding:14px;border:1px solid var(--bd,#dbe3ec);border-radius:12px;background:var(--card,#fff);display:grid;gap:4px}.ops-stats b{font-size:24px}.ops-stats span{font-size:12px;color:var(--mu)}.ops-alert,.ops-good{padding:13px;border-radius:10px;margin:12px 0;display:grid;gap:4px;background:var(--warn-bg,#fff7e6);border:1px solid var(--bd)}.ops-good{background:var(--card)}.ops-toolbar,.ops-search,.ops-form-actions,.ops-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.ops-toolbar input{flex:1;min-width:150px}.ops-primary,.ops-secondary,.ops-actions button{border:1px solid var(--bd,#ccd5e0);border-radius:9px;padding:10px 13px;cursor:pointer;background:var(--card,#fff);color:var(--tx,#172536);font:inherit}.ops-primary{background:#176b65;color:white;border-color:#176b65}.ops-record{margin:10px 0}.ops-record h3{margin:5px 0 10px;font-size:16px}.ops-record small,.ops-record div{font-size:12px;color:var(--mu)}.ops-record div{margin:4px 0}.ops-record div span{font-weight:600}.ops-record-head{display:flex;justify-content:space-between;gap:10px}.ops-status{font-size:11px;padding:5px 8px;border-radius:20px;background:var(--bg,#eef2f7);white-space:nowrap;height:max-content}.ops-empty{padding:28px;text-align:center;color:var(--mu);border:1px dashed var(--bd);border-radius:12px}.ops-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}.ops-field label{display:grid;gap:6px;font-size:13px;font-weight:600}.ops-field input,.ops-field textarea,.ops-field select,.ops-toolbar input,.ops-toolbar select,.ops-search input,.ops-panel>input,.ops-template{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--bd,#ccd5e0);border-radius:8px;background:var(--card,#fff);color:var(--tx,#172536);font:inherit}.ops-field small{font-weight:400;color:var(--mu)}.ops-photo{display:block;max-width:220px;max-height:180px;object-fit:contain;margin-top:8px;border-radius:8px}.ops-table{width:100%;border-collapse:collapse;margin:14px 0}.ops-table th,.ops-table td{text-align:left;padding:9px;border-bottom:1px solid var(--bd);font-size:13px}.ops-history-row{display:grid;grid-template-columns:minmax(145px,1fr) minmax(110px,.7fr) 2fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--bd);font-size:12px}.ops-history-row span:first-child{color:var(--mu)}@media(max-width:560px){.ops-shell{padding:4px 0 24px}.ops-top{display:grid;gap:10px}.ops-top>button{width:100%;min-height:42px}.ops-history-row{grid-template-columns:1fr 1fr}.ops-history-row span:last-child{grid-column:1/-1}.ops-toolbar>*{max-width:100%;width:100%;min-height:42px;box-sizing:border-box}.ops-search{display:grid;grid-template-columns:1fr}.ops-search>*{width:100%;min-height:42px;box-sizing:border-box}.ops-record-head{display:block}.ops-record-head>.ops-status,.ops-record-head>.ops-deadline-tag{display:inline-flex;margin:4px 0}.ops-task-row{align-items:flex-start;flex-direction:column}.ops-task-actions{width:100%;justify-content:space-between}.ops-actions button{min-height:40px;flex:1}.ops-form-actions>*{flex:1;min-height:42px}.ops-table{display:block;max-width:100%;overflow-x:auto}.ops-panel{min-width:0}.ops-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:360px){.ops-stats>div{padding:10px}.ops-stats b{font-size:20px}.ops-card,.ops-panel,.ops-record{padding:12px}}@media print{#nv,#bn,#hd,#patrul-cloud-status,#ops-hub-btn,.ops-top button,.ops-toolbar,.ops-actions,.ops-form-actions{display:none!important}.ops-shell{max-width:none}.ops-record,.ops-panel{break-inside:avoid;border:0}}';
+  style.textContent='.ops-control-banner{display:grid;gap:5px;padding:14px 16px;margin:12px 0;border:1px solid #b9a26a;border-left:4px solid #b78a24;border-radius:10px;background:var(--card);}.ops-control-section{border:1px solid var(--bd);border-radius:9px;margin:8px 0;padding:10px 12px;background:var(--card)}.ops-control-section summary{cursor:pointer;font-weight:650}.ops-control-section pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font:12px/1.5 ui-monospace,monospace;color:var(--tx);background:var(--bg);padding:12px;border-radius:8px}.ops-shell{max-width:1100px;margin:0 auto;padding:8px 0 36px;color:var(--tx,#172536)}.ops-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}.ops-top h1{margin:4px 0;font-size:clamp(22px,3vw,30px)}.ops-top p,.ops-muted{color:var(--mu,#718096);font-size:13px}.ops-eyebrow{font-size:10px;letter-spacing:1.4px;color:var(--mu)}.ops-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.ops-panel-head h2{margin:0}.ops-task-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd)}.ops-task-row:last-child{border-bottom:0}.ops-task-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.ops-deadline-tag{display:inline-flex;align-items:center;border:1px solid var(--bd);border-radius:999px;padding:5px 9px;font-size:11px;white-space:nowrap;background:var(--card)}.ops-deadline-tag.is-late{border-color:#d97757;color:#b5472b;background:#fff2ed}.ops-deadline-tag.is-today{border-color:#d49b35;color:#8a5a08;background:#fff8e8}.ops-search-result{margin:10px 0}.ops-task-done{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:6px 9px;font:inherit;font-size:12px;cursor:pointer}.ops-task-row>div{display:grid;gap:4px}.ops-task-row>div span{font-size:12px;color:var(--mu)}.ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:12px}.ops-card,.ops-panel,.ops-record{background:var(--card,#fff);border:1px solid var(--bd,#dbe3ec);border-radius:13px;padding:15px;color:var(--tx,#172536)}.ops-card{display:grid;gap:8px;text-align:left;cursor:pointer;min-height:130px}.ops-card b{font-size:15px}.ops-card span,.ops-card small{color:var(--mu,#718096);font-size:12px}.ops-card-icon{font-size:20px}.ops-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin:14px 0}.ops-stats>div{padding:14px;border:1px solid var(--bd,#dbe3ec);border-radius:12px;background:var(--card,#fff);display:grid;gap:4px}.ops-stats b{font-size:24px}.ops-stats span{font-size:12px;color:var(--mu)}.ops-alert,.ops-good{padding:13px;border-radius:10px;margin:12px 0;display:grid;gap:4px;background:var(--warn-bg,#fff7e6);border:1px solid var(--bd)}.ops-good{background:var(--card)}.ops-toolbar,.ops-search,.ops-form-actions,.ops-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.ops-toolbar input{flex:1;min-width:150px}.ops-primary,.ops-secondary,.ops-actions button{border:1px solid var(--bd,#ccd5e0);border-radius:9px;padding:10px 13px;cursor:pointer;background:var(--card,#fff);color:var(--tx,#172536);font:inherit}.ops-primary{background:#176b65;color:white;border-color:#176b65}.ops-record{margin:10px 0}.ops-record h3{margin:5px 0 10px;font-size:16px}.ops-record small,.ops-record div{font-size:12px;color:var(--mu)}.ops-record div{margin:4px 0}.ops-record div span{font-weight:600}.ops-record-head{display:flex;justify-content:space-between;gap:10px}.ops-status{font-size:11px;padding:5px 8px;border-radius:20px;background:var(--bg,#eef2f7);white-space:nowrap;height:max-content}.ops-empty{padding:28px;text-align:center;color:var(--mu);border:1px dashed var(--bd);border-radius:12px}.ops-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}.ops-field label{display:grid;gap:6px;font-size:13px;font-weight:600}.ops-field input,.ops-field textarea,.ops-field select,.ops-toolbar input,.ops-toolbar select,.ops-search input,.ops-panel>input,.ops-template{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--bd,#ccd5e0);border-radius:8px;background:var(--card,#fff);color:var(--tx,#172536);font:inherit}.ops-field small{font-weight:400;color:var(--mu)}.ops-photo{display:block;max-width:220px;max-height:180px;object-fit:contain;margin-top:8px;border-radius:8px}.ops-table{width:100%;border-collapse:collapse;margin:14px 0}.ops-table th,.ops-table td{text-align:left;padding:9px;border-bottom:1px solid var(--bd);font-size:13px}.ops-history-row{display:grid;grid-template-columns:minmax(145px,1fr) minmax(110px,.7fr) 2fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--bd);font-size:12px}.ops-history-row span:first-child{color:var(--mu)}@media(max-width:560px){.ops-shell{padding:4px 0 24px}.ops-top{display:grid;gap:10px}.ops-top>button{width:100%;min-height:42px}.ops-history-row{grid-template-columns:1fr 1fr}.ops-history-row span:last-child{grid-column:1/-1}.ops-toolbar>*{max-width:100%;width:100%;min-height:42px;box-sizing:border-box}.ops-search{display:grid;grid-template-columns:1fr}.ops-search>*{width:100%;min-height:42px;box-sizing:border-box}.ops-record-head{display:block}.ops-record-head>.ops-status,.ops-record-head>.ops-deadline-tag{display:inline-flex;margin:4px 0}.ops-task-row{align-items:flex-start;flex-direction:column}.ops-task-actions{width:100%;justify-content:space-between}.ops-actions button{min-height:40px;flex:1}.ops-form-actions>*{flex:1;min-height:42px}.ops-table{display:block;max-width:100%;overflow-x:auto}.ops-panel{min-width:0}.ops-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:360px){.ops-stats>div{padding:10px}.ops-stats b{font-size:20px}.ops-card,.ops-panel,.ops-record{padding:12px}}@media print{#nv,#bn,#hd,#patrul-cloud-status,#ops-hub-btn,.ops-top button,.ops-toolbar,.ops-actions,.ops-form-actions{display:none!important}.ops-shell{max-width:none}.ops-record,.ops-panel{break-inside:avoid;border:0}}';
   document.head.appendChild(style);
   const menu=navTarget();
   if(menu){menu.addEventListener('click',e=>{if(e.target.closest('#ops-hub-btn'))return;if(e.target.closest('button[data-act="tab"]')||e.target.closest('button[data-v]')){if(active){active=false;setTimeout(mountNav,0);}}},true);}
