@@ -23,6 +23,9 @@ const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
 const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
 const mailClient = fs.readFileSync('mail.js', 'utf8');
+const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
+const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
+const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
 const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
 let staffWorkspace = '';
@@ -49,6 +52,16 @@ if (countMatches(index, /name="theme-color"/g) !== 1 ||
 
 
 if (!server.includes("['/', 'index.html']")) fail('server does not serve / as index.html');
+if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server.includes("['/patrol-senior.js', 'patrol-senior.js']")) fail('server must serve the dedicated patrol senior page and client');
+if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
+if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
+if (!patrolSeniorPage.includes('src="patrol-senior.js"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must provide first-entry PIN setup and surname/PIN login');
+for (const feature of ['/api/patrol-senior/enroll','/api/patrol-senior/login','/api/patrol-senior/workspace','/api/patrol-senior/entries','/api/patrol-senior/reports']) {
+  if (!patrolSeniorAuth.includes(feature)) fail('patrol senior API missing ' + feature);
+}
+if (!patrolSeniorAuth.includes("session.role!=='starshiy_patrulya'") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(s.role)")) fail('patrol senior access must remain department-scoped and block shared personnel administration');
+if (!patrolSeniorClient.includes('data-date') || !patrolSeniorClient.includes('data-attendance') || !patrolSeniorClient.includes('data-equipment-status') || !patrolSeniorClient.includes('data-report')) fail('patrol senior dashboard must provide date selection, attendance, equipment and reports');
+
 
 if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
   fail('server must route requests through the individual authentication module');
