@@ -367,6 +367,7 @@
       if(currentUser.role!==role){status('нет доступа к выбранной роли','#9a6700');const denied=panel('<h3>Нет доступа к разделу</h3><p>Ваша персональная учётная запись не назначена для этой роли. Обратитесь к Старшему мастеру.</p><button type="button" data-retry style="width:100%;padding:11px">Вернуться к выбору роли</button>');denied.box.querySelector('[data-retry]').addEventListener('click',()=>location.href='/');return;}
       if(currentUser.mustChangePassword)await forcePasswordChange();
       addControls();
+      window.PATRUL_SHARED_REQUEST=(...args)=>request(...args);
       const fetched=await request(api);
       if(!fetched.response.ok)throw new Error(fetched.result.error||'Ошибка загрузки данных');
       const data=fetched.result;version=Number(data.version||0);
