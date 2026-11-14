@@ -16,7 +16,8 @@
     zam: {
       title: 'Рабочий центр заместителя',
       modules: [
-        {id:'shift',name:'Карточка развода',desc:'Контроль подготовки смены',fields:[['date','Дата развода','date'],['time','Время','time'],['attendance','Явка, ФИО и отметки','area'],['uniform','Форма и внешний вид','area'],['readiness','Готовность и инструктаж','area']]},
+        {id:'rollCall',name:'Электронный развод',desc:'Явка по единому личному составу, инструктаж и готовность отделения',kind:'rollCall'},
+        {id:'shift',name:'Карточка развода',desc:'Дополнительные заметки по подготовке смены',fields:[['date','Дата развода','date'],['time','Время','time'],['attendance','Дополнительные отметки','area'],['uniform','Форма и внешний вид','area'],['readiness','Готовность и инструктаж','area']]},
         {id:'corrections',name:'Контроль устранения',desc:'Повторные проверки и закрытие замечаний',fields:[['post','Пост / место'],['responsible','Ответственный'],['deadline','Срок устранения','date'],['result','Результат повторной проверки','area'],['checkedAt','Дата проверки','date']]},
         {id:'inspections',name:'План и журнал проверок постов',desc:'Плановые проверки, замечания, сроки и повторный контроль',fields:[['inspectionDate','Дата проверки','date'],['post','Пост / участок'],['inspector','Проверяющий'],['readiness','Готовность поста','select',['Готов','Замечания','Не готов']],['findings','Выявленные замечания','area'],['responsible','Ответственный за устранение'],['deadline','Срок устранения','date'],['recheck','Результат повторной проверки','area']]},
         {id:'handover',name:'Передача смены',desc:'Состояние смены, незакрытые вопросы и подтверждение приёма',fields:[['date','Дата передачи','date'],['time','Время передачи','time'],['fromPerson','Сдающий смену'],['toPerson','Принимающий смену'],['readiness','Готовность постов','select',['Готовы','Есть замечания','Не готовы']],['openIssues','Незакрытые вопросы','area'],['equipment','Состояние имущества','area'],['acceptedAt','Дата подтверждения приёма','date']]},
@@ -148,7 +149,7 @@
     const record=data().records.find(item=>item.id===recordId);if(!record)return;
     const module=moduleById(record.module),fields=record.fields||{};
     const details=Object.entries(fields).filter(([key,value])=>value!==''&&value!==null&&value!==undefined&&!(typeof value==='string'&&value.startsWith('data:image/')))
-      .map(([key,value])=>key+': '+String(value)).join('\n').slice(0,3400);
+      .map(([key,value])=>key+': '+(value&&typeof value==='object'?JSON.stringify(value):String(value))).join('\n').slice(0,3400);
     const description=['Источник: '+(module?module.name:record.module),record.number?'Номер: '+record.number:'','Дата записи: '+dateText(record.date),details].filter(Boolean).join('\n\n').slice(0,3900);
     sharedTasks({title:record.title,description,dueDate:calendarDay(fields.deadline||fields.due),priority:fields.priority||'Обычный'});
     loadTaskSummary();
@@ -242,6 +243,96 @@
       shell('<div class="ops-empty">Нет соединения с журналом старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
     }
   }
+  async function rollCall(departmentId='',serviceDate=today()){
+    currentModule='rollCall';
+    shell('<div class="ops-empty">Загружаем общий личный состав для электронного развода…</div>');
+    try{
+      const response=await fetch('/api/shared-staff',{credentials:'same-origin',cache:'no-store'});
+      let result={};try{result=await response.json();}catch(_){}
+      if(!response.ok){shell('<div class="ops-empty">'+esc(result.error||'Не удалось загрузить общий личный состав')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
+      const shared=result.data||{},staff=Array.isArray(shared.staff)?shared.staff:[];
+      const departments=Array.isArray(shared.departments)?shared.departments:[];
+      const selectedDepartment=departments.some(item=>String(item.id)===String(departmentId))?String(departmentId):'';
+      const roster=staff.filter(person=>!selectedDepartment||String(person.departmentId||'')===selectedDepartment)
+        .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'));
+      const department=departments.find(item=>String(item.id)===selectedDepartment);
+      const departmentName=department?department.name:'Все отделения';
+      const date=calendarDay(serviceDate)||today();
+      const draftKey='rollCall:'+selectedDepartment+':'+date;
+      const draft=data().drafts[draftKey]||{};
+      const attendanceOptions=[['unmarked','Не отмечено'],['present','Прибыл'],['late','Опоздал'],['absent','Отсутствует'],['excused','Уважительная причина']];
+      const departmentOptions='<option value="">Все отделения</option>'+departments.map(item=>'<option value="'+esc(item.id)+'"'+(String(item.id)===selectedDepartment?' selected':'')+'>'+esc(item.name)+'</option>').join('');
+      const rows=roster.map(person=>{
+        const field='att_'+String(person.k),chosen=draft[field]||'unmarked';
+        return '<div class="ops-record ops-rollcall-row"><div class="ops-record-head"><div><b>'+esc(person.name)+'</b><small>'+esc(person.pos||'Должность не указана')+(person.grp?' · Группа '+esc(person.grp):'')+'</small></div><select name="'+esc(field)+'" aria-label="Явка '+esc(person.name)+'">'+attendanceOptions.map(([value,label])=>'<option value="'+value+'"'+(chosen===value?' selected':'')+'>'+label+'</option>').join('')+'</select></div></div>';
+      }).join('');
+      const recent=records('rollCall').filter(item=>!item.archived).slice(0,5).map(item=>card(item,moduleById('rollCall'))).join('');
+      shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">Все разделы</button><span class="ops-muted">Общий личный состав · версия '+Number(result.version||0)+'</span></div>'+
+        '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Электронный развод</h2><p class="ops-muted">Отметки берутся из единого списка сотрудников. Новые записи личного состава здесь не создаются.</p></div><span class="ops-status">'+roster.length+' сотрудников</span></div>'+
+        '<form id="ops-roll-call-form"><div class="ops-form-grid">'+
+        '<div class="ops-field"><label>Дата развода<input type="date" name="serviceDate" value="'+esc(date)+'" required></label></div>'+
+        '<div class="ops-field"><label>Отделение<select name="departmentId">'+departmentOptions+'</select></label></div>'+
+        '<div class="ops-field"><label>Ведущий развода<input name="instructor" maxlength="180" value="'+esc(draft.instructor||'')+'" placeholder="ФИО руководителя"></label></div>'+
+        '<div class="ops-field"><label>Пост / участок<input name="post" maxlength="180" value="'+esc(draft.post||'')+'" placeholder="Место несения службы"></label></div>'+
+        '<div class="ops-field"><label>Готовность смены<select name="readiness">'+['Не оценена','Готова','Есть замечания','Не готова'].map(value=>'<option'+((draft.readiness||'Не оценена')===value?' selected':'')+'>'+esc(value)+'</option>').join('')+'</select></label></div>'+
+        '<div class="ops-field"><label>Форма и внешний вид<textarea name="uniform" rows="2">'+esc(draft.uniform||'')+'</textarea></label></div>'+
+        '<div class="ops-field" style="grid-column:1/-1"><label>Инструктаж и поставленные задачи<textarea name="briefing" rows="3">'+esc(draft.briefing||'')+'</textarea></label></div>'+
+        '<div class="ops-field" style="grid-column:1/-1"><label>Выявленные замечания и вопросы<textarea name="remarks" rows="3">'+esc(draft.remarks||'')+'</textarea></label></div></div>'+
+        '<div class="ops-panel-head"><div><h3>Явка личного состава</h3><p class="ops-muted">Каждому сотруднику назначается отдельная отметка.</p></div><button class="ops-secondary" type="button" id="ops-rollcall-all-present">Все прибыли</button></div>'+
+        '<div class="ops-list">'+(rows||'<div class="ops-empty">В выбранном отделении нет сотрудников. Выберите другое отделение или проверьте общий личный состав.</div>')+'</div>'+
+        '<div class="ops-form-actions"><button class="ops-primary" type="submit" '+(roster.length?'':'disabled')+'>Сохранить развод в журнал</button><span class="ops-muted">Черновик сохраняется автоматически.</span></div></form></div>'+
+        '<div class="ops-panel"><h2>Последние разводы</h2><div class="ops-list">'+(recent||'<div class="ops-empty">Сохранённых разводов пока нет.</div>')+'</div></div>');
+      const form=$('#ops-roll-call-form');
+      const saveDraft=()=>{
+        if(!form)return;
+        const values=Object.fromEntries(new FormData(form).entries());
+        delete values.serviceDate;delete values.departmentId;
+        data().drafts[draftKey]=values;persist();
+      };
+      form.addEventListener('input',saveDraft);
+      form.addEventListener('change',event=>{
+        if(event.target.name==='departmentId'){saveDraft();rollCall(event.target.value,date);return;}
+        if(event.target.name==='serviceDate'){saveDraft();rollCall(selectedDepartment,event.target.value);return;}
+        saveDraft();
+      });
+      $('#ops-rollcall-all-present')?.addEventListener('click',()=>{
+        form.querySelectorAll('select[name^="att_"]').forEach(select=>{select.value='present';});
+        saveDraft();
+      });
+      form.addEventListener('submit',event=>{
+        event.preventDefault();
+        const values=Object.fromEntries(new FormData(form).entries());
+        const attendance=roster.map(person=>{
+          const status=String(values['att_'+String(person.k)]||'unmarked');
+          return {staffKey:String(person.k),name:String(person.name||''),position:String(person.pos||''),status};
+        });
+        const unmarked=attendance.filter(item=>item.status==='unmarked').length;
+        if(unmarked&&!confirm('Не отмечены '+unmarked+' сотрудников. Сохранить развод с такими отметками?'))return;
+        const now=new Date().toISOString();
+        const record={
+          id:uid(),module:'rollCall',
+          title:'Развод · '+departmentName+' · '+dateText(date),
+          date,status:'Проведён',
+          fields:{
+            departmentId:selectedDepartment,departmentName,
+            instructor:String(values.instructor||''),post:String(values.post||''),
+            readiness:String(values.readiness||'Не оценена'),uniform:String(values.uniform||''),
+            briefing:String(values.briefing||''),remarks:String(values.remarks||''),
+            attendance
+          },
+          createdAt:now,updatedAt:now,archived:false
+        };
+        data().records.unshift(record);
+        log('Сохранён электронный развод',record);
+        delete data().drafts[draftKey];
+        persist();
+        list('rollCall');
+      });
+    }catch(_){
+      shell('<div class="ops-empty">Не удалось загрузить электронный развод. Проверьте соединение и права доступа к общему личному составу.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
+    }
+  }
+
   async function sharedTasks(prefill=null){
     currentModule='sharedTasks';
     shell('<div class="ops-count">Загружаем общие поручения и уведомления…</div>');
@@ -392,7 +483,7 @@
 
   function list(id){
     currentModule=id;const m=moduleById(id);if(!m){home();return;}
-    if(m.kind==='sharedTasks'){sharedTasks();return;}if(m.kind==='roleControl'){roleControl();return;}if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}if(m.kind==='seniorReports'){seniorReports();return;}if(m.kind==='seniorActivation'){seniorActivation();return;}
+    if(m.kind==='rollCall'){rollCall();return;}if(m.kind==='sharedTasks'){sharedTasks();return;}if(m.kind==='roleControl'){roleControl();return;}if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}if(m.kind==='seniorReports'){seniorReports();return;}if(m.kind==='seniorActivation'){seniorActivation();return;}
     const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||matchesSearch(r,filterText))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rows=all.length?all.map(r=>card(r,m)).join(''):'<div class="ops-empty">Записей пока нет. Нажмите «Добавить запись», чтобы создать первую.</div>';
     shell('<div class="ops-toolbar"><button class="ops-primary" data-ops="new">＋ Добавить запись</button><button class="ops-secondary" data-ops="home">Все разделы</button><input id="ops-filter" placeholder="Поиск в разделе…" value="'+esc(filterText)+'"><select id="ops-status"><option>Все записи</option>'+statusOptions(filterStatus)+'</select></div><div class="ops-count">Найдено записей: '+all.length+'</div><div class="ops-list">'+rows+'</div>');
