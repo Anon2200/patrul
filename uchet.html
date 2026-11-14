@@ -371,11 +371,7 @@ const A={
  prn:()=>window.print(),prl:()=>{doc='d14';go('dc')},q1:t=>q1(t.dataset.id,+t.dataset.d),bulkno:()=>{sel.clear();draw(1)},bulkap:()=>{const st=$('#b_st').value,pl=$('#b_pl').value.trim(),dl=$('#b_dl').value,n=sel.size;D.items.filter(i=>sel.has(i.id)).forEach(i=>{if(st)i.state=st;if(pl)i.place=pl;if(dl)i.daily=dl=='1'});aud('Групповое изменение: '+n+' поз.');sel.clear();draw(1);toast('Изменено позиций: '+n)},repnew:t=>repForm(t.dataset.id),repsv:()=>{const i=D.items.find(x=>x.id==$('#r_i').value);i.state='В ремонте';i.defect=$('#r_d').value.trim();i.rwho=$('#r_w').value.trim();i.rdate=$('#r_t').value||today();aud('Передано в ремонт: '+i.name);closeM();draw(1);toast('Передано в ремонт')},repback:t=>{const i=D.items.find(x=>x.id==t.dataset.id);D.rep.push({k:Math.random().toString(36).slice(2),id:i.id,n:i.name,d1:i.rdate,d2:today(),who:i.rwho,defect:i.defect});aud('Возвращено из ремонта: '+i.name);i.state='Хорошее';i.defect='';i.rwho='';i.rdate='';draw(1);toast('Возвращено из ремонта, состояние «Хорошее»')},repw:t=>{const i=D.items.find(x=>x.id==t.dataset.id),p=i.state;i.state='Списано';aud('Списано: '+i.name);draw(1);toast('Списано: '+i.name,()=>{i.state=p;draw(1)})},qs,qsgo:t=>{closeM();cid=t.dataset.id;go('card')},card:t=>{cid=t.dataset.id;go('card')},cback:()=>go('it'),cnav:t=>{const a=list(),k=a.findIndex(x=>x.id==cid)+(+t.dataset.d);if(a[k]){cid=a[k].id;draw()}},photodel:t=>{D.items.find(x=>x.id==t.dataset.id).photo='';draw(1)},cprn:()=>{doc='d15';go('dc')},dup:t=>dup(t.dataset.id),ckall:()=>{ckv={};draw(1)},cksave,imp2,imps,jcsv,ckp:t=>{ckSel=t.dataset.k;doc='d12';go('dc')},ckdel:t=>{const i=D.checks.findIndex(c=>c.k==t.dataset.k),c=D.checks[i];D.checks.splice(i,1);draw(1);toast('Проверка удалена',()=>{D.checks.splice(i,0,c);draw(1)})},
 exp,csv,impb:()=>$('#imp').click(),
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все ваши изменения и журнал будут удалены, вернётся исходная опись. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
- rst2:()=>{D=seed();closeM();window.PATRUL_PERSONNEL_BRIDGE={
- getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
- setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
-};
-draw();toast('Данные сброшены')}};
+ rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const id=t.dataset.id,i=id&&D.items.find(x=>x.id==id),v=t.value;
  if(c=='fact'||c=='ifact'){aud('Факт: '+i.name+' = '+(v||'—'));i.fact=v===''?null:+v;i.inv=Date.now();i.date=v===''?'':today();draw(1);toast('Сохранено')}
@@ -1918,6 +1914,10 @@ function exWeekItems(){const t=today(),f=exAdd(t,-6),L=[],O=(D.ops||[]).filter(o
  L.push('Операций за неделю: '+O.length+(O.length?' ('+Object.entries(m).map(x=>x[0]+' — '+x[1]).join('; ')+')':''));
  L.push('Заканчивается позиций: '+D.items.filter(low).length);return L}
 
+window.PATRUL_PERSONNEL_BRIDGE={
+ getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
+ setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
+};
 draw();$('#cnt')&&cnt();cmFirst();
 const _d=draw;draw=function(k){_d(k);cnt()};cnt();
 </script><script>window.PATRUL_ROLE='uchet';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="personnel-workspace.js"></script></body></html>
