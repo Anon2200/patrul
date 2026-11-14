@@ -930,7 +930,7 @@ function createAuth(pool,send,readJson) {
           updated=q.rows[0];
           await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status,...(comment?{comment}:{})})]);
           notifyUser=isAssignee?row.creator_user_id:row.assignee_user_id;
-          if(notifyUser!==s.id)await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»'+(comment?'. Причина: '+comment:'')]);
+          if(notifyUser!==s.id){const notice=(String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»'+(comment?'. Причина: '+comment:'')).slice(0,1000);await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',notice]);}
           await client.query('COMMIT');
         }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
         finally{client.release();}
