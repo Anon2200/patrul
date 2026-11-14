@@ -333,6 +333,9 @@ function createAuth(pool,send,readJson) {
         if(!department){failed(req,surnameKey);failedIp(req);send(res,409,{error:'За сотрудником не закреплено отделение'});return true;}
         const existing=await pool.query('SELECT user_id FROM patrul_patrol_senior_credentials WHERE staff_key=$1',[String(person.k)]);
         if(existing.rowCount){send(res,409,{error:'Первоначальная регистрация уже выполнена. Используйте вход по фамилии и PIN.'});return true;}
+        const birthDate=typeof b.birthDate==='string'?b.birthDate:'';
+        const parsedBirthDate=new Date(birthDate+'T00:00:00.000Z');
+        if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(birthDate)||Number.isNaN(parsedBirthDate.getTime())||parsedBirthDate.toISOString().slice(0,10)!==birthDate||String(person.birthDate||'')!==birthDate){failed(req,surnameKey);failedIp(req);send(res,401,{error:'Фамилия или дата рождения не совпадают с карточкой личного состава'});return true;}
         const pinHash=await hashPassword(pin),randomPassword=await hashPassword(token()),username='patrol-senior-'+sha(String(person.k)).toString('hex').slice(0,32),client=await pool.connect();
         let user;
         try {
