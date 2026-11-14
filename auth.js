@@ -534,7 +534,7 @@ function createAuth(pool,send,readJson) {
         if(edit&&req.method==='PATCH'){
           const id=edit[1],b=await readJson(req),q=await pool.query('SELECT * FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}
           const u=q.rows[0],role=b.role===undefined?u.role:b.role,active=b.active===undefined?u.is_active:b.active,name=b.displayName===undefined?u.display_name:b.displayName;
-          if(!ROLES.has(role)||typeof active!=='boolean'||typeof name!=='string'||!name.trim()||name.trim().length>200){send(res,400,{error:'Некорректные изменения'});return true;}
+          if(!(ROLES.has(role)||(u.role==='starshiy_patrulya'&&role===u.role))||typeof active!=='boolean'||typeof name!=='string'||!name.trim()||name.trim().length>200){send(res,400,{error:'Некорректные изменения'});return true;}
           if(id===s.id&&(!active||role!==u.role)){send(res,400,{error:'Нельзя блокировать себя или менять свою роль'});return true;}
           if(u.is_system_admin&&(!active||b.isSystemAdmin===false)){const n=await pool.query('SELECT COUNT(*)::int AS n FROM patrul_users WHERE is_system_admin=TRUE AND is_active=TRUE');if(n.rows[0].n<=1){send(res,409,{error:'Нельзя отключить последнего администратора'});return true;}}
           if(b.isSystemAdmin!==undefined&&b.isSystemAdmin!==u.is_system_admin){send(res,400,{error:'Передача прав системного администратора требует отдельной процедуры'});return true;}
