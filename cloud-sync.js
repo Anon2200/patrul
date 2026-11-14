@@ -173,7 +173,7 @@
     if(timer){clearTimeout(timer);timer=null;}
     if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
     for(let attempt=0;attempt<5;attempt++){
-      while(busy||sharedBusy)await new Promise(resolve=>setTimeout(resolve,80));
+      while(busy)await new Promise(resolve=>setTimeout(resolve,80));while(sharedBusy)await new Promise(resolve=>setTimeout(resolve,80));
       if(!ready)return false;
       if(sharedTimer){clearTimeout(sharedTimer);sharedTimer=null;}
       if(sharedReady&&sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline)){
