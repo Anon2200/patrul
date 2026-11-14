@@ -463,10 +463,12 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const legacyHead = {
     set: {},
     staff: [
-      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Старший патруля', grp: '1', tel: '', st: 'в строю', sq: 1 },
-      { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' }
+      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю', sq: 1 },
+      { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' },
+      { k: 'senior-sidorov', name: 'Сидоров Сергей Сергеевич', pos: 'Старший патруля', grp: '1', tel: '555-02', st: 'в строю', departmentId: 'head-dep-1' }
     ],
-    departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }]
+    departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }],
+    duty: { [new Date().toISOString().slice(0,10)]: { rows: { 'КПП': [{ fio: 'Сидоров Сергей Сергеевич' }] } } }
   };
   const legacyDok = {
     set: {},
@@ -496,13 +498,49 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const initial = await sessionApi('/api/shared-staff', {}, employeeCookie);
   assert.equal(initial.status, 200);
   const initialBody = await initial.json();
-  assert.equal(initialBody.data.staff.length, 2);
+  assert.equal(initialBody.data.staff.length, 3);
   assert.equal(initialBody.data.departments.length, 2);
   assert.equal(initialBody.data.aliases.nachalnik['head-duplicate'], 'head-ivanov');
   assert.equal(initialBody.data.aliases.dokumentoved['dok-ivanov'], 'head-ivanov');
   assert.equal(initialBody.data.departmentAliases.dokumentoved['dok-dep-1'], 'head-dep-1');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
+  
+  const seniorEnroll = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+  });
+  assert.equal(seniorEnroll.status, 201);
+  const seniorBody = await seniorEnroll.json();
+  assert.equal(seniorBody.user.role, 'starshiy_patrulya');
+  const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const seniorWorkspace = await sessionApi('/api/patrol-senior/workspace?date=' + new Date().toISOString().slice(0,10), {}, seniorCookie);
+  assert.equal(seniorWorkspace.status, 200);
+  const seniorWorkspaceBody = await seniorWorkspace.json();
+  assert.equal(seniorWorkspaceBody.department.id, 'head-dep-1');
+  assert.equal(seniorWorkspaceBody.post, 'КПП');
+  assert.equal(seniorWorkspaceBody.roster.length, 2);
+  const seniorSharedDenied = await sessionApi('/api/shared-staff', {}, seniorCookie);
+  assert.equal(seniorSharedDenied.status, 403);
+  const seniorOtherRoleDenied = await sessionApi('/api/session-data/nachalnik', {}, seniorCookie);
+  assert.equal(seniorOtherRoleDenied.status, 403);
+  const seniorAdminDenied = await sessionApi('/api/admin/users', {}, seniorCookie);
+  assert.equal(seniorAdminDenied.status, 403);
+  const seniorAttendance = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'present', title: 'Проверка явки' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorAttendance.status, 201);
+  const seniorReenroll = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '135790' })
+  });
+  assert.equal(seniorReenroll.status, 409);
+  const seniorPasswordLoginDenied = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: seniorBody.user.username, password: 'not-a-patrol-senior-password' })
+  });
+  assert.equal(seniorPasswordLoginDenied.status, 401);
 
   const duplicateAndNew = {
     staff: [
