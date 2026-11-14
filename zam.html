@@ -376,13 +376,14 @@ const A={
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" style="flex:1" data-act="rst2">Да, сбросить</button><button class="btn" style="flex:1" data-act="cl">Отмена</button></div>`),
  rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{if(ev.target.closest('a[href]')||ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
+document.addEventListener('input',ev=>{const t=ev.target,c=t.dataset&&t.dataset.chg;if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
  if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
  else if(c=='bsel'){bsel=v||today();draw(1)}else if(c=='ssel'){ssel=v||today();draw(1)}
  else if(c=='binst'){gbw().inst=v;if(v&&!gbw().instT)gbw().instT=rtime();draw(1)}else if(c=='binstT'){gbw().instT=v;save()}
  else if(c=='batt'){gbw().att[t.dataset.k]=v;draw(1)}else if(c=='bck'){gbw()[t.dataset.f][t.dataset.k]=v?1:0;save()}
  else if(c=='tkst'){D.tasks.find(x=>x.k==t.dataset.k).st=v;draw(1)}
- else if(c.startsWith('s_')){D.set[c.slice(2)]=v;draw(1);toast('Сохранено')}});
+ else if(c.startsWith('s_')){D.set[c.slice(2)]=v;save();toast('Настройка сохранена')}});
 document.addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM()});
 $('#imp').onchange=ev=>{const f=ev.target.files[0];if(f)f.text().then(t=>{try{const j=JSON.parse(t);if(!j.set||!j.rounds)throw 0;D=norm(j);draw();toast('Копия загружена')}catch(x){toast('Файл не подходит: нужна копия этой программы')}});ev.target.value=''};const SXC={role:'zam',name:'Заместитель начальника патруля',h1:0,approve:0,sends:'доклады, итоги смены и явка, события, поручения',
  out:()=>{const t=today();return[...D.events.filter(v=>!sxSeedEv(v)).map(v=>({t:'ev',k:v.k,d:v})),...D.tasks.map(v=>({t:'tk',k:v.k,d:v})),...D.rep.filter(r=>r.d>=add(t,-30)).map(r=>({t:'rp',k:r.k,d:r})),...[t,add(t,-1)].filter(s=>D.br[s]||D.rounds.some(r=>r.d==s)||D.rep.some(r=>r.d==s)).map(s=>({t:'sh',k:'sh_zam_'+s,d:{date:s,role:'Заместитель начальника патруля',lines:smLines(s)}}))]},
