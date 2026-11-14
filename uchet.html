@@ -368,11 +368,16 @@ function sv(id){const g=k=>$('#f_'+k).value.trim(),n=k=>g(k)===''?null:+g(k);
  else{o.id=g('id');if(!o.id)return toast('Впишите инв. №');if(D.items.some(x=>x.id==o.id))return toast('Такой номер уже есть');o.date=o.fact==null?'':today();o.inv=Date.now();D.items.push(o);aud('Добавлена позиция: '+o.name)}
  closeM();draw(1);toast('Сохранено')}
 function del(id){const i=D.items.find(x=>x.id==id),k=D.ops.filter(o=>o.id==id).length;
+ if(outstandingIssueQty(id)>0)return toast('Нельзя удалить позицию: выдано и ещё не возвращено '+outstandingIssueQty(id)+' '+(i.unit||'шт.'));
  modal(`<h3>Удалить «${e(i.name)}»?</h3><p>${k?`По этой позиции есть операции в журнале (${k}). Они останутся, но без названия.<br>`:''}Если вещь просто списана или утеряна, лучше поставить такое состояние в карточке — история сохранится.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="del2" data-id="${e(id)}">Да, удалить</button><button class="btn" data-act="cl">Не удалять</button></div>`)}
 
 /* ---------- комплекты оборудования по постам ---------- */
 const kitId=()=>Math.random().toString(36).slice(2,10);
-function postRecipient(p){return 'Пост: '+String(p.name||'').trim();}
+function postRecipient(p){return 'Пост: '+String(p.name||'').trim()+' ['+String(p.id||'')+']';}
+function outstandingIssueQty(id){
+ return (D.ops||[]).filter(operation=>operation.id===id&&['Выдача','Возврат'].includes(operation.op))
+  .reduce((sum,operation)=>sum+(operation.op==='Выдача'?1:-1)*Number(operation.qty||0),0);
+}
 function postIssued(p){
  const balances={},w=postRecipient(p);
  (D.ops||[]).forEach(operation=>{
@@ -392,6 +397,7 @@ function issuePostKit(t){
  for(const kitItem of p.items){
   const item=D.items.find(x=>x.id===kitItem.id);if(!item)return toast('Позиция '+kitItem.name+' отсутствует в реестре имущества');
   if(GONE.includes(item.state))return toast('Нельзя выдать списанное или утерянное имущество: '+item.name);
+  if(BAD.includes(item.state))return toast('Нельзя выдавать неисправное имущество или имущество в ремонте: '+item.name);
   const outstanding=issued.find(x=>x.id===kitItem.id)?.qty||0;
   const quantity=Math.max(0,Math.floor(Number(kitItem.qty)||0)-outstanding);
   if(quantity>cur(item))return toast('Недостаточно на складе: '+item.name+'. Нужно ещё '+quantity+', в наличии '+cur(item));
@@ -479,7 +485,7 @@ function q1(id,d){const i=D.items.find(x=>x.id==id);if(d<0&&cur(i)<=0)return toa
 const A={kitpostadd:addKitPost,kitadd:addKitItem,kitremove:removeKitItem,kitpostremove:removeKitPost,kitissue:issuePostKit,kitreturn:returnPostKit,
  tab:t=>{if(t.dataset.f!==undefined)sf=t.dataset.f;if(t.dataset.doc)doc=t.dataset.doc;go(t.dataset.v)},
  add:()=>edit(),edit:t=>edit(t.dataset.id),cl:closeM,bgc:(t,ev)=>{if(ev.target==t)closeM()},sv:t=>sv(t.dataset.id),del:t=>del(t.dataset.id),
- del2:t=>{const id=t.dataset.id,i=D.items.find(x=>x.id==id),k=D.items.indexOf(i);aud('Удалена позиция: '+i.name);D.items.splice(k,1);if(tab=='card')tab='it';closeM();draw(1);toast('Удалено',()=>{D.items.splice(k,0,i);draw(1)})},
+ del2:t=>{const id=t.dataset.id,i=D.items.find(x=>x.id==id),k=D.items.indexOf(i);if(outstandingIssueQty(id)>0)return toast('Нельзя удалить позицию: сначала оформите возврат всего выданного количества');aud('Удалена позиция: '+i.name);D.items.splice(k,1);if(tab=='card')tab='it';closeM();draw(1);toast('Удалено',()=>{D.items.splice(k,0,i);draw(1)})},
  op:t=>opForm(t.dataset.id,t.dataset.op,t.dataset.w,t.dataset.q),addop:addOp,
  delop:t=>{const k=t.dataset.k,i=D.ops.findIndex(o=>o.k==k),o=D.ops[i];D.ops.splice(i,1);draw(1);toast('Операция удалена',()=>{D.ops.splice(i,0,o);draw(1)})},
  undo:()=>{const f=lastUndo;$('#ts').innerHTML='';f&&f()},
