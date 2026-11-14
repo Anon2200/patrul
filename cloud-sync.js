@@ -262,7 +262,17 @@
   }
   function applySharedRoster(response,redraw){
     const before=localSnapshot(),data=response&&response.data?response.data:{staff:[],departments:[],aliases:{},departmentAliases:{}};
-    const staffAliases=data.aliases&&data.aliases[role]||{},departmentAliases=data.departmentAliases&&data.departmentAliases[role]||{};
+    const staffAliases={...(data.aliases&&data.aliases[role]||{})},departmentAliases={...(data.departmentAliases&&data.departmentAliases[role]||{})};
+    const canonicalStaff=new Map((Array.isArray(data.staff)?data.staff:[]).map(item=>[sharedNameKey(item&&item.name),item]).filter(entry=>entry[0]));
+    for(const item of Array.isArray(D.staff)?D.staff:[]){
+      const canonical=canonicalStaff.get(sharedNameKey(item&&item.name));
+      if(canonical&&item.k&&canonical.k&&String(item.k)!==String(canonical.k))staffAliases[String(item.k)]=String(canonical.k);
+    }
+    const canonicalDepartments=new Map((Array.isArray(data.departments)?data.departments:[]).map(item=>[sharedNameKey(item&&item.name),item]).filter(entry=>entry[0]));
+    for(const item of Array.isArray(D.departments)?D.departments:[]){
+      const canonical=canonicalDepartments.get(sharedNameKey(item&&item.name));
+      if(canonical&&item.id&&canonical.id&&String(item.id)!==String(canonical.id))departmentAliases[String(item.id)]=String(canonical.id);
+    }
     remapStaffReferences(D,staffAliases,departmentAliases);
     D.staff=copyJson(Array.isArray(data.staff)?data.staff:[]);
     D.departments=copyJson(Array.isArray(data.departments)?data.departments:[]);
