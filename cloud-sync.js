@@ -168,6 +168,21 @@
   }
   function scheduleUpload(){if(!ready)return;unsavedChanges=true;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
   save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();};
+  window.PATRUL_SAVE_NOW=async function(){
+    if(!ready)return false;
+    if(timer){clearTimeout(timer);timer=null;}
+    for(let attempt=0;attempt<5;attempt++){
+      while(busy)await new Promise(resolve=>setTimeout(resolve,80));
+      if(!ready)return false;
+      if(timer){clearTimeout(timer);timer=null;}
+      queued=false;unsavedChanges=true;
+      const saved=await upload(localSnapshot());
+      if(!saved)return false;
+      if(!unsavedChanges)return true;
+    }
+    status('сохранение не завершено — остались новые изменения','#9a6700');
+    return false;
+  };
 
   async function adminPanel() {
     const p=panel(`
