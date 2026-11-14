@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS patrul_task_notifications (
   read_at TIMESTAMPTZ
 );
 
+ALTER TABLE patrul_task_notifications
+  ADD COLUMN IF NOT EXISTS dedupe_key TEXT NOT NULL DEFAULT '';
+
+UPDATE patrul_task_notifications
+  SET dedupe_key='legacy:'||id::text
+  WHERE dedupe_key='';
+
+CREATE UNIQUE INDEX IF NOT EXISTS patrul_task_notifications_dedupe_idx
+  ON patrul_task_notifications (user_id,task_id,notification_type,dedupe_key);
+
 CREATE INDEX IF NOT EXISTS patrul_task_notifications_unread_idx
   ON patrul_task_notifications (user_id, created_at DESC)
   WHERE is_read = FALSE;
