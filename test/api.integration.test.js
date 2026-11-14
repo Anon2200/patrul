@@ -463,7 +463,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const legacyHead = {
     set: {},
     staff: [
-      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Старший патруля', grp: '1', tel: '', st: 'в строю' },
+      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Старший патруля', grp: '1', tel: '', st: 'в строю', sq: 1 },
       { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' }
     ],
     departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }]
@@ -502,6 +502,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(initialBody.data.aliases.dokumentoved['dok-ivanov'], 'head-ivanov');
   assert.equal(initialBody.data.departmentAliases.dokumentoved['dok-dep-1'], 'head-dep-1');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
+  assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
 
   const duplicateAndNew = {
     staff: [
