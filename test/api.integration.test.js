@@ -465,7 +465,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     staff: [
       { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю', sq: 1 },
       { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' },
-      { k: 'senior-sidorov', name: 'Сидоров Сергей Сергеевич', pos: 'Старший патруля', grp: '1', tel: '555-02', st: 'в строю', departmentId: 'head-dep-1' }
+      { k: 'senior-sidorov', name: 'Сидоров Сергей Сергеевич', pos: 'Старший патруля', grp: '1', tel: '555-02', st: 'в строю', departmentId: 'head-dep-1', birthDate: '1998-04-12' }
     ],
     departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }],
     duty: { [new Date().toISOString().slice(0,10)]: { rows: { 'КПП': [{ fio: 'Сидоров Сергей Сергеевич' }] } } }
@@ -506,9 +506,14 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
   
+  const seniorWrongBirthDate = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', birthDate: '1998-04-13', pin: '246810' })
+  });
+  assert.equal(seniorWrongBirthDate.status, 401);
   const seniorEnroll = await sessionApi('/api/patrol-senior/enroll', {
     method: 'POST',
-    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+    body: JSON.stringify({ surname: 'Сидоров', birthDate: '1998-04-12', pin: '246810' })
   });
   assert.equal(seniorEnroll.status, 201);
   const seniorBody = await seniorEnroll.json();
