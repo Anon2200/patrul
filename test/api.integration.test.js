@@ -521,6 +521,12 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(written.data.staff.length, 3);
   assert.equal(written.data.aliases.zam['duplicate-from-zam'], 'head-ivanov');
 
+  const forbiddenKitWrite = await sessionApi('/api/shared-staff', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: written.version, data: { ...written.data, postEquipment: [{ id: 'post-test', name: 'КПП', items: [{ id: 'item-1', name: 'Рация', qty: 2, unit: 'шт.' }] }] } })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(forbiddenKitWrite.status, 403);
+
   const visibleToOtherRole = await sessionApi('/api/shared-staff', {}, adminCookie);
   assert.equal(visibleToOtherRole.status, 200);
   assert.deepEqual((await visibleToOtherRole.json()).data.staff, written.data.staff);
@@ -558,6 +564,11 @@ test('role client loads and polls the shared personnel roster', () => {
   assert.ok(source.includes("request('/api/shared-staff','PUT'"));
   assert.ok(source.includes('startSharedPolling'));
   assert.ok(source.includes('remapStaffReferences'));
+  assert.ok(source.includes('postEquipment'));
+  const masterPage = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  const chiefPage = fs.readFileSync(path.join(__dirname, '..', 'nachalnik.html'), 'utf8');
+  assert.ok(masterPage.includes('function postKits'));
+  assert.ok(chiefPage.includes('postKitText'));
 });
 
 

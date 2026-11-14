@@ -196,8 +196,8 @@
   let sharedBaseline=null, suppressSharedUpload=false;
   function copyJson(value){return value==null?value:JSON.parse(JSON.stringify(value));}
   function sharedNameKey(value){return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
-  function sharedPayload(){return{staff:Array.isArray(D.staff)?D.staff:[],departments:Array.isArray(D.departments)?D.departments:[]};}
-  function sharedPayloadJson(value){return JSON.stringify({staff:value.staff||[],departments:value.departments||[]});}
+  function sharedPayload(){return{staff:Array.isArray(D.staff)?D.staff:[],departments:Array.isArray(D.departments)?D.departments:[],postEquipment:Array.isArray(D.postEquipment)?D.postEquipment:[]};}
+  function sharedPayloadJson(value){return JSON.stringify({staff:value.staff||[],departments:value.departments||[],postEquipment:value.postEquipment||[]});}
   function mergeRemappedObject(target,source){
     if(!source||typeof source!=='object')return target;
     if(!target||typeof target!=='object')return copyJson(source);
@@ -290,8 +290,9 @@
     remapStaffReferences(D,staffAliases,departmentAliases);
     D.staff=copyJson(Array.isArray(data.staff)?data.staff:[]);
     D.departments=copyJson(Array.isArray(data.departments)?data.departments:[]);
+    D.postEquipment=copyJson(Array.isArray(data.postEquipment)?data.postEquipment:[]);
     sharedVersion=Number(response.version||sharedVersion||1);
-    sharedBaseline={staff:copyJson(D.staff),departments:copyJson(D.departments)};
+    sharedBaseline={staff:copyJson(D.staff),departments:copyJson(D.departments),postEquipment:copyJson(D.postEquipment)};
     sharedReady=true;
     const changed=localSnapshot()!==before;
     if(changed&&ready)scheduleUpload();
@@ -299,12 +300,16 @@
     return changed;
   }
   async function initializeSharedRoster(mergeLocal){
-    const localStaff=copyJson(Array.isArray(D.staff)?D.staff:[]),localDepartments=copyJson(Array.isArray(D.departments)?D.departments:[]);
+    const localStaff=copyJson(Array.isArray(D.staff)?D.staff:[]),localDepartments=copyJson(Array.isArray(D.departments)?D.departments:[]),localPostEquipment=copyJson(Array.isArray(D.postEquipment)?D.postEquipment:[]);
     const r=await request('/api/shared-staff');
     if(!r.response.ok)throw new Error(r.result.error||'Не удалось загрузить общий список личного состава');
     const aliases=r.result.data&&r.result.data.aliases&&r.result.data.aliases[role]||{};
     const departmentAliases=r.result.data&&r.result.data.departmentAliases&&r.result.data.departmentAliases[role]||{};
     const remapped=applySharedRoster(r.result,false);
+    if(role==='uchet' && localPostEquipment.length && !(D.postEquipment||[]).length){
+      D.postEquipment=localPostEquipment;
+      if(sharedPayloadJson(sharedPayload())!==sharedPayloadJson(sharedBaseline))scheduleSharedUpload();
+    }
     if(mergeLocal){
       D.staff=mergeLocalRosterList(D.staff,localStaff,'k',aliases);
       D.departments=mergeLocalRosterList(D.departments,localDepartments,'id',departmentAliases);
@@ -324,12 +329,14 @@
           const remote=r.result.data,latest=copyJson(sharedPayload());
           const merged={
             staff:mergeSharedList(sharedBaseline.staff,latest.staff,remote.staff,'k'),
-            departments:mergeSharedList(sharedBaseline.departments,latest.departments,remote.departments,'id')
+            departments:mergeSharedList(sharedBaseline.departments,latest.departments,remote.departments,'id'),
+            postEquipment:JSON.stringify(latest.postEquipment||[])!==JSON.stringify(sharedBaseline.postEquipment||[])?copyJson(latest.postEquipment||[]):copyJson(remote.postEquipment||[])
           };
           applySharedRoster({data:remote,version:r.result.version},false);
           const aliases=remote.aliases&&remote.aliases[role]||{},departmentAliases=remote.departmentAliases&&remote.departmentAliases[role]||{};
           D.staff=mergeLocalRosterList(D.staff,merged.staff,'k',aliases);
           D.departments=mergeLocalRosterList(D.departments,merged.departments,'id',departmentAliases);
+          D.postEquipment=copyJson(merged.postEquipment||[]);
           payload=copyJson(sharedPayload());
           continue;
         }
@@ -340,6 +347,7 @@
           const aliases=r.result.data&&r.result.data.aliases&&r.result.data.aliases[role]||{},departmentAliases=r.result.data&&r.result.data.departmentAliases&&r.result.data.departmentAliases[role]||{};
           D.staff=mergeLocalRosterList(D.staff,latest.staff,'k',aliases);
           D.departments=mergeLocalRosterList(D.departments,latest.departments,'id',departmentAliases);
+          D.postEquipment=copyJson(latest.postEquipment||[]);
           scheduleSharedUpload();
         }
         return true;

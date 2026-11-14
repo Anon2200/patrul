@@ -71,7 +71,7 @@ if (!cloudSync.includes("const localDataKey = role + '_v1'") ||
   fail('cloud sync must remove the plaintext role-data cache after server confirmation');
 }
 if (!cloudSync.includes('window.PATRUL_SAVE_NOW=async function()') || !cloudSync.includes('while(busy)await new Promise')) fail('personnel save confirmation must wait for an acknowledged server write');
-if (!cloudSync.includes("request('/api/shared-staff')") || !cloudSync.includes("request('/api/shared-staff','PUT'") || !cloudSync.includes('const sharedSaved=await uploadSharedRoster()') || !cloudSync.includes('startSharedPolling')) fail('all role pages must load, save, and poll the shared personnel roster');
+if (!cloudSync.includes("request('/api/shared-staff')") || !cloudSync.includes("request('/api/shared-staff','PUT'") || !cloudSync.includes('const sharedSaved=await uploadSharedRoster()') || !cloudSync.includes('startSharedPolling') || !cloudSync.includes('postEquipment')) fail('all role pages must load, save, and poll the shared personnel roster');
 if (cloudSync.includes('originalSave()')) {
   fail('cloud sync must not persist full application data through the legacy localStorage save function');
 }
@@ -102,6 +102,8 @@ for (const [file, role] of Object.entries(rolePages)) {
     fail(file + ' has an incorrect or missing role identifier');
   }
   if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
+  if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
+  if (file === 'nachalnik.html' && (!html.includes('postKitText') || !html.includes('kit-display'))) fail(file + ' must show shared post equipment in the duty roster');
   if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
   if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
   if (!html.includes('src="staff-workspace.js"') || html.indexOf('src="staff-workspace.js"') < html.indexOf('src="personal-workspace.js"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');

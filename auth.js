@@ -231,7 +231,19 @@ function normalizeSharedStaffWrite(source, current, role) {
     nextStaffById.set(id, staff);
     nextStaffByName.set(nameKey, staff);
   }
-  return {staff:nextStaff, departments, aliases, departmentAliases};
+  const postEquipment = role === 'uchet' && Array.isArray(source.postEquipment)
+    ? source.postEquipment.slice(0,100).map((post,index)=>({
+        id:String(post && post.id || ('post-' + (index + 1))).slice(0,120),
+        name:String(post && post.name || '').trim().slice(0,120),
+        items:(Array.isArray(post && post.items) ? post.items : []).slice(0,200).map(item=>({
+          id:String(item && item.id || '').slice(0,120),
+          name:String(item && item.name || '').trim().slice(0,160),
+          qty:Math.max(1,Math.min(1000,Math.floor(Number(item && item.qty) || 1))),
+          unit:String(item && item.unit || 'шт.').slice(0,40)
+        })).filter(item=>item.id && item.name)
+      })).filter(post=>post.name)
+    : cloneSharedValue(prior.postEquipment || []);
+  return {staff:nextStaff, departments, aliases, departmentAliases, postEquipment};
 }
 
 function createAuth(pool,send,readJson) {
@@ -536,6 +548,11 @@ function createAuth(pool,send,readJson) {
             if(Number(row.version)!==b.expectedVersion) {
               await client.query('ROLLBACK');
               send(res,409,{error:'Общий список уже изменился',data:current,version:Number(row.version),updatedAt:row.updated_at});
+              return true;
+            }
+            if(s.role!=='uchet' && Object.prototype.hasOwnProperty.call(b.data,'postEquipment') && JSON.stringify(b.data.postEquipment || []) !== JSON.stringify(current.postEquipment || [])) {
+              await client.query('ROLLBACK');
+              send(res,403,{error:'Изменять комплекты постов может только старший мастер патруля'});
               return true;
             }
             const next=normalizeSharedStaffWrite(b.data,current,s.role);
