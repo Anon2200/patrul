@@ -189,6 +189,8 @@
       let result={};try{result=await response.json();}catch(_){}
       if(!response.ok){host.innerHTML='';return;}
       const tasks=Array.isArray(result.tasks)?result.tasks:[];
+      const notifications=Array.isArray(result.notifications)?result.notifications:[];
+      const taskNotificationMarkup=notifications.length?'<div class="ops-notice-list"><b>Последние уведомления</b>'+notifications.filter(item=>!item.isRead).slice(0,3).map(item=>'<div class="ops-history-row"><b>'+esc(item.title||item.type)+'</b><span>'+esc(item.body||'')+'</span></div>').join('')+'</div>':'';
       const open=tasks.filter(task=>!['Выполнено','Отменено'].includes(task.status));
       const dueDate=task=>task.dueDate?String(task.dueDate).slice(0,10):'';
       const late=open.filter(task=>dueDate(task)&&dueDate(task)<today());
@@ -199,7 +201,7 @@
       const items=rows.map(task=>'<div class="ops-history-row"><span>'+esc(dueDate(task)?dateText(dueDate(task)):'Без срока')+'</span><b>'+esc(task.title)+'</b><span>'+esc(task.assigneeName)+' · '+esc(roleNames[task.assigneeRole]||task.assigneeRole)+' · '+esc(task.status)+'</span></div>').join('');
       host.innerHTML='<div class="ops-panel"><div class="ops-panel-head"><div><h2>Общие поручения</h2><p class="ops-muted">'+(result.canViewAll?'Общий контроль по всем ролям':'Поручения, назначенные вам или поставленные вами')+'</p></div><button type="button" class="ops-secondary" data-ops="module" data-id="sharedTasks">Открыть поручения</button></div>'+
         '<div class="ops-stats"><div><b>'+open.length+'</b><span>активных</span></div><div><b>'+late.length+'</b><span>просрочено</span></div><div><b>'+dueToday.length+'</b><span>срок сегодня</span></div><div><b>'+urgent.length+'</b><span>срочных</span></div><div><b>'+Number(result.unreadNotifications||0)+'</b><span>уведомлений</span></div></div>'+
-        (items||'<p class="ops-muted">Активных поручений нет.</p>')+'</div>';
+        (items||'<p class="ops-muted">Активных поручений нет.</p>')+taskNotificationMarkup+'</div>';
     }catch(_){host.innerHTML='';}
   }
 
