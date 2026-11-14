@@ -882,6 +882,28 @@ function createAuth(pool,send,readJson) {
         return true;
       }
 
+      const taskEventsMatch=p.match(/^\/api\/tasks\/([0-9a-f-]{36})\/events$/i);
+      if(taskEventsMatch&&req.method==='GET'){
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к истории поручений'});return true;}
+        const q=await pool.query('SELECT creator_user_id,assignee_user_id FROM patrul_tasks WHERE id=$1',[taskEventsMatch[1]]);
+        if(!q.rowCount){send(res,404,{error:'Поручение не найдено'});return true;}
+        const task=q.rows[0];
+        const canInspectAll=['nachalnik','uchet'].includes(s.role);
+        if(!canInspectAll&&task.creator_user_id!==s.id&&task.assignee_user_id!==s.id){
+          send(res,403,{error:'История доступна только постановщику и исполнителю'});return true;
+        }
+        const events=await pool.query(
+          'SELECT e.id,e.event_type AS type,e.details,e.created_at AS "createdAt",u.display_name AS "actorName",u.role AS "actorRole" '+
+          'FROM patrul_task_events e LEFT JOIN patrul_users u ON u.id=e.actor_user_id '+
+          'WHERE e.task_id=$1 ORDER BY e.created_at ASC,e.id ASC',[taskEventsMatch[1]]
+        );
+        send(res,200,{events:events.rows});
+        return true;
+      }
+
       const taskMatch=p.match(/^\/api\/tasks\/([0-9a-f-]{36})$/i);
       if(taskMatch&&req.method==='PATCH'){
         const s=await sessionFor(req);
