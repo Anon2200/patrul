@@ -366,6 +366,20 @@ function createAuth(pool,send,readJson) {
         loginFailures.delete(key);await audit(match.id,'patrol_senior_login',match.id,{departmentId:profile.department.id});
         const csrf=await newSession(match,res);send(res,200,{user:publicUser(match),csrfToken:csrf,department:profile.department.name});return true;
       }
+      if(p==='/api/patrol-senior/change-pin'&&req.method==='POST') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.role!=='starshiy_patrulya'){send(res,403,{error:'Недостаточно прав'});return true;}
+        if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const b=await readJson(req),q=await pool.query('SELECT pin_hash FROM patrul_patrol_senior_credentials WHERE user_id=$1',[session.id]);
+        if(!q.rowCount){send(res,404,{error:'PIN-код не найден'});return true;}
+        if(!/^\d{6}$/.test(String(b.newPin||''))){send(res,400,{error:'Новый PIN должен состоять из 6 цифр'});return true;}
+        if(!(await verifyPassword(String(b.currentPin||''),q.rows[0].pin_hash))){send(res,401,{error:'Текущий PIN неверен'});return true;}
+        const next=await hashPassword(String(b.newPin));
+        await pool.query('UPDATE patrul_patrol_senior_credentials SET pin_hash=$1,updated_at=NOW() WHERE user_id=$2',[next,session.id]);
+        await audit(session.id,'patrol_senior_pin_changed',session.id,{});
+        send(res,200,{ok:true});return true;
+      }
       if(p==='/api/patrol-senior/reports'&&req.method==='GET') {
         const session=await sessionFor(req);
         if(!session){send(res,401,{error:'Требуется вход'});return true;}
@@ -375,7 +389,7 @@ function createAuth(pool,send,readJson) {
         const q=await pool.query(
           'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
           'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
-          'WHERE e.entry_date >= CURRENT_DATE - INTERVAL \\'30 days\\' ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
+          'WHERE e.entry_date >= CURRENT_DATE - 30 ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
         send(res,200,{entries:q.rows});return true;
       }
       if(p==='/api/patrol-senior/workspace'&&req.method==='GET') {
