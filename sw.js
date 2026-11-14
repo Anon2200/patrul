@@ -1,9 +1,9 @@
 'use strict';
 
-const CACHE_NAME = 'patrul-static-20261110-14';
+const CACHE_NAME = 'patrul-static-20261114-15';
 const ASSETS = [
   '/', '/index.html', '/icon-180.png', '/icon-192.png', '/icon-512.png',
-  '/cloud-sync.js', '/ops-workspace.js', '/personal-workspace.js', '/mail.html', '/mail.js', '/mail-viewer.html', '/mail-viewer.js',
+  '/cloud-sync.js', '/ops-workspace.js', '/personal-workspace.js', '/staff-workspace.js', '/mail.html', '/mail.js', '/mail-viewer.html', '/mail-viewer.js',
   '/zam.html', '/zam.webmanifest',
   '/dokumentoved.html', '/dokumentoved.webmanifest',
   '/nachalnik.html', '/nachalnik.webmanifest',
