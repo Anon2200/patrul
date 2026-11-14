@@ -74,7 +74,7 @@
     const headers={};
     if(body!==null) headers['Content-Type']='application/json';
     if(csrfToken) headers['X-Patrul-CSRF']=csrfToken;
-    const response=await fetch(url,{method,credentials:'same-origin',headers,...(body!==null?{body:JSON.stringify(body)}:{})});
+    const response=await fetch(url,{method,credentials:'same-origin',headers,keepalive:method==='PUT',...(body!==null?{body:JSON.stringify(body)}:{})});
     let result={};try{result=await response.json();}catch(_){}
     return {response,result};
   }
