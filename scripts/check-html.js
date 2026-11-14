@@ -71,6 +71,7 @@ if (!cloudSync.includes("const localDataKey = role + '_v1'") ||
   fail('cloud sync must remove the plaintext role-data cache after server confirmation');
 }
 if (!cloudSync.includes('window.PATRUL_SAVE_NOW=async function()') || !cloudSync.includes('while(busy)await new Promise')) fail('personnel save confirmation must wait for an acknowledged server write');
+if (!cloudSync.includes("request('/api/shared-staff')") || !cloudSync.includes("request('/api/shared-staff','PUT'") || !cloudSync.includes('const sharedSaved=await uploadSharedRoster()') || !cloudSync.includes('startSharedPolling')) fail('all role pages must load, save, and poll the shared personnel roster');
 if (cloudSync.includes('originalSave()')) {
   fail('cloud sync must not persist full application data through the legacy localStorage save function');
 }
