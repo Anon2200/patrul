@@ -10,6 +10,42 @@
       script.dataset.patrulModule = 'staff-workspace';
       script.textContent = source;
       document.body.appendChild(script);
+      // Provide direct editing controls inside each department's composition editor.
+      const originalDepartmentEditor = A.sqed;
+      if (typeof originalDepartmentEditor === 'function') {
+        A.sqed = function (trigger) {
+          originalDepartmentEditor(trigger);
+          document.querySelectorAll('.q_m').forEach(checkbox => {
+            const label = checkbox.closest('label');
+            if (!label || label.dataset.staffEditAdded === 'true') return;
+            label.dataset.staffEditAdded = 'true';
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%';
+            label.parentNode.insertBefore(row, label);
+            row.appendChild(label);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn s g noprint';
+            button.textContent = 'Изменить';
+            button.dataset.act = 'sqedit';
+            button.dataset.k = checkbox.value;
+            row.appendChild(button);
+          });
+          const senior = document.querySelector('#q_ld');
+          if (senior && !document.querySelector('[data-act="sqleadedit"]')) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn s g noprint';
+            button.textContent = 'Изменить данные старшего';
+            button.dataset.act = 'sqleadedit';
+            senior.parentNode.appendChild(button);
+          }
+        };
+        A.sqleadedit = function () {
+          const senior = document.querySelector('#q_ld');
+          if (senior && senior.value) A.sqedit({ dataset: { k: senior.value } });
+        };
+      }
     }).catch(error => console.error('Patrul staff workspace load failed:', error));
   } catch (error) {
     console.error('Patrul staff workspace load failed:', error);
