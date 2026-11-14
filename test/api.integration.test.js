@@ -613,6 +613,11 @@ test('document numbers are server-issued sequentially per year and role-protecte
   const loginBody = await login.json();
   const docCookie = (login.headers.get('set-cookie') || '').split(';')[0];
   const docCsrf = loginBody.csrfToken;
+  const passwordChanged = await sessionApi('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword: temporaryPassword, newPassword: 'CI-Documenter-Changed-Password-2026!' })
+  }, docCookie, docCsrf);
+  assert.equal(passwordChanged.status, 200);
 
   const withoutCsrf = await sessionApi('/api/documents/next-number', {
     method: 'POST',
