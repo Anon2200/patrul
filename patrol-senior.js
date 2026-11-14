@@ -27,11 +27,40 @@ const entries=workspace.entries||[];if(!entries.length)return '<div class="empty
 const labels={attendance:'Явка',report:'Доклад',equipment:'Оборудование',shift_start:'Заступление',shift_end:'Сдача смены',task_update:'Задача'};
 return '<div class="list">'+entries.slice(0,30).map(x=>'<div class="entry"><div><strong>'+esc(x.title||labels[x.entry_type]||x.entry_type)+'</strong><div class="muted">'+esc(labels[x.entry_type]||x.entry_type)+' · '+esc(x.status||'')+'</div>'+(x.body?'<div class="muted">'+esc(x.body)+'</div>':'')+'</div><span class="muted">'+esc(new Date(x.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))+'</span></div>').join('')+'</div>';
 }
+async function loadSeniorTasks(){
+const host=root.querySelector('[data-tasks-list]');if(!host)return;
+host.innerHTML='<div class="empty">Загружаем назначенные поручения…</div>';
+try{
+const r=await request('/api/tasks');
+if(!r.response.ok){host.innerHTML='<div class="empty">'+esc(r.result.error||'Не удалось загрузить поручения')+'</div>';return;}
+const tasks=Array.isArray(r.result.tasks)?r.result.tasks:[];
+const terminal=['Выполнено','Отменено'];
+host.innerHTML='<div class="notice">Новых уведомлений: <b>'+Number(r.result.unreadNotifications||0)+'</b></div>'+
+'<div class="inline" style="margin:10px 0"><button class="btn" data-task-read>Отметить уведомления прочитанными</button><button class="btn" data-task-refresh>Обновить</button></div>'+
+(tasks.length?'<div class="list">'+tasks.map(task=>{
+const due=task.dueDate?dateText(task.dueDate):'Без срока';
+const actions=task.isAssignee&&!terminal.includes(task.status)?'<div class="inline" style="margin-top:8px"><button class="btn" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button><button class="btn" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button><button class="btn primary" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button></div>':'';
+return '<article class="equipment" style="display:block;margin:9px 0"><div class="section-head"><strong>'+esc(task.title)+'</strong><span class="pill">'+esc(task.status)+'</span></div><p class="muted">'+esc(task.description||'Без дополнительного описания')+'</p><p class="muted">Постановщик: '+esc(task.creatorName)+' · Срок: '+esc(due)+' · Приоритет: '+esc(task.priority)+'</p>'+actions+'</article>';
+}).join('')+'</div>':'<div class="empty">Назначенных поручений пока нет.</div>');
+root.querySelectorAll('[data-task-status]').forEach(button=>button.addEventListener('click',async()=>{
+button.disabled=true;
+const result=await request('/api/tasks/'+encodeURIComponent(button.dataset.taskId),'PATCH',{status:button.dataset.taskStatus});
+if(!result.response.ok){alert(result.result.error||'Не удалось изменить статус');button.disabled=false;return;}
+loadSeniorTasks();
+}));
+root.querySelector('[data-task-refresh]')?.addEventListener('click',loadSeniorTasks);
+root.querySelector('[data-task-read]')?.addEventListener('click',async()=>{
+const result=await request('/api/tasks/notifications/read','POST',{});
+if(!result.response.ok){alert(result.result.error||'Не удалось отметить уведомления');return;}
+loadSeniorTasks();
+});
+}catch(_){host.innerHTML='<div class="empty">Нет соединения с сервером поручений.</div>';}
+}
 function render(){
 if(!workspace){authScreen();return;}
 const latestAttendance=new Map();for(const entry of entriesOf('attendance'))if(entry.staff_key&&!latestAttendance.has(entry.staff_key))latestAttendance.set(entry.staff_key,entry.status);const present=[...latestAttendance.values()].filter(status=>status==='present'||status==='late').length,start=entriesOf('shift_start').length>0,end=entriesOf('shift_end').length>0;
 root.innerHTML='<div class="shell"><header class="top"><div><div class="eyebrow">Патрульная служба · Рабочее место</div><h1>Старший патруля</h1><p>'+esc(workspace.senior.name)+' · '+esc(workspace.department.name)+' · '+esc(dateText(workspace.date))+'</p></div><div class="top-actions"><label style="min-width:150px;color:#eaf2f7">Дата службы<input type="date" data-date value="'+esc(workspace.date)+'" style="margin-top:4px"></label><a class="btn dark" href="/mail.html" style="text-decoration:none">Служебная почта</a><button class="btn dark" data-action="refresh">Обновить</button><button class="btn dark" data-action="change-pin">Сменить PIN</button><button class="btn dark" data-action="logout">Выйти</button></div></header>'+
-'<nav class="tabs"><button data-tab="overview" class="'+(activeTab==='overview'?'active':'')+'">Обзор</button><button data-tab="team" class="'+(activeTab==='team'?'active':'')+'">Личный состав</button><button data-tab="equipment" class="'+(activeTab==='equipment'?'active':'')+'">Оборудование</button><button data-tab="reports" class="'+(activeTab==='reports'?'active':'')+'">Доклады и журнал</button></nav>'+
+'<nav class="tabs"><button data-tab="overview" class="'+(activeTab==='overview'?'active':'')+'">Обзор</button><button data-tab="team" class="'+(activeTab==='team'?'active':'')+'">Личный состав</button><button data-tab="equipment" class="'+(activeTab==='equipment'?'active':'')+'">Оборудование</button><button data-tab="reports" class="'+(activeTab==='reports'?'active':'')+'">Доклады и журнал</button><button data-tab="tasks" class="'+(activeTab==='tasks'?'active':'')+'">Поручения</button></nav>'+
 '<section class="panel '+(activeTab==='overview'?'active':'')+'" data-panel="overview"><div class="grid">'+stat('Сотрудников в отделении',workspace.roster.length,'♙')+stat('Отмечено прибывшими',present,'✓')+stat('Назначенный пост',workspace.post||'Не назначен','⌖')+
 '<div class="card span-8"><div class="section-head"><div><h2>Несение службы</h2><p class="sub">Смена фиксируется в журнале отделения.</p></div><span class="pill '+(end?'ok':start?'warn':'')+'">'+(end?'Смена завершена':start?'Смена началась':'Ожидает заступления')+'</span></div><div class="notice '+(workspace.post?'':'warn')+'">'+(workspace.postConflict?'В наряде сотрудники отделения указаны сразу на нескольких постах. Уточните распределение у руководства.':workspace.post?'На выбранную дату отделению назначен пост «'+esc(workspace.post)+'».':'В наряде начальника на выбранную дату пост отделения пока не указан. Уточните назначение у руководства.')+'</div><div class="inline" style="margin-top:13px"><button class="btn primary" data-action="shift-start" '+(start?'disabled':'')+'>Заступил на службу</button><button class="btn" data-action="shift-end" '+(!start||end?'disabled':'')+'>Сдал смену</button></div></div>'+
 '<div class="card span-4"><h2>Комплект поста</h2><p class="sub">'+(workspace.post?'Стандартный комплект назначенного поста':'Нет назначенного поста')+'</p>'+(workspace.equipment.length?'<div class="list">'+workspace.equipment.map(x=>'<div class="equipment"><div class="eq-main"><strong>'+esc(x.name)+'</strong><span class="muted">'+esc(x.qty)+' '+esc(x.unit||'шт.')+'</span></div></div>').join('')+'</div>':'<div class="empty">Список оборудования пока недоступен.</div>')+'</div>'+
@@ -39,8 +68,10 @@ root.innerHTML='<div class="shell"><header class="top"><div><div class="eyebrow"
 '<section class="panel '+(activeTab==='team'?'active':'')+'" data-panel="team"><div class="grid"><div class="card span-12"><h2>Личный состав отделения</h2><p class="sub">Отмечайте явку патрульных. Изменять сам список сотрудников здесь нельзя.</p>'+teamMarkup()+'</div></div></section>'+
 '<section class="panel '+(activeTab==='equipment'?'active':'')+'" data-panel="equipment"><div class="grid"><div class="card span-12"><h2>Оборудование и снаряжение</h2><p class="sub">Комплект подставляется по посту из наряда начальника. Отметка не списывает имущество со склада.</p>'+equipmentMarkup()+'</div></div></section>'+
 '<section class="panel '+(activeTab==='reports'?'active':'')+'" data-panel="reports"><div class="grid"><div class="card span-6"><h2>Доклад руководству</h2><p class="sub">Сообщение передаётся в служебный журнал.</p><form data-report class="form-grid"><label>Тема доклада<input name="title" maxlength="160" required placeholder="Например, итоги смены"></label><label>Тип доклада<select name="kind"><option value="Итоги смены">Итоги смены</option><option value="Происшествие">Происшествие</option><option value="Замечание">Замечание</option><option value="Недостача">Недостача</option><option value="Другое">Другое</option></select></label><label class="full">Текст<textarea name="body" maxlength="4000" required placeholder="Опишите ситуацию, принятые меры и результат"></textarea></label><div class="full"><button class="btn primary" type="submit">Отправить доклад</button></div></form></div><div class="card span-6"><h2>Журнал смены</h2><p class="sub">Отметки явки, оборудования и доклады за '+esc(dateText(workspace.date))+'.</p>'+logMarkup()+'</div></div></section>'+
+'<section class="panel '+(activeTab==='tasks'?'active':'')+'" data-panel="tasks"><div class="grid"><div class="card span-12"><h2>Поручения руководства</h2><p class="sub">Задачи, назначенные вам руководителями. Изменение статуса автоматически уведомляет постановщика.</p><div data-tasks-list><div class="empty">Откройте раздел, чтобы загрузить поручения.</div></div></div></div></section>'+
 '<div class="footer">Полномочия ограничены вашим отделением. Настройки системы, общий личный состав, расписание постов и склад недоступны.</div></div>';
 root.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeTab=btn.dataset.tab;render();}));
+if(activeTab==='tasks')loadSeniorTasks();
 root.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click',()=>action(btn.dataset.action)));
 const dateInput=root.querySelector('[data-date]');if(dateInput)dateInput.addEventListener('change',()=>loadWorkspace(dateInput.value));
 root.querySelectorAll('[data-attendance]').forEach(btn=>btn.addEventListener('click',()=>saveEntry({type:'attendance',date:workspace.date,staffKey:btn.dataset.key,status:root.querySelector('[data-status="'+CSS.escape(btn.dataset.key)+'"]').value,title:'Отметка явки'})));
