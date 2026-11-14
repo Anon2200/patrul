@@ -208,6 +208,8 @@ async function initDatabase() {
   await pool.query(mailAttachmentsSchema);
   const mailArchiveSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '004_mail_archive.sql'), 'utf8');
   await pool.query(mailArchiveSchema);
+  const sharedStaffSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '005_shared_staff_schema.sql'), 'utf8');
+  await pool.query(sharedStaffSchema);
   await migratePlaintextRows(pool);
 }
 
