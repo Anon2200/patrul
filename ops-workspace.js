@@ -263,10 +263,14 @@
         const due=task.dueDate?dateText(String(task.dueDate).slice(0,10)):'Без срока';
         const actions=[];
         if(task.isAssignee&&!terminal.includes(task.status)){
-          actions.push('<button type="button" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button>');
-          actions.push('<button type="button" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button>');
-          actions.push('<button type="button" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button>');
+          if(['Новая','На доработку'].includes(task.status))actions.push('<button type="button" data-task-status="В работе" data-task-id="'+esc(task.id)+'">В работу</button>');
+          if(task.status==='В работе'){
+            actions.push('<button type="button" data-task-status="На проверке" data-task-id="'+esc(task.id)+'">На проверку</button>');
+            actions.push('<button type="button" data-task-status="Выполнено" data-task-id="'+esc(task.id)+'">Выполнено</button>');
+          }
+          if(task.status==='На проверке')actions.push('<button type="button" data-task-status="В работе" data-task-id="'+esc(task.id)+'">Продолжить работу</button>');
         }
+        if(task.isCreator&&task.status==='На проверке')actions.push('<button type="button" data-task-status="На доработку" data-task-id="'+esc(task.id)+'">На доработку</button>');
         if(task.isCreator&&!terminal.includes(task.status))actions.push('<button type="button" data-task-status="Отменено" data-task-id="'+esc(task.id)+'">Отменить</button>');
         return '<article class="ops-record"><div class="ops-record-head"><div><small>'+esc(roleNames[task.creatorRole]||task.creatorRole)+' → '+esc(roleNames[task.assigneeRole]||task.assigneeRole)+'</small><h3>'+esc(task.title)+'</h3></div><span class="ops-status">'+esc(task.status)+'</span></div>'+
           '<p>'+esc(task.description||'Без дополнительного описания')+'</p><p><b>Постановщик:</b> '+esc(task.creatorName)+' · <b>Исполнитель:</b> '+esc(task.assigneeName)+'</p>'+
