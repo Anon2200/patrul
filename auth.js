@@ -816,7 +816,21 @@ function createAuth(pool,send,readJson) {
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
         if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
         const canViewAll=['nachalnik','uchet'].includes(s.role);
-        const [tasks,unread]=await Promise.all([
+        await pool.query(
+          'INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body,dedupe_key) '+
+          'SELECT recipient.user_id,t.id,'+
+          "CASE WHEN t.due_date<CURRENT_DATE THEN 'overdue' WHEN t.due_date=CURRENT_DATE THEN 'due_today' ELSE 'due_soon' END,"+
+          "CASE WHEN t.due_date<CURRENT_DATE THEN 'Просрочено поручение' WHEN t.due_date=CURRENT_DATE THEN 'Срок поручения сегодня' ELSE 'Срок поручения завтра' END,"+
+          "CASE WHEN t.due_date<CURRENT_DATE THEN 'Поручение «'||t.title||'» просрочено с '||to_char(t.due_date,'DD.MM.YYYY') "+
+          "WHEN t.due_date=CURRENT_DATE THEN 'Срок исполнения поручения «'||t.title||'» наступает сегодня' "+
+          "ELSE 'Срок исполнения поручения «'||t.title||'» наступает завтра' END,"+
+          "CASE WHEN t.due_date<CURRENT_DATE THEN 'overdue:'||t.due_date::text "+
+          "WHEN t.due_date=CURRENT_DATE THEN 'due_today:'||t.due_date::text ELSE 'due_soon:'||t.due_date::text END "+
+          'FROM patrul_tasks t CROSS JOIN LATERAL (SELECT t.assignee_user_id AS user_id UNION SELECT t.creator_user_id AS user_id) recipient '+
+          "WHERE t.status NOT IN ('Выполнено','Отменено') AND t.due_date IS NOT NULL AND t.due_date<=CURRENT_DATE+1 "+
+          'ON CONFLICT(user_id,task_id,notification_type,dedupe_key) DO NOTHING'
+        );
+        const [tasks,unread,notifications]=await Promise.all([
           pool.query(
             'SELECT t.id,t.title,t.description,t.priority,t.status,t.due_date AS "dueDate",t.created_at AS "createdAt",t.updated_at AS "updatedAt",'+
             't.creator_user_id AS "creatorId",c.display_name AS "creatorName",c.role AS "creatorRole",'+
@@ -827,9 +841,10 @@ function createAuth(pool,send,readJson) {
             "ORDER BY CASE WHEN t.status IN ('Выполнено','Отменено') THEN 1 ELSE 0 END,t.due_date NULLS LAST,t.created_at DESC LIMIT 300",
             [s.id,canViewAll]
           ),
-          pool.query('SELECT COUNT(*)::int AS count FROM patrul_task_notifications WHERE user_id=$1 AND is_read=FALSE',[s.id])
+          pool.query('SELECT COUNT(*)::int AS count FROM patrul_task_notifications WHERE user_id=$1 AND is_read=FALSE',[s.id]),
+          pool.query('SELECT id,task_id AS "taskId",notification_type AS type,title,body,is_read AS "isRead",created_at AS "createdAt" FROM patrul_task_notifications WHERE user_id=$1 ORDER BY created_at DESC,id DESC LIMIT 20',[s.id])
         ]);
-        send(res,200,{tasks:tasks.rows,unreadNotifications:Number(unread.rows[0].count)||0,actorId:s.id,canViewAll});
+        send(res,200,{tasks:tasks.rows,unreadNotifications:Number(unread.rows[0].count)||0,notifications:notifications.rows,actorId:s.id,canViewAll});
         return true;
       }
 
@@ -862,7 +877,7 @@ function createAuth(pool,send,readJson) {
           );
           task=created.rows[0];
           await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[task.id,s.id,'created',JSON.stringify({assigneeId,priority,dueDate})]);
-          await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[assigneeId,task.id,'assigned','Новое поручение',String(s.display_name||s.username)+' назначил(а) вам поручение: '+title]);
+          await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body,dedupe_key) VALUES($1,$2,$3,$4,$5,$6)',[assigneeId,task.id,'assigned','Новое поручение',String(s.display_name||s.username)+' назначил(а) вам поручение: '+title,'assigned:'+task.id]);
           await client.query('COMMIT');
         }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
         finally{client.release();}
@@ -928,9 +943,9 @@ function createAuth(pool,send,readJson) {
           if(comment.length>1000||(status==='На доработку'&&!comment)){await client.query('ROLLBACK');send(res,400,{error:'Для возврата на доработку укажите причину (до 1000 символов)'});return true;}
           const q=await client.query("UPDATE patrul_tasks SET status=$2,updated_at=NOW(),completed_at=CASE WHEN $2='Выполнено' THEN NOW() ELSE NULL END WHERE id=$1 RETURNING id,title,description,priority,status,due_date AS \"dueDate\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"",[taskMatch[1],status]);
           updated=q.rows[0];
-          await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status,...(comment?{comment}:{})})]);
+          const event=await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb) RETURNING id',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status,...(comment?{comment}:{})})]);
           notifyUser=isAssignee?row.creator_user_id:row.assignee_user_id;
-          if(notifyUser!==s.id){const notice=(String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»'+(comment?'. Причина: '+comment:'')).slice(0,1000);await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body) VALUES($1,$2,$3,$4,$5)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',notice]);}
+          if(notifyUser!==s.id){const notice=(String(s.display_name||s.username)+' изменил(а) статус «'+updated.title+'» на «'+status+'»'+(comment?'. Причина: '+comment:'')).slice(0,1000);await client.query('INSERT INTO patrul_task_notifications(user_id,task_id,notification_type,title,body,dedupe_key) VALUES($1,$2,$3,$4,$5,$6)',[notifyUser,updated.id,'status_changed','Изменён статус поручения',notice,'status:'+event.rows[0].id]);}
           await client.query('COMMIT');
         }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
         finally{client.release();}
