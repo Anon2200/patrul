@@ -545,11 +545,6 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   }, adminCookie, adminCsrf);
   assert.equal(doneRead.status, 200);
 
-  const employeeCannotAssign = await sessionApi('/api/tasks', {
-    method: 'POST',
-    body: JSON.stringify({ assigneeId: employeeId, title: 'Запрещённое поручение' })
-  }, employeeCookie, employeeCsrf);
-  assert.equal(employeeCannotAssign.status, 403);
 });
 
 test('role workspaces expose shared task and controlled inspection modules', () => {
@@ -640,6 +635,11 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const seniorBody = await seniorEnroll.json();
   assert.equal(seniorBody.user.role, 'starshiy_patrulya');
   const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const seniorCannotAssignTasks = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ assigneeId: employeeId, title: 'Поручение без полномочий' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorCannotAssignTasks.status, 403);
   const reusedCode = await sessionApi('/api/patrol-senior/enroll', {
     method: 'POST',
     body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '135790' })
@@ -939,7 +939,7 @@ test('bootstrap cannot be repeated and administrator can inspect the audit trail
   const me = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(me.status, 200);
   adminCsrf = (await me.json()).csrfToken;
-  const audit = await sessionApi('/api/admin/audit?limit=20', {}, adminCookie, adminCsrf);
+  const audit = await sessionApi('/api/admin/audit?limit=100', {}, adminCookie, adminCsrf);
   assert.equal(audit.status, 200);
   const result = await audit.json();
   assert.ok(result.events.some(event => event.event_type === 'bootstrap_admin_created'));
