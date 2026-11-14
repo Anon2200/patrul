@@ -741,6 +741,12 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(seniorUiSource.includes("taskTab.textContent=unreadCount"));
   assert.ok(seniorUiSource.includes("if(activeTab!=='tasks')loadSeniorTasks()"));
   assert.ok(workspace.includes('task-from-record'));
+  assert.ok(workspace.includes('documentVersionModules'));
+  assert.ok(workspace.includes('function saveDocumentVersion'));
+  assert.ok(workspace.includes('function showRecordVersions'));
+  assert.ok(workspace.includes('function restoreDocumentVersion'));
+  assert.ok(workspace.includes('data-ops="versions"'));
+  assert.ok(workspace.includes("saveDocumentVersion(existing)"));
   assert.ok(workspace.includes('startTaskFromRecord'));
   assert.ok(workspace.includes('/api/documents/next-number'));
   assert.ok(workspace.includes('minimumSequence'));
