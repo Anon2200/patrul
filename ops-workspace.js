@@ -373,9 +373,9 @@
     style.textContent='@media screen{#ops-rollcall-print-surface{display:none}}@media print{body>*:not(#ops-rollcall-print-surface){display:none!important}#ops-rollcall-print-surface{display:block!important;position:static!important;background:#fff!important;color:#111!important;font:12pt/1.45 Arial,sans-serif;padding:0!important;margin:0!important}#ops-rollcall-print-surface h1{font-size:18pt;margin:0 0 12px}#ops-rollcall-print-surface table{width:100%;border-collapse:collapse;margin:18px 0}#ops-rollcall-print-surface th,#ops-rollcall-print-surface td{border:1px solid #555;padding:7px;text-align:left}#ops-rollcall-print-surface .signatures{margin-top:40px}}';
     document.head.appendChild(style);document.body.appendChild(printRoot);
     const cleanup=()=>{printRoot.remove();style.remove();window.removeEventListener('afterprint',cleanup);};
-    window.addEventListener('afterprint',cleanup);
+    window.addEventListener('afterprint',cleanup,{once:true});
+    window.addEventListener('pagehide',cleanup,{once:true});
     window.print();
-    cleanup();
   }
 
   async function rollCall(departmentId='',serviceDate=today()){
