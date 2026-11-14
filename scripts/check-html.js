@@ -56,6 +56,9 @@ if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server
 if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
 if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
 if (!patrolSeniorPage.includes('src="patrol-senior.js"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must provide first-entry PIN setup and surname/PIN login');
+if (!patrolSeniorPage.includes('name="birthDate"') || !patrolSeniorClient.includes('birthDate:b.birthDate') || !patrolSeniorAuth.includes('String(person.birthDate||\'\')!==birthDate')) fail('initial Patrol Senior PIN enrollment must verify the roster birth date');
+if (!mailClient.includes("starshiy_patrulya:'Старший патруля'") || !mailClient.includes("starshiy_patrulya:{path:'/patrol-senior.html'")) fail('internal mail must recognize the Patrol Senior role and return to its workspace');
+if (!patrolSeniorClient.includes('href="/mail.html"')) fail('Patrol Senior workspace must link to internal mail');
 for (const feature of ['/api/patrol-senior/enroll','/api/patrol-senior/login','/api/patrol-senior/workspace','/api/patrol-senior/entries','/api/patrol-senior/change-pin','/api/patrol-senior/reports']) {
   if (!patrolSeniorAuth.includes(feature)) fail('patrol senior API missing ' + feature);
 }
