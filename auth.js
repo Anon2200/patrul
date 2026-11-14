@@ -352,7 +352,7 @@ function createAuth(pool,send,readJson) {
             const old=await pool.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
             if(old.rowCount){
               const legacy=await readRoleData(pool,'nachalnik',old.rows[0]);
-              if(legacy&&Array.isArray(legacy.staff))staff=legacy.staff;
+              if(legacy&&Array.isArray(legacy.staff))staff=legacy.staff.filter(p=>p&&typeof p==='object'&&String(p.name||'').trim()).map((p,i)=>({...p,k:String(p.k||'legacy-staff-'+i),name:String(p.name).trim(),pos:String(p.pos||'Патрульный'),st:String(p.st||'в строю'),departmentId:p.departmentId||null}));
             }
             const initial=defaultPersonnel();initial.staff=staff;
             await pool.query("INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES('shared_personnel',$1::jsonb,1,NOW()) ON CONFLICT(role) DO NOTHING",[JSON.stringify(encryptData(initial,'shared_personnel'))]);
