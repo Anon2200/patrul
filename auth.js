@@ -912,7 +912,7 @@ function createAuth(pool,send,readJson) {
         if(![...SHARED_STAFF_ROLES,'starshiy_patrulya'].includes(s.role)){send(res,403,{error:'Нет доступа к поручениям'});return true;}
         if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
         const b=await readJson(req),status=String(b.status||'');
-        if(!['Новая','В работе','На проверке','Выполнено','Отменено'].includes(status)){send(res,400,{error:'Недопустимый статус поручения'});return true;}
+        if(!['Новая','В работе','На проверке','На доработку','Выполнено','Отменено'].includes(status)){send(res,400,{error:'Недопустимый статус поручения'});return true;}
         const client=await pool.connect();
         let updated,notifyUser;
         try{
@@ -921,8 +921,10 @@ function createAuth(pool,send,readJson) {
           if(!current.rowCount){await client.query('ROLLBACK');send(res,404,{error:'Поручение не найдено'});return true;}
           const row=current.rows[0],isCreator=row.creator_user_id===s.id,isAssignee=row.assignee_user_id===s.id;
           if(!isCreator&&!isAssignee){await client.query('ROLLBACK');send(res,403,{error:'Это поручение назначено другому сотруднику'});return true;}
-          const allowed=new Set([...(isAssignee?['В работе','На проверке','Выполнено']:[]),...(isCreator?['Новая','Отменено']:[])]);
-          if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может отметить работу, проверку или выполнение':'Постановщик может вернуть поручение в новые или отменить его'});return true;}
+          const assigneeAllowed=row.status==='Новая'||row.status==='На доработку'?['В работе']:row.status==='В работе'?['На проверке','Выполнено']:row.status==='На проверке'?['В работе','Выполнено']:[];
+          const creatorAllowed=row.status==='На проверке'?['Новая','На доработку','Отменено']:['Новая','Отменено'];
+          const allowed=new Set([...(isAssignee?assigneeAllowed:[]),...(isCreator?creatorAllowed:[])]);
+          if(!allowed.has(status)){await client.query('ROLLBACK');send(res,403,{error:isAssignee?'Исполнитель может отметить работу, проверку или выполнение':'Постановщик может вернуть поручение на доработку только после отправки на проверку, перевести в новые или отменить его'});return true;}
           const q=await client.query("UPDATE patrul_tasks SET status=$2,updated_at=NOW(),completed_at=CASE WHEN $2='Выполнено' THEN NOW() ELSE NULL END WHERE id=$1 RETURNING id,title,description,priority,status,due_date AS \"dueDate\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"",[taskMatch[1],status]);
           updated=q.rows[0];
           await client.query('INSERT INTO patrul_task_events(task_id,actor_user_id,event_type,details) VALUES($1,$2,$3,$4::jsonb)',[updated.id,s.id,'status_changed',JSON.stringify({from:row.status,to:status})]);
