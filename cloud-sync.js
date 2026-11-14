@@ -414,7 +414,7 @@
     p.box.style.maxHeight='92vh';
     p.box.style.padding='20px';
     const msg=p.box.querySelector('[data-msg]'),list=p.box.querySelector('[data-users]');
-    const roleNames={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер'};
+    const roleNames={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер',starshiy_patrulya:'Старший патруля'};
     let users=[];
     function notice(text,type='info'){
       msg.textContent=text;msg.style.cssText='margin:12px 0;padding:10px 12px;border-radius:8px;line-height:1.4;background:'+(type==='error'?'#fef2f2':type==='success'?'#ecfdf5':'#eff6ff')+';color:'+(type==='error'?'#991b1b':type==='success'?'#065f46':'#1e40af');
