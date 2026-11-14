@@ -114,7 +114,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&!p.startsWith('/api/mail/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-personnel'&&!p.startsWith('/api/mail/')) return false;
     try {
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
         if(!sameOrigin(req)) {send(res,403,{error:'Недопустимый источник'});return true;}
