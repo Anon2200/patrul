@@ -188,7 +188,7 @@
   let sharedVersion=0, sharedReady=false, sharedBusy=false, sharedTimer=null, sharedPollTimer=null;
   let sharedBaseline=null, suppressSharedUpload=false;
   function copyJson(value){return value==null?value:JSON.parse(JSON.stringify(value));}
-  function sharedNameKey(value){return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();}
+  function sharedNameKey(value){return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
   function sharedPayload(){return{staff:Array.isArray(D.staff)?D.staff:[],departments:Array.isArray(D.departments)?D.departments:[]};}
   function sharedPayloadJson(value){return JSON.stringify({staff:value.staff||[],departments:value.departments||[]});}
   function mergeRemappedObject(target,source){
