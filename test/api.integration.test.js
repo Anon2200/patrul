@@ -729,6 +729,9 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes("fetch('/api/shared-staff'"));
   assert.ok(workspace.includes('ops-rollcall-all-present'));
   assert.ok(workspace.includes('function printRollCall('));
+  assert.ok(workspace.includes("window.addEventListener('afterprint',cleanup,{once:true})"));
+  assert.ok(workspace.includes("window.addEventListener('pagehide',cleanup,{once:true})"));
+  assert.ok(!workspace.includes("window.print();\\n    cleanup();"));
   assert.ok(workspace.includes('data-ops="rollcall-print"'));
   assert.ok(workspace.includes('ops-rollcall-print-surface'));
   assert.ok(workspace.includes("id:'inspections'"));
