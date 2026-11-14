@@ -563,9 +563,23 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes("id:'roleControl'"));
   assert.ok(workspace.includes('/api/control/role-data/'));
   assert.ok(workspace.includes('/api/tasks/recipients'));
+  assert.ok(workspace.includes("id:'inspections'"));
+  assert.ok(workspace.includes("id:'handover'"));
+  assert.ok(workspace.includes("id:'approvals'"));
+  assert.ok(workspace.includes('ops-crossrole-task-summary'));
+  assert.ok(workspace.includes('task-from-record'));
+  assert.ok(workspace.includes('startTaskFromRecord'));
   const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
   assert.ok(senior.includes('loadSeniorTasks'));
   assert.ok(senior.includes('/api/tasks'));
+  assert.ok(senior.includes("data-task-history"));
+  const master = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  assert.ok(master.includes('function issuePostKit'));
+  assert.ok(master.includes('function returnPostKit'));
+  assert.ok(master.includes('kitissue:issuePostKit'));
+  assert.ok(master.includes('kitreturn:returnPostKit'));
+  assert.ok(master.includes('function postIssueSummary'));
+  assert.ok(master.includes('Перед удалением поста оформите возврат выданного имущества'));
 });
 
 test('shared personnel roster deduplicates legacy role lists and synchronizes across roles', async () => {
