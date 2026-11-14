@@ -423,7 +423,17 @@
         for(const field of m.fields||[]){if(field[2]==='file'){const file=f.elements[field[0]].files[0];if(file)values[field[0]]=await compressImage(file);else if(record&&record.fields[field[0]])values[field[0]]=record.fields[field[0]];}}
         const now=new Date().toISOString(),existing=record&&data().records.find(r=>r.id===record.id);
         let target=existing?{...existing,title:values.title.trim(),date:values.date,status:values.status,fields:values,updatedAt:now}:{id:uid(),module:id,title:values.title.trim(),date:values.date,status:values.status,fields:values,createdAt:now,updatedAt:now,archived:false};
-        if(!existing&&id==='numbering'){const y=(values.date||today()).slice(0,4);const n=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(y)).length+1;target.number=String(n).padStart(3,'0')+'/'+y;}
+        if(!existing&&id==='numbering'){
+          const year=String(values.date||today()).slice(0,4);
+          const localNumbers=data().records.filter(r=>r.module==='numbering'&&String(r.date).startsWith(year)).map(r=>{
+            const match=String(r.number||'').match(/^(\\d+)\\/([0-9]{4})$/);
+            return match&&match[2]===year?Number(match[1]):0;
+          });
+          const response=await fetch('/api/documents/next-number',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},body:JSON.stringify({date:values.date||today(),minimumSequence:Math.max(0,...localNumbers)})});
+          let numbering={};try{numbering=await response.json();}catch(_){}
+          if(!response.ok)throw new Error(numbering.error||'Не удалось получить следующий регистрационный номер');
+          target.number=numbering.number;
+        }
         const projected=JSON.parse(JSON.stringify(D)),rows=projected.opsHub.records,index=existing?rows.findIndex(r=>r.id===existing.id):-1;
         if(index>=0)rows[index]=target;else rows.unshift(target);
         if(JSON.stringify(projected).length>1800000)throw new Error('Общий объём данных приблизился к лимиту синхронизации. Сохранение остановлено, прежние записи не изменены. Уменьшите вложение или создайте резервную копию и освободите место.');
