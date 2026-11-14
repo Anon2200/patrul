@@ -429,11 +429,7 @@ const A={
  stdel:t=>{const i=D.staff.findIndex(x=>x.k==t.dataset.k),v=D.staff[i];D.staff.splice(i,1);closeM();draw(1);toast('Удалено',()=>{D.staff.splice(i,0,v);draw(1)})},
  exp,impb:()=>$('#imp').click(),
  rst:()=>modal(`<h3>Сбросить данные?</h3><p>Все данные будут удалены. Сначала сохраните копию, если сомневаетесь.</p><div class="bar" style="margin:0"><button class="btn g r" data-act="rst2">Да, сбросить</button><button class="btn" data-act="cl">Отмена</button></div>`),
- rst2:()=>{D=seed();closeM();window.PATRUL_PERSONNEL_BRIDGE={
- getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
- setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
-};
-draw();toast('Данные сброшены')}};
+ rst2:()=>{D=seed();closeM();draw();toast('Данные сброшены')}};
 document.addEventListener('click',ev=>{if(ev.target.matches('input,select,option,textarea'))return;const t=ev.target.closest('[data-act]');if(t&&A[t.dataset.act])A[t.dataset.act](t,ev)});
 document.addEventListener('change',ev=>{const t=ev.target,c=t.dataset.chg;if(!c)return;const v=t.type=='checkbox'?t.checked:t.value;
  if(c=='evdone'){const k=t.dataset.k+'|'+t.dataset.d;if(v)D.done[k]=1;else delete D.done[k];draw(1)}
@@ -2006,5 +2002,9 @@ function exWeekItems(){const t=today(),f=add(t,-6),L=[],mw=D.mat.filter(m=>m.d>=
  const od=D.tasks.filter(x=>x.st!='Выполнено'&&x.due&&x.due<t).length;L.push('Просроченных поручений: '+od);return L}
 
 
+window.PATRUL_PERSONNEL_BRIDGE={
+ getStaff:()=>D.staff||[],getDepartments:()=>D.departments||[],
+ setStaff:(staff,departments,redraw)=>{D.staff=Array.isArray(staff)?staff:[];D.departments=Array.isArray(departments)?departments:[];if(typeof save==='function')save();if(redraw)draw(1);}
+};
 draw();cmFirst();
 </script><script>window.PATRUL_ROLE='dokumentoved';</script><script src="cloud-sync.js"></script><script src="ops-workspace.js"></script><script src="personal-workspace.js"></script><script src="personnel-workspace.js"></script></body></html>
