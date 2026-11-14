@@ -529,6 +529,12 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   assert.equal(status.status, 200);
   assert.equal((await status.json()).task.status, 'В работе');
 
+  const prematureComplete = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'Выполнено' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(prematureComplete.status, 403);
+
   const review = await sessionApi('/api/tasks/' + created.task.id, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'На проверке' })
@@ -556,10 +562,17 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   assert.equal(resume.status, 200);
   assert.equal((await resume.json()).task.status, 'В работе');
 
+  const finalReview = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'На проверке' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(finalReview.status, 200);
+  assert.equal((await finalReview.json()).task.status, 'На проверке');
+
   const complete = await sessionApi('/api/tasks/' + created.task.id, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'Выполнено' })
-  }, employeeCookie, employeeCsrf);
+  }, adminCookie, adminCsrf);
   assert.equal(complete.status, 200);
   assert.equal((await complete.json()).task.status, 'Выполнено');
 
@@ -573,8 +586,8 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
   const history = await sessionApi('/api/tasks/' + created.task.id + '/events', {}, employeeCookie);
   assert.equal(history.status, 200);
   const historyBody = await history.json();
-  assert.equal(historyBody.events.length, 6);
-  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed','status_changed','status_changed','status_changed']);
+  assert.equal(historyBody.events.length, 7);
+  assert.deepEqual(historyBody.events.map(event => event.type), ['created','status_changed','status_changed','status_changed','status_changed','status_changed','status_changed']);
   assert.equal(historyBody.events[3].details.comment, 'Уточнить итоговую дату и приложить акт проверки.');
 
   const doneRead = await sessionApi('/api/tasks/notifications/read', {
