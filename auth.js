@@ -265,6 +265,48 @@ function createAuth(pool,send,readJson) {
   async function csrfOk(req,s) {
     return sameOrigin(req)&&typeof req.headers['x-patrul-csrf']==='string'&&equal(sha(req.headers['x-patrul-csrf']),s.csrf_token_hash);
   }
+  async function readSharedStaffForSenior() {
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('INSERT INTO patrul_shared_staff(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+      let q=await client.query('SELECT data,version FROM patrul_shared_staff WHERE id=1 FOR UPDATE');
+      let row=q.rows[0];
+      if(!row.data) {
+        const legacyRows=await client.query("SELECT role,data FROM patrul_role_data WHERE role = ANY($1::text[]) ORDER BY CASE role WHEN 'nachalnik' THEN 1 WHEN 'zam' THEN 2 WHEN 'uchet' THEN 3 ELSE 4 END",[SHARED_STAFF_ROLES]);
+        const roleData={};
+        for(const legacy of legacyRows.rows) roleData[legacy.role]=decryptData(legacy.data,legacy.role);
+        const initial=buildLegacySharedStaff(roleData);
+        q=await client.query('UPDATE patrul_shared_staff SET data=$1::jsonb,version=1,updated_at=NOW() WHERE id=1 RETURNING data,version',[JSON.stringify(encryptData(initial,'shared_staff'))]);
+        row=q.rows[0];
+      }
+      const data=decryptData(row.data,'shared_staff');
+      await client.query('COMMIT');
+      return data;
+    } catch(error) {
+      await client.query('ROLLBACK').catch(()=>{});
+      throw error;
+    } finally { client.release(); }
+  }
+  function seniorSurnameKey(value) {
+    return sharedNameKey(String(value||'').trim().split(/\s+/)[0]||'');
+  }
+  function isSeniorRosterEntry(person) {
+    return !!person && /старший\s+патруля/i.test(String(person.pos||'')) &&
+      !['не в составе','отстранён','отстранен'].includes(String(person.st||'').trim().toLocaleLowerCase('ru-RU')) &&
+      !!String(person.departmentId||'');
+  }
+  async function currentSeniorProfile(session) {
+    if(!session||session.role!=='starshiy_patrulya') return null;
+    const q=await pool.query('SELECT staff_key,department_id,display_name FROM patrul_patrol_senior_credentials WHERE user_id=$1',[session.id]);
+    if(!q.rowCount) return null;
+    const data=await readSharedStaffForSenior();
+    const person=(Array.isArray(data.staff)?data.staff:[]).find(item=>String(item.k)===String(q.rows[0].staff_key));
+    if(!isSeniorRosterEntry(person)||String(person.departmentId)!==String(q.rows[0].department_id)) return null;
+    const department=(Array.isArray(data.departments)?data.departments:[]).find(item=>String(item.id)===String(person.departmentId));
+    if(!department) return null;
+    return {person,department,data};
+  }
   async function admin(req,res,needsCsrf) {
     const s=await sessionFor(req);
     if(!s){send(res,401,{error:'Требуется персональный вход'});return null;}
@@ -275,8 +317,206 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')) return false;
     try {
+      if(p==='/api/patrol-senior/eligible'&&req.method==='GET') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)){send(res,403,{error:'Выдавать коды активации могут только вышестоящие должностные лица'});return true;}
+        const data=await readSharedStaffForSenior();
+        const seniors=(Array.isArray(data.staff)?data.staff:[]).filter(isSeniorRosterEntry);
+        const keys=seniors.map(person=>String(person.k));
+        const [registered,invites]=await Promise.all([
+          keys.length?pool.query('SELECT staff_key FROM patrul_patrol_senior_credentials WHERE staff_key=ANY($1::text[])',[keys]):{rows:[]},
+          keys.length?pool.query('SELECT staff_key FROM patrul_patrol_senior_invites WHERE staff_key=ANY($1::text[]) AND consumed_at IS NULL AND expires_at>NOW()',[keys]):{rows:[]}
+        ]);
+        const registeredKeys=new Set(registered.rows.map(row=>String(row.staff_key)));
+        const invitedKeys=new Set(invites.rows.map(row=>String(row.staff_key)));
+        const departments=new Map((data.departments||[]).map(item=>[String(item.id),item.name]));
+        send(res,200,{seniors:seniors.map(person=>({
+          staffKey:String(person.k),name:String(person.name||''),
+          departmentName:departments.get(String(person.departmentId))||'Отделение не найдено',
+          registered:registeredKeys.has(String(person.k)),
+          codeIssued:invitedKeys.has(String(person.k))
+        }))});
+        return true;
+      }
+      if(p==='/api/patrol-senior/activation-code'&&req.method==='POST') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)){send(res,403,{error:'Выдавать коды активации могут только вышестоящие должностные лица'});return true;}
+        if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const b=await readJson(req),staffKey=typeof b.staffKey==='string'?b.staffKey.trim().slice(0,120):'';
+        if(!staffKey){send(res,400,{error:'Не указан сотрудник'});return true;}
+        const data=await readSharedStaffForSenior();
+        const person=(data.staff||[]).find(item=>String(item.k)===staffKey);
+        if(!isSeniorRosterEntry(person)){send(res,404,{error:'Действующий старший патруля не найден в личном составе'});return true;}
+        const registered=await pool.query('SELECT 1 FROM patrul_patrol_senior_credentials WHERE staff_key=$1',[staffKey]);
+        if(registered.rowCount){send(res,409,{error:'Для этого сотрудника уже создана учётная запись'});return true;}
+        const code=String(crypto.randomInt(10000000,100000000)),codeHash=await hashPassword(code);
+        const saved=await pool.query(
+          'INSERT INTO patrul_patrol_senior_invites(staff_key,activation_code_hash,expires_at,created_by,created_at,consumed_at) VALUES($1,$2,NOW()+INTERVAL \'30 minutes\',$3,NOW(),NULL) '+
+          'ON CONFLICT(staff_key) DO UPDATE SET activation_code_hash=EXCLUDED.activation_code_hash,expires_at=EXCLUDED.expires_at,created_by=EXCLUDED.created_by,created_at=NOW(),consumed_at=NULL RETURNING expires_at',
+          [staffKey,codeHash,session.id]);
+        await audit(session.id,'patrol_senior_activation_code_issued',null,{staffKey,expiresAt:saved.rows[0].expires_at});
+        send(res,201,{code,expiresAt:saved.rows[0].expires_at,staffName:person.name});
+        return true;
+      }
+      if(p==='/api/patrol-senior/enroll'&&req.method==='POST') {
+        if(!sameOrigin(req)){send(res,403,{error:'Недопустимый источник'});return true;}
+        const b=await readJson(req);
+        const surname=typeof b.surname==='string'?b.surname.trim().slice(0,80):'';
+        const surnameKey=seniorSurnameKey(surname);
+        const activationCode=typeof b.activationCode==='string'?b.activationCode.trim():'';
+        const pin=typeof b.pin==='string'?b.pin:'';
+        const key=loginKey(req,surnameKey),old=loginFailures.get(key),ipState=loginFailures.get(loginIpKey(req));
+        if(ipState&&ipState.until>Date.now()&&ipState.count>=60){send(res,429,{error:'Слишком много попыток с этого адреса. Повторите позже.'},{'retry-after':String(Math.ceil((ipState.until-Date.now())/1000))});return true;}
+        if(old&&old.until>Date.now()&&old.count>=8){send(res,429,{error:'Слишком много попыток. Повторите позже.'},{'retry-after':String(Math.ceil((old.until-Date.now())/1000))});return true;}
+        if(!/^[\p{L}-]{2,80}$/u.test(surname)||!surnameKey||!/^\d{8}$/.test(activationCode)||!/^\d{6}$/.test(pin)){
+          failed(req,surnameKey||'invalid');failedIp(req);send(res,400,{error:'Введите фамилию, одноразовый код из 8 цифр и PIN из 6 цифр'});return true;
+        }
+        const data=await readSharedStaffForSenior();
+        let candidates=(Array.isArray(data.staff)?data.staff:[]).filter(person=>isSeniorRosterEntry(person)&&seniorSurnameKey(person.name)===surnameKey);
+        if(!candidates.length){failed(req,surnameKey);failedIp(req);send(res,404,{error:'Старший патруля с такой фамилией не найден в личном составе'});return true;}
+        const staffKeys=candidates.map(person=>String(person.k));
+        const registered=await pool.query('SELECT staff_key FROM patrul_patrol_senior_credentials WHERE staff_key=ANY($1::text[])',[staffKeys]);
+        const registeredKeys=new Set(registered.rows.map(row=>String(row.staff_key)));
+        candidates=candidates.filter(person=>!registeredKeys.has(String(person.k)));
+        if(!candidates.length){send(res,409,{error:'Первоначальная регистрация уже выполнена. Используйте вход по фамилии и PIN.'});return true;}
+        const invites=await pool.query(
+          'SELECT staff_key,activation_code_hash FROM patrul_patrol_senior_invites WHERE staff_key=ANY($1::text[]) AND consumed_at IS NULL AND expires_at>NOW()',
+          [candidates.map(person=>String(person.k))]);
+        const validInvites=[];
+        for(const invite of invites.rows)if(await verifyPassword(activationCode,invite.activation_code_hash))validInvites.push(invite);
+        if(validInvites.length!==1){failed(req,surnameKey);failedIp(req);send(res,401,{error:'Фамилия или одноразовый код неверны, просрочены либо уже использованы'});return true;}
+        const person=candidates.find(item=>String(item.k)===String(validInvites[0].staff_key));
+        const department=(Array.isArray(data.departments)?data.departments:[]).find(item=>String(item.id)===String(person.departmentId));
+        if(!department){failed(req,surnameKey);failedIp(req);send(res,409,{error:'За сотрудником не закреплено отделение'});return true;}
+        const pinHash=await hashPassword(pin),randomPassword=await hashPassword(token());
+        const username='patrol-senior-'+sha(String(person.k)).toString('hex').slice(0,32),client=await pool.connect();
+        let user;
+        try {
+          await client.query('BEGIN');
+          const lockedInvite=await client.query(
+            'SELECT activation_code_hash FROM patrul_patrol_senior_invites WHERE staff_key=$1 AND consumed_at IS NULL AND expires_at>NOW() FOR UPDATE',
+            [String(person.k)]);
+          if(!lockedInvite.rowCount||!(await verifyPassword(activationCode,lockedInvite.rows[0].activation_code_hash))){
+            await client.query('ROLLBACK');failed(req,surnameKey);failedIp(req);
+            send(res,401,{error:'Одноразовый код уже использован или просрочен'});return true;
+          }
+          const already=await client.query('SELECT 1 FROM patrul_patrol_senior_credentials WHERE staff_key=$1',[String(person.k)]);
+          if(already.rowCount){await client.query('ROLLBACK');send(res,409,{error:'Первоначальная регистрация уже выполнена. Используйте вход по фамилии и PIN.'});return true;}
+          const inserted=await client.query(
+            "INSERT INTO patrul_users(username,display_name,role,password_hash,is_active,is_system_admin,must_change_password) VALUES($1,$2,'starshiy_patrulya',$3,TRUE,FALSE,FALSE) RETURNING *",
+            [username,String(person.name).trim(),randomPassword]);
+          user=inserted.rows[0];
+          await client.query('INSERT INTO patrul_patrol_senior_credentials(user_id,staff_key,department_id,display_name,surname_key,pin_hash) VALUES($1,$2,$3,$4,$5,$6)',
+            [user.id,String(person.k),String(person.departmentId),String(person.name).trim(),surnameKey,pinHash]);
+          await client.query('UPDATE patrul_patrol_senior_invites SET consumed_at=NOW(),activation_code_hash=$2 WHERE staff_key=$1',
+            [String(person.k),await hashPassword(token())]);
+          await client.query("INSERT INTO patrul_audit_log(actor_user_id,event_type,target_user_id,details) VALUES($1,'patrol_senior_enrolled',$1,$2::jsonb)",
+            [user.id,JSON.stringify({departmentId:String(person.departmentId)})]);
+          await client.query('COMMIT');
+        } catch(error) {
+          await client.query('ROLLBACK').catch(()=>{});
+          if(error.code==='23505'){send(res,409,{error:'Первоначальная регистрация уже выполнена. Используйте вход по фамилии и PIN.'});return true;}
+          throw error;
+        } finally { client.release(); }
+        loginFailures.delete(key);
+        const csrf=await newSession(user,res);send(res,201,{user:publicUser(user),csrfToken:csrf,department:department.name});return true;
+      }
+      if(p==='/api/patrol-senior/login'&&req.method==='POST') {
+        if(!sameOrigin(req)){send(res,403,{error:'Недопустимый источник'});return true;}
+        const b=await readJson(req),surname=typeof b.surname==='string'?b.surname.trim().slice(0,80):'',surnameKey=seniorSurnameKey(surname),pin=typeof b.pin==='string'?b.pin:'';
+        const key=loginKey(req,surnameKey),old=loginFailures.get(key),ipState=loginFailures.get(loginIpKey(req));
+        if(ipState&&ipState.until>Date.now()&&ipState.count>=60){send(res,429,{error:'Слишком много попыток с этого адреса. Повторите позже.'},{'retry-after':String(Math.ceil((ipState.until-Date.now())/1000))});return true;}
+        if(old&&old.until>Date.now()&&old.count>=8){send(res,429,{error:'Слишком много попыток. Повторите позже.'},{'retry-after':String(Math.ceil((old.until-Date.now())/1000))});return true;}
+        if(!/^[\p{L}-]{2,80}$/u.test(surname)||!surnameKey||!/^\d{6}$/.test(pin)){failed(req,surnameKey||'invalid');failedIp(req);send(res,401,{error:'Неверная фамилия или PIN'});return true;}
+        const q=await pool.query('SELECT c.pin_hash,u.* FROM patrul_patrol_senior_credentials c JOIN patrul_users u ON u.id=c.user_id WHERE c.surname_key=$1 AND u.is_active=TRUE',[surnameKey]);
+        const matches=[];
+        for(const candidate of q.rows)if(await verifyPassword(pin,candidate.pin_hash))matches.push(candidate);
+        if(matches.length!==1){await verifyPassword(pin,await dummyPasswordHash);failed(req,surnameKey);failedIp(req);send(res,401,{error:'Неверная фамилия или PIN'});return true;}
+        const match=matches[0];
+        const profile=await currentSeniorProfile(match);
+        if(!profile){send(res,403,{error:'Доступ приостановлен: проверьте закрепление старшего в личном составе'});return true;}
+        loginFailures.delete(key);await audit(match.id,'patrol_senior_login',match.id,{departmentId:profile.department.id});
+        const csrf=await newSession(match,res);send(res,200,{user:publicUser(match),csrfToken:csrf,department:profile.department.name});return true;
+      }
+      if(p==='/api/patrol-senior/change-pin'&&req.method==='POST') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.role!=='starshiy_patrulya'){send(res,403,{error:'Недостаточно прав'});return true;}
+        if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const b=await readJson(req),q=await pool.query('SELECT pin_hash FROM patrul_patrol_senior_credentials WHERE user_id=$1',[session.id]);
+        if(!q.rowCount){send(res,404,{error:'PIN-код не найден'});return true;}
+        if(!/^\d{6}$/.test(String(b.newPin||''))){send(res,400,{error:'Новый PIN должен состоять из 6 цифр'});return true;}
+        if(!(await verifyPassword(String(b.currentPin||''),q.rows[0].pin_hash))){send(res,401,{error:'Текущий PIN неверен'});return true;}
+        const next=await hashPassword(String(b.newPin));
+        await pool.query('UPDATE patrul_patrol_senior_credentials SET pin_hash=$1,updated_at=NOW() WHERE user_id=$2',[next,session.id]);
+        await audit(session.id,'patrol_senior_pin_changed',session.id,{});
+        send(res,200,{ok:true});return true;
+      }
+      if(p==='/api/patrol-senior/reports'&&req.method==='GET') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)){send(res,403,{error:'Доклады доступны только вышестоящим должностным лицам'});return true;}
+        const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit')||100)));
+        const q=await pool.query(
+          'SELECT e.id,e.department_id AS "departmentId",e.staff_key AS "staffKey",e.entry_date AS date,e.entry_type AS type,e.status,e.title,e.body,e.created_at AS "createdAt",u.display_name AS "seniorName" '+
+          'FROM patrul_patrol_senior_entries e JOIN patrul_users u ON u.id=e.senior_user_id '+
+          'WHERE e.entry_date >= CURRENT_DATE - 30 ORDER BY e.created_at DESC,e.id DESC LIMIT $1',[limit]);
+        const shared=await readSharedStaffForSenior();
+        const entries=q.rows.map(entry=>({...entry,departmentName:(shared.departments||[]).find(department=>String(department.id)===String(entry.departmentId))?.name||entry.departmentId}));
+        send(res,200,{entries});return true;
+      }
+      if(p==='/api/patrol-senior/workspace'&&req.method==='GET') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Завершите настройку учётной записи'});return true;}
+        const profile=await currentSeniorProfile(session);
+        if(!profile){send(res,403,{error:'Доступ к кабинету старшего патруля отсутствует'});return true;}
+        const today=String(url.searchParams.get('date')||new Date().toISOString().slice(0,10));
+        const parsedDutyDate=new Date(today+'T00:00:00.000Z');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||Number.isNaN(parsedDutyDate.getTime())||parsedDutyDate.toISOString().slice(0,10)!==today){send(res,400,{error:'Некорректная дата'});return true;}
+        const head=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
+        let assignedPost='',postConflict=false;
+        if(head.rowCount){
+          const headData=await readRoleData(pool,'nachalnik',head.rows[0]),duty=headData&&headData.duty&&headData.duty[today],rows=duty&&duty.rows&&typeof duty.rows==='object'?duty.rows:{};
+          const departmentNames=new Set(profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>sharedNameKey(person.name)).filter(Boolean));
+          const assignedPosts=Object.entries(rows).filter(([post,list])=>Array.isArray(list)&&list.some(row=>departmentNames.has(sharedNameKey(row&&row.fio)))).map(([post])=>String(post));
+          postConflict=assignedPosts.length>1;
+          if(assignedPosts.length===1)assignedPost=assignedPosts[0];
+        }
+        const equipment=(profile.data.postEquipment||[]).find(item=>sharedNameKey(item.name)===sharedNameKey(assignedPost));
+        const entries=await pool.query('SELECT id,staff_key,entry_date,entry_type,status,title,body,created_at FROM patrul_patrol_senior_entries WHERE department_id=$1 AND entry_date=$2 ORDER BY created_at DESC,id DESC',[String(profile.department.id),today]);
+        const roster=profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>({key:String(person.k),name:String(person.name||''),position:String(person.pos||''),phone:String(person.tel||''),status:String(person.st||'')}));
+        send(res,200,{date:today,user:publicUser(session),department:{id:profile.department.id,name:profile.department.name},senior:{key:String(profile.person.k),name:profile.person.name},roster,post:assignedPost||null,postConflict,equipment:equipment&&Array.isArray(equipment.items)?equipment.items:[],entries:entries.rows});return true;
+      }
+      if(p==='/api/patrol-senior/entries'&&req.method==='POST') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется вход'});return true;}
+        if(session.role!=='starshiy_patrulya'){send(res,403,{error:'Недостаточно прав'});return true;}
+        if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+        const profile=await currentSeniorProfile(session);
+        if(!profile){send(res,403,{error:'Старший больше не закреплён за отделением'});return true;}
+        const b=await readJson(req),date=String(b.date||new Date().toISOString().slice(0,10)),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000);
+        const parsedEntryDate=new Date(date+'T00:00:00.000Z');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsedEntryDate.getTime())||parsedEntryDate.toISOString().slice(0,10)!==date||Math.abs(parsedEntryDate.getTime()-Date.now())>31*86400000){send(res,400,{error:'Дата должна быть корректной и находиться в пределах 31 дня от текущей'});return true;}
+        const allowedTypes=new Set(['attendance','report','equipment','shift_start','shift_end','task_update']);
+        if(!allowedTypes.has(type)){send(res,400,{error:'Неизвестный тип записи'});return true;}
+        if(staffKey&&!profile.data.staff.some(person=>String(person.k)===staffKey&&String(person.departmentId)===String(profile.department.id))){send(res,403,{error:'Можно отмечать только сотрудников своего отделения'});return true;}
+        if(type==='attendance'&&!['present','late','absent','excused'].includes(status)){send(res,400,{error:'Укажите статус явки'});return true;}
+        if(type==='equipment'&&!['received','missing','faulty','returned'].includes(status)){send(res,400,{error:'Укажите состояние комплекта'});return true;}
+        if(['report','task_update'].includes(type)&&!body){send(res,400,{error:'Текст доклада обязателен'});return true;}
+        if(type==='report'&&!title) {send(res,400,{error:'Укажите тему доклада'});return true;}
+        const saved=await pool.query('INSERT INTO patrul_patrol_senior_entries(senior_user_id,department_id,staff_key,entry_date,entry_type,status,title,body) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,created_at',[session.id,String(profile.department.id),staffKey||null,date,type,status||null,title||null,body||null]);
+        await audit(session.id,'patrol_senior_entry_created',session.id,{departmentId:profile.department.id,type,staffKey:staffKey||null});
+        send(res,201,{id:saved.rows[0].id,createdAt:saved.rows[0].created_at});return true;
+      }
+      if(p.startsWith('/api/patrol-senior/')) {send(res,404,{error:'Маршрут не найден'});return true;}
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
         if(!sameOrigin(req)) {send(res,403,{error:'Недопустимый источник'});return true;}
         const b=await readJson(req), secret=process.env.PATRUL_BOOTSTRAP_SECRET||'';
@@ -308,7 +548,7 @@ function createAuth(pool,send,readJson) {
         const hashToCheck=u?u.password_hash:await dummyPasswordHash;
         const suppliedPassword=typeof b.password==='string'&&Buffer.byteLength(b.password,'utf8')<=256?b.password:'';
         const passwordMatches=await verifyPassword(suppliedPassword,hashToCheck);
-        const ok=!!(u&&u.is_active&&passwordMatches);
+        const ok=!!(u&&u.role!=='starshiy_patrulya'&&u.is_active&&passwordMatches);
         if(!ok){failed(req,name);failedIp(req);send(res,401,{error:'Неверный логин или пароль'});return true;}
         loginFailures.delete(key); await audit(u.id,'login_success',u.id);
         const csrf=await newSession(u,res); send(res,200,{user:publicUser(u),csrfToken:csrf}); return true;
@@ -353,7 +593,7 @@ function createAuth(pool,send,readJson) {
         }
         const reset=p.match(/^\/api\/admin\/users\/([0-9a-f-]{36})\/reset-password$/i);
         if(reset&&req.method==='POST'){
-          const id=reset[1],q=await pool.query('SELECT id FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}
+          const id=reset[1],q=await pool.query('SELECT id,role FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}if(q.rows[0].role==='starshiy_patrulya'){send(res,400,{error:'Для этой роли используется PIN-код, его можно изменить в кабинете старшего патруля'});return true;}
           const temp=token().slice(0,24),h=await hashPassword(temp),c=await pool.connect();
           try{await c.query('BEGIN');await c.query('UPDATE patrul_users SET password_hash=$1,must_change_password=TRUE,updated_at=NOW() WHERE id=$2',[h,id]);
             await c.query('UPDATE patrul_sessions SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL',[id]);
@@ -372,7 +612,7 @@ function createAuth(pool,send,readJson) {
         if(edit&&req.method==='PATCH'){
           const id=edit[1],b=await readJson(req),q=await pool.query('SELECT * FROM patrul_users WHERE id=$1',[id]);if(!q.rowCount){send(res,404,{error:'Сотрудник не найден'});return true;}
           const u=q.rows[0],role=b.role===undefined?u.role:b.role,active=b.active===undefined?u.is_active:b.active,name=b.displayName===undefined?u.display_name:b.displayName;
-          if(!ROLES.has(role)||typeof active!=='boolean'||typeof name!=='string'||!name.trim()||name.trim().length>200){send(res,400,{error:'Некорректные изменения'});return true;}
+          if(!(ROLES.has(role)||(u.role==='starshiy_patrulya'&&role===u.role))||typeof active!=='boolean'||typeof name!=='string'||!name.trim()||name.trim().length>200){send(res,400,{error:'Некорректные изменения'});return true;}
           if(id===s.id&&(!active||role!==u.role)){send(res,400,{error:'Нельзя блокировать себя или менять свою роль'});return true;}
           if(u.is_system_admin&&(!active||b.isSystemAdmin===false)){const n=await pool.query('SELECT COUNT(*)::int AS n FROM patrul_users WHERE is_system_admin=TRUE AND is_active=TRUE');if(n.rows[0].n<=1){send(res,409,{error:'Нельзя отключить последнего администратора'});return true;}}
           if(b.isSystemAdmin!==undefined&&b.isSystemAdmin!==u.is_system_admin){send(res,400,{error:'Передача прав системного администратора требует отдельной процедуры'});return true;}
@@ -506,6 +746,7 @@ function createAuth(pool,send,readJson) {
         const s=await sessionFor(req);
         if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(s.role)){send(res,403,{error:'Нет доступа к общему личному составу'});return true;}
         if(req.method==='GET') {
           const client=await pool.connect();
           try {

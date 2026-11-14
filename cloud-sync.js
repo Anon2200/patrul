@@ -414,7 +414,7 @@
     p.box.style.maxHeight='92vh';
     p.box.style.padding='20px';
     const msg=p.box.querySelector('[data-msg]'),list=p.box.querySelector('[data-users]');
-    const roleNames={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер'};
+    const roleNames={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',dokumentoved:'Документовед',uchet:'Старший мастер',starshiy_patrulya:'Старший патруля'};
     let users=[];
     function notice(text,type='info'){
       msg.textContent=text;msg.style.cssText='margin:12px 0;padding:10px 12px;border-radius:8px;line-height:1.4;background:'+(type==='error'?'#fef2f2':type==='success'?'#ecfdf5':'#eff6ff')+';color:'+(type==='error'?'#991b1b':type==='success'?'#065f46':'#1e40af');
@@ -456,7 +456,7 @@
           toggle.addEventListener('click',async()=>{if(!confirm((u.active?'Заблокировать':'Разблокировать')+' учётную запись '+u.displayName+'?'))return;toggle.disabled=true;const x=await request('/api/admin/users/'+u.id,'PATCH',{role:u.role,active:!u.active,displayName:u.displayName});if(!x.response.ok){toggle.disabled=false;notice(x.result.error||'Не удалось изменить доступ','error');}else{notice(u.active?'Учётная запись заблокирована.':'Доступ восстановлен.','success');await refresh();}});
           const reset=document.createElement('button');reset.type='button';reset.textContent='Сбросить пароль';reset.style.cssText='padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;background:white;cursor:pointer';
           reset.addEventListener('click',async()=>{if(!confirm('Сбросить пароль для '+u.displayName+'? Сотруднику потребуется новый временный пароль.'))return;reset.disabled=true;const x=await request('/api/admin/users/'+u.id+'/reset-password','POST',{});reset.disabled=false;if(!x.response.ok)notice(x.result.error||'Не удалось сбросить пароль','error');else{notice('Временный пароль создан.','success');showTemporaryPassword(x.result.temporaryPassword,'Новый временный пароль для '+u.displayName);}});
-          actions.append(role,save,toggle,reset);card.appendChild(actions);
+          if(u.role==='starshiy_patrulya'){const note=document.createElement('span');note.textContent='Роль назначена через первое подключение старшего патруля';note.style.cssText='font-size:12px;color:#64748b';actions.append(note,toggle);}else{actions.append(role,save,toggle,reset);}card.appendChild(actions);
         }
         list.appendChild(card);
       });
@@ -573,6 +573,7 @@
       let auth=await request('/api/auth/me');
       if(!auth.response.ok){currentUser=await loginPanel();}else{currentUser=auth.result.user;csrfToken=auth.result.csrfToken;}
       if(!currentUser)return;
+      window.PATRUL_CSRF=csrfToken;
       if(currentUser.role!==role){status('нет доступа к выбранной роли','#9a6700');const denied=panel('<h3>Нет доступа к разделу</h3><p>Ваша персональная учётная запись не назначена для этой роли. Обратитесь к Старшему мастеру.</p><button type="button" data-retry style="width:100%;padding:11px">Вернуться к выбору роли</button>');denied.box.querySelector('[data-retry]').addEventListener('click',()=>location.href='/');return;}
       if(currentUser.mustChangePassword)await forcePasswordChange();
       addControls();

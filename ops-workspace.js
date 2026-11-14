@@ -45,6 +45,8 @@
       ]
     }
   };
+  Object.keys(configs).forEach(roleKey=>{const cfg=configs[roleKey];if(!cfg.modules.some(m=>m.id==='seniorReports'))cfg.modules.push({id:'seniorReports',name:'Доклады старших патруля',desc:'Смены, явка, оборудование и доклады за последние 30 дней',kind:'seniorReports'});});
+  Object.keys(configs).forEach(roleKey=>{const cfg=configs[roleKey];if(!cfg.modules.some(m=>m.id==='seniorActivation'))cfg.modules.push({id:'seniorActivation',name:'Активация старших патруля',desc:'Выдача одноразовых кодов для первого входа',kind:'seniorActivation'});});
   if(!configs[role]) return;
   // Personal task lists are stored in the current account's existing synced data.
   // They do not pretend to be cross-role assignments; no existing records are migrated.
@@ -153,9 +155,60 @@
     const photo=r.fields.photo?'<img class="ops-photo" src="'+r.fields.photo+'" alt="Прикреплённая фотография">':'';
     return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+'<button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
   }
+  async function seniorActivation(){
+    currentModule='seniorActivation';
+    shell('<div class="ops-count">Загружаем список назначенных старших патруля…</div>');
+    try{
+      const response=await fetch('/api/patrol-senior/eligible',{credentials:'same-origin',cache:'no-store'});
+      let result={};try{result=await response.json();}catch(_){}
+      if(!response.ok){shell('<div class="ops-empty">'+esc(result.error||'Не удалось загрузить список')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
+      const rows=(Array.isArray(result.seniors)?result.seniors:[]).map(person=>
+        '<article class="ops-record"><div class="ops-record-head"><div><b>'+esc(person.name)+'</b><div class="ops-muted">'+esc(person.departmentName)+'</div></div><span class="ops-status">'+(person.registered?'Уже зарегистрирован':person.codeIssued?'Код выдан':'Ожидает регистрации')+'</span></div>'+
+        (person.registered?'<div class="ops-muted">У этого сотрудника уже есть вход по фамилии и PIN.</div>':'<button type="button" class="ops-primary" data-senior-issue data-staff-key="'+esc(person.staffKey)+'">'+(person.codeIssued?'Выдать новый код':'Выдать одноразовый код')+'</button><div class="ops-muted" data-code-output aria-live="polite"></div>')+
+        '</article>'
+      ).join('');
+      shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">К разделам</button><button class="ops-secondary" id="ops-senior-activation-refresh">Обновить</button></div><div class="ops-count">Код выдаётся один раз, действует 30 минут; повторная выдача аннулирует прежний.</div><div class="ops-list">'+(rows||'<div class="ops-empty">В личном составе нет действующих старших патруля.</div>')+'</div>');
+      const refresh=$('#ops-senior-activation-refresh');if(refresh)refresh.addEventListener('click',seniorActivation);
+      document.querySelectorAll('[data-senior-issue]').forEach(button=>button.addEventListener('click',async()=>{
+        button.disabled=true;
+        const output=button.closest('.ops-record').querySelector('[data-code-output]');
+        try{
+          const issued=await fetch('/api/patrol-senior/activation-code',{
+            method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Patrul-CSRF':window.PATRUL_CSRF||''},
+            body:JSON.stringify({staffKey:button.dataset.staffKey})
+          });
+          let payload={};try{payload=await issued.json();}catch(_){}
+          if(!issued.ok){if(output)output.textContent=payload.error||'Не удалось выдать код';button.disabled=false;return;}
+          if(output)output.textContent='Одноразовый код: '+payload.code+'. Передайте его лично сотруднику. Срок действия — 30 минут.';
+          button.textContent='Код выдан';
+        }catch(_){if(output)output.textContent='Нет соединения с сервером. Код не выдан.';button.disabled=false;}
+      }));
+    }catch(_){
+      shell('<div class="ops-empty">Нет соединения со списком старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
+    }
+  }
+  async function seniorReports(){
+    currentModule='seniorReports';
+    shell('<div class="ops-count">Загружаем доклады и журнал старших патруля…</div>');
+    try{
+      const response=await fetch('/api/patrol-senior/reports',{credentials:'same-origin',cache:'no-store'});
+      let result={};try{result=await response.json();}catch(_){}
+      if(!response.ok){shell('<div class="ops-empty">'+esc(result.error||'Не удалось загрузить журнал старших патруля')+'</div><button class="ops-secondary" data-ops="home">К разделам</button>');return;}
+      const labels={attendance:'Явка',report:'Доклад',equipment:'Оборудование',shift_start:'Заступление',shift_end:'Сдача смены',task_update:'Задача'};
+      const entries=Array.isArray(result.entries)?result.entries:[];
+      const rows=entries.map(entry=>{
+        const stamp=entry.createdAt?new Date(entry.createdAt).toLocaleString('ru-RU'):'';
+        return '<article class="ops-record"><div class="ops-record-head"><b>'+esc(entry.title||labels[entry.type]||entry.type)+'</b><span class="ops-status">'+esc(labels[entry.type]||entry.type)+'</span></div><div class="ops-muted">'+esc(entry.departmentName||entry.departmentId)+' · '+esc(entry.seniorName||'Старший патруля')+' · '+esc(dateText(String(entry.date||'')))+' '+esc(stamp)+'</div>'+(entry.status?'<p><b>Отметка:</b> '+esc(entry.status)+'</p>':'')+(entry.body?'<p>'+esc(entry.body)+'</p>':'')+'</article>';
+      }).join('');
+      shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">К разделам</button><button class="ops-secondary" id="ops-senior-refresh">Обновить</button></div><div class="ops-count">Записей за последние 30 дней: '+entries.length+'</div><div class="ops-list">'+(rows||'<div class="ops-empty">Записей от старших патруля пока нет.</div>')+'</div>');
+      const refresh=$('#ops-senior-refresh');if(refresh)refresh.addEventListener('click',seniorReports);
+    }catch(_){
+      shell('<div class="ops-empty">Нет соединения с журналом старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
+    }
+  }
   function list(id){
     currentModule=id;const m=moduleById(id);if(!m){home();return;}
-    if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}
+    if(m.kind==='analytics'){analytics();return;}if(m.kind==='equipmentSummary'){equipmentSummary();return;}if(m.kind==='summary'){summary();return;}if(m.kind==='reports'){reports();return;}if(m.kind==='templates'){templates();return;}if(m.kind==='numbering'){numbering();return;}if(m.kind==='archive'){archive();return;}if(m.kind==='deadlines'){deadlines();return;}if(m.kind==='audit'){audit();return;}if(m.kind==='seniorReports'){seniorReports();return;}if(m.kind==='seniorActivation'){seniorActivation();return;}
     const all=records(id).filter(r=>(filterStatus==='Все записи'||r.status===filterStatus)&&(!filterText||matchesSearch(r,filterText))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rows=all.length?all.map(r=>card(r,m)).join(''):'<div class="ops-empty">Записей пока нет. Нажмите «Добавить запись», чтобы создать первую.</div>';
     shell('<div class="ops-toolbar"><button class="ops-primary" data-ops="new">＋ Добавить запись</button><button class="ops-secondary" data-ops="home">Все разделы</button><input id="ops-filter" placeholder="Поиск в разделе…" value="'+esc(filterText)+'"><select id="ops-status"><option>Все записи</option>'+statusOptions(filterStatus)+'</select></div><div class="ops-count">Найдено записей: '+all.length+'</div><div class="ops-list">'+rows+'</div>');

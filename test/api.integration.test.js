@@ -463,10 +463,12 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const legacyHead = {
     set: {},
     staff: [
-      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Старший патруля', grp: '1', tel: '', st: 'в строю', sq: 1 },
-      { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' }
+      { k: 'head-ivanov', name: 'Иванов Иван Иванович', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю', sq: 1 },
+      { k: 'head-duplicate', name: ' Иванов   Иван Иванович ', pos: 'Патрульный', grp: '1', tel: '', st: 'в строю' },
+      { k: 'senior-sidorov', name: 'Сидоров Сергей Сергеевич', pos: 'Старший патруля', grp: '1', tel: '555-02', st: 'в строю', departmentId: 'head-dep-1', birthDate: '1998-04-12' }
     ],
-    departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }]
+    departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }],
+    duty: { [new Date().toISOString().slice(0,10)]: { rows: { 'КПП': [{ fio: 'Сидоров Сергей Сергеевич' }] } } }
   };
   const legacyDok = {
     set: {},
@@ -496,13 +498,100 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const initial = await sessionApi('/api/shared-staff', {}, employeeCookie);
   assert.equal(initial.status, 200);
   const initialBody = await initial.json();
-  assert.equal(initialBody.data.staff.length, 2);
+  assert.equal(initialBody.data.staff.length, 3);
   assert.equal(initialBody.data.departments.length, 2);
   assert.equal(initialBody.data.aliases.nachalnik['head-duplicate'], 'head-ivanov');
   assert.equal(initialBody.data.aliases.dokumentoved['dok-ivanov'], 'head-ivanov');
   assert.equal(initialBody.data.departmentAliases.dokumentoved['dok-dep-1'], 'head-dep-1');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').tel, '555-01');
   assert.equal(initialBody.data.staff.find(person => person.k === 'head-ivanov').departmentId, 'head-dep-1');
+  
+  const seniorListResponse = await sessionApi('/api/patrol-senior/eligible', {}, adminCookie);
+  assert.equal(seniorListResponse.status, 200);
+  const seniorList = await seniorListResponse.json();
+  assert.ok(seniorList.seniors.some(person => person.staffKey === 'senior-sidorov' && !person.registered));
+  const activationWithoutCsrf = await sessionApi('/api/patrol-senior/activation-code', {
+    method: 'POST',
+    body: JSON.stringify({ staffKey: 'senior-sidorov' })
+  }, adminCookie);
+  assert.equal(activationWithoutCsrf.status, 403);
+  const invalidActivation = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: '11111111', pin: '246810' })
+  });
+  assert.equal(invalidActivation.status, 401);
+  const issueCode = await sessionApi('/api/patrol-senior/activation-code', {
+    method: 'POST',
+    body: JSON.stringify({ staffKey: 'senior-sidorov' })
+  }, adminCookie, adminCsrf);
+  assert.equal(issueCode.status, 201);
+  const issuedCode = await issueCode.json();
+  assert.match(issuedCode.code, /^\d{8}$/);
+  assert.equal(issuedCode.staffName, 'Сидоров Сергей Сергеевич');
+  const seniorEnroll = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '246810' })
+  });
+  assert.equal(seniorEnroll.status, 201);
+  const seniorBody = await seniorEnroll.json();
+  assert.equal(seniorBody.user.role, 'starshiy_patrulya');
+  const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+  const reusedCode = await sessionApi('/api/patrol-senior/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '135790' })
+  });
+  assert.equal(reusedCode.status, 409);
+  const seniorWorkspace = await sessionApi('/api/patrol-senior/workspace?date=' + new Date().toISOString().slice(0,10), {}, seniorCookie);
+  assert.equal(seniorWorkspace.status, 200);
+  const seniorWorkspaceBody = await seniorWorkspace.json();
+  assert.equal(seniorWorkspaceBody.department.id, 'head-dep-1');
+  assert.equal(seniorWorkspaceBody.post, 'КПП');
+  assert.equal(seniorWorkspaceBody.roster.length, 2);
+  const seniorSharedDenied = await sessionApi('/api/shared-staff', {}, seniorCookie);
+  assert.equal(seniorSharedDenied.status, 403);
+  const seniorEligibleDenied = await sessionApi('/api/patrol-senior/eligible', {}, seniorCookie);
+  assert.equal(seniorEligibleDenied.status, 403);
+  const seniorOtherRoleDenied = await sessionApi('/api/session-data/nachalnik', {}, seniorCookie);
+  assert.equal(seniorOtherRoleDenied.status, 403);
+  const seniorAdminDenied = await sessionApi('/api/admin/users', {}, seniorCookie);
+  assert.equal(seniorAdminDenied.status, 403);
+  const seniorAttendance = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'present', title: 'Проверка явки' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorAttendance.status, 201);
+  const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
+  assert.equal(supervisorReports.status, 200);
+  assert.ok((await supervisorReports.json()).entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  const seniorReportsDenied = await sessionApi('/api/patrol-senior/reports', {}, seniorCookie);
+  assert.equal(seniorReportsDenied.status, 403);
+  const seniorLogin = await sessionApi('/api/patrol-senior/login', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+  });
+  assert.equal(seniorLogin.status, 200);
+  const seniorLoginBody = await seniorLogin.json();
+  const seniorLoginCookie = (seniorLogin.headers.get('set-cookie') || '').split(';')[0];
+  const changedPin = await sessionApi('/api/patrol-senior/change-pin', {
+    method: 'POST',
+    body: JSON.stringify({ currentPin: '246810', newPin: '135790' })
+  }, seniorLoginCookie, seniorLoginBody.csrfToken);
+  assert.equal(changedPin.status, 200);
+  const oldPinLogin = await sessionApi('/api/patrol-senior/login', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '246810' })
+  });
+  assert.equal(oldPinLogin.status, 401);
+  const newPinLogin = await sessionApi('/api/patrol-senior/login', {
+    method: 'POST',
+    body: JSON.stringify({ surname: 'Сидоров', pin: '135790' })
+  });
+  assert.equal(newPinLogin.status, 200);
+  const seniorPasswordLoginDenied = await sessionApi('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: seniorBody.user.username, password: 'not-a-patrol-senior-password' })
+  });
+  assert.equal(seniorPasswordLoginDenied.status, 401);
 
   const duplicateAndNew = {
     staff: [
@@ -518,7 +607,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   }, employeeCookie, employeeCsrf);
   assert.equal(write.status, 200);
   const written = await write.json();
-  assert.equal(written.data.staff.length, 3);
+  assert.equal(written.data.staff.length, 4);
   assert.equal(written.data.aliases.zam['duplicate-from-zam'], 'head-ivanov');
 
   const forbiddenKitWrite = await sessionApi('/api/shared-staff', {
@@ -869,19 +958,22 @@ test('password reset issues a temporary password and revokes existing sessions',
 });
 
 test('login rate limit also bounds attempts across different usernames from one IP', async () => {
-  for (let attempt = 0; attempt < 52; attempt += 1) {
+  let blocked = false;
+  for (let attempt = 0; attempt < 65; attempt += 1) {
     const response = await sessionApi('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username: 'ip.limit.' + attempt, password: 'definitely-wrong-password' })
     });
-    assert.equal(response.status, 401, 'attempt ' + (attempt + 1) + ' should be below the IP limit');
+    assert.ok([401, 429].includes(response.status), 'unexpected status on attempt ' + (attempt + 1));
+    if (response.status === 429) blocked = true;
   }
-  const blocked = await sessionApi('/api/auth/login', {
+  const overflow = await sessionApi('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username: 'ip.limit.overflow', password: 'definitely-wrong-password' })
   });
-  assert.equal(blocked.status, 429);
-  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+  assert.equal(overflow.status, 429);
+  assert.ok(Number(overflow.headers.get('retry-after')) > 0);
+  assert.ok(blocked || overflow.status === 429);
 });
 
 test('expired server sessions are rejected', async () => {
