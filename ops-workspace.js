@@ -84,7 +84,58 @@
   const uid=()=>window.crypto&&crypto.randomUUID?crypto.randomUUID():'ops-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   let active=false, currentModule='', editingId='', filterText='', filterStatus='Все записи', reportFrom=today().slice(0,8)+'01', reportTo=today();
   let drawOriginal=draw;
-  function data(){if(!D.opsHub||typeof D.opsHub!=='object')D.opsHub={};if(!Array.isArray(D.opsHub.records))D.opsHub.records=[];if(!Array.isArray(D.opsHub.audit))D.opsHub.audit=[];if(!D.opsHub.drafts||typeof D.opsHub.drafts!=='object')D.opsHub.drafts={};return D.opsHub;}
+  function data(){if(!D.opsHub||typeof D.opsHub!=='object')D.opsHub={};if(!Array.isArray(D.opsHub.records))D.opsHub.records=[];if(!Array.isArray(D.opsHub.audit))D.opsHub.audit=[];if(!Array.isArray(D.opsHub.drafts)||typeof D.opsHub.drafts!=='object')D.opsHub.drafts={};if(!Array.isArray(D.opsHub.versions))D.opsHub.versions=[];return D.opsHub;}
+  const documentVersionModules=['numbering','incoming','movement','approvals'];
+  function saveDocumentVersion(record,reason='edited'){
+    if(!record||!documentVersionModules.includes(record.module))return;
+    const copy=JSON.parse(JSON.stringify(record));
+    const entry={id:uid(),recordId:record.id,module:record.module,reason,at:new Date().toISOString(),actorRole:role,
+      title:copy.title,date:copy.date,number:copy.number||'',status:copy.status,fields:copy.fields||{}};
+    const versions=data().versions;
+    versions.unshift(entry);
+    const same=versions.filter(item=>item.recordId===record.id);
+    same.slice(10).forEach(item=>{const index=versions.indexOf(item);if(index>=0)versions.splice(index,1);});
+    if(versions.length>500)versions.length=500;
+  }
+  function showRecordVersions(recordId){
+    const record=data().records.find(item=>item.id===recordId);
+    if(!record||!documentVersionModules.includes(record.module))return;
+    currentModule=record.module;
+    const m=moduleById(record.module),history=data().versions.filter(item=>item.recordId===recordId);
+    const renderFields=fields=>Object.entries(fields||{}).map(([key,value])=>{
+      const field=(m.fields||[]).find(item=>item[0]===key);
+      const label=field?field[1]:key;
+      const textValue=value&&typeof value==='object'?JSON.stringify(value):String(value==null?'':value);
+      return textValue?'<div class="ops-history-row"><b>'+esc(label)+'</b><span>'+esc(textValue)+'</span></div>':'';
+    }).join('');
+    const versions=history.map((version,index)=>{
+      const label=version.reason==='restored'?'Сохранённая редакция до восстановления':'Предыдущая редакция';
+      return '<article class="ops-record"><div class="ops-record-head"><div><small>'+esc(new Date(version.at).toLocaleString('ru-RU'))+' · '+esc(version.actorRole||'')+'</small><h3>'+esc(version.title)+'</h3></div><span class="ops-status">'+esc(version.status||'')+'</span></div>'+
+        '<p class="ops-muted">'+label+(version.number?' · № '+esc(version.number):'')+'</p><div class="ops-list">'+renderFields(version.fields)+'</div>'+
+        '<div class="ops-actions"><button type="button" class="ops-secondary" data-ops="restore-version" data-id="'+esc(recordId)+'" data-version-id="'+esc(version.id)+'">Восстановить эту редакцию</button></div></article>';
+    }).join('');
+    shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="versions-back" data-module="'+esc(record.module)+'">К документам</button></div>'+
+      '<div class="ops-panel"><div class="ops-panel-head"><div><h2>История редакций</h2><p class="ops-muted">'+esc(m.name)+' · '+esc(record.title)+(record.number?' · № '+esc(record.number):'')+'</p></div><span class="ops-status">'+history.length+' сохранённых редакций</span></div>'+
+      '<div class="ops-record"><b>Текущая редакция</b><p>'+esc(record.status||'')+' · '+dateText(record.date)+'</p><div class="ops-list">'+renderFields(record.fields)+'</div></div>'+
+      '<div class="ops-list">'+(versions||'<div class="ops-empty">Для этого документа ещё нет сохранённых редакций. История начнёт формироваться после первого изменения.</div>')+'</div></div>');
+  }
+  function restoreDocumentVersion(recordId,versionId){
+    const record=data().records.find(item=>item.id===recordId);
+    const version=data().versions.find(item=>item.id===versionId&&item.recordId===recordId);
+    if(!record||!version)return;
+    if(!confirm('Восстановить выбранную редакцию документа? Текущая редакция будет сохранена в истории.'))return;
+    saveDocumentVersion(record,'restored');
+    record.title=version.title;
+    record.date=version.date;
+    record.number=version.number||record.number;
+    record.status=version.status;
+    record.fields=JSON.parse(JSON.stringify(version.fields||{}));
+    record.updatedAt=new Date().toISOString();
+    log('Восстановлена редакция документа',record);
+    persist();
+    showRecordVersions(recordId);
+  }
+
   function records(id){return data().records.filter(r=>r.module===id&&!r.archived);}
   function log(action,record){const h=data().audit;h.unshift({id:uid(),at:new Date().toISOString(),action:action,module:record.module,title:record.title,recordId:record.id});if(h.length>300)h.length=300;}
   function persist(){if(typeof save==='function')save();}
@@ -250,7 +301,7 @@
   function card(r,m){
     const details=(m.fields||[]).filter(f=>f[2]!=='file').map(f=>{const v=r.fields[f[0]];return v?'<div><span>'+esc(f[1])+':</span> '+esc(v)+'</div>':'';}).join('');
     const photo=r.fields.photo?'<img class="ops-photo" src="'+r.fields.photo+'" alt="Прикреплённая фотография">':'';
-    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+'<button type="button" data-ops="task-from-record" data-id="'+r.id+'">Поставить поручение</button><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
+    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+(documentVersionModules.includes(m.id)?'<button type="button" data-ops="versions" data-id="'+r.id+'">История редакций</button>':'')+'<button type="button" data-ops="task-from-record" data-id="'+r.id+'">Поставить поручение</button><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
   }
   async function seniorActivation(){
     currentModule='seniorActivation';
@@ -626,7 +677,7 @@
         const projected=JSON.parse(JSON.stringify(D)),rows=projected.opsHub.records,index=existing?rows.findIndex(r=>r.id===existing.id):-1;
         if(index>=0)rows[index]=target;else rows.unshift(target);
         if(JSON.stringify(projected).length>1800000)throw new Error('Общий объём данных приблизился к лимиту синхронизации. Сохранение остановлено, прежние записи не изменены. Уменьшите вложение или создайте резервную копию и освободите место.');
-        if(existing){Object.assign(existing,target);log('Изменена запись',existing);}else{data().records.unshift(target);log('Создана запись',target);}
+        if(existing){saveDocumentVersion(existing);Object.assign(existing,target);log('Изменена запись',existing);}else{data().records.unshift(target);log('Создана запись',target);}
         delete data().drafts[id];persist();editingId='';list(id);
       }catch(err){alert(err&&err.message?err.message:'Не удалось сохранить запись. Исходные данные не изменены.');}
     });
@@ -727,6 +778,9 @@
       if(action==='module'){filterText='';filterStatus='Все записи';list(id);return;}
       if(action==='new'){form(currentModule||'numbering',null);return;}
       if(action==='rollcall-print'){printRollCall(id);return;}
+       if(action==='versions'){showRecordVersions(id);return;}
+       if(action==='versions-back'){list(b.dataset.module);return;}
+       if(action==='restore-version'){restoreDocumentVersion(id,b.dataset.versionId);return;}
        if(action==='task-from-record'){startTaskFromRecord(id);return;}
        if(action==='chief-refresh'){loadChiefOperationalOverview();return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
