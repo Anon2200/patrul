@@ -459,6 +459,110 @@ test('personal login session, CSRF protection, and role authorization work', asy
 });
 
 
+test('senior master has audited read-only access to every role cabinet', async () => {
+  const read = await sessionApi('/api/control/role-data/nachalnik', {}, adminCookie);
+  assert.equal(read.status, 200);
+  const body = await read.json();
+  assert.equal(body.role, 'nachalnik');
+  assert.equal(body.readOnly, true);
+  assert.equal(body.actorRole, 'uchet');
+
+  const audit = await pool.query(
+    "SELECT details FROM patrul_audit_log WHERE event_type='role_control_viewed' AND details->>'targetRole'='nachalnik' ORDER BY id DESC LIMIT 1"
+  );
+  assert.equal(audit.rowCount, 1);
+  assert.equal(audit.rows[0].details.mode, 'read_only');
+
+  const write = await sessionApi('/api/control/role-data/nachalnik', {
+    method: 'PUT',
+    body: JSON.stringify({ data: { changedByControl: true } })
+  }, adminCookie, adminCsrf);
+  assert.equal(write.status, 405);
+
+  const employeeDenied = await sessionApi('/api/control/role-data/nachalnik', {}, employeeCookie);
+  assert.equal(employeeDenied.status, 403);
+});
+
+test('shared tasks can be assigned, tracked, and notified across roles', async () => {
+  const noCsrf = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ assigneeId: employeeId, title: 'Проверка поручения' })
+  }, adminCookie);
+  assert.equal(noCsrf.status, 403);
+
+  const create = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({
+      assigneeId: employeeId,
+      title: 'Проверить тестовое поручение',
+      description: 'Проверить получение и изменение статуса',
+      priority: 'Важный',
+      dueDate: '2026-12-01'
+    })
+  }, adminCookie, adminCsrf);
+  assert.equal(create.status, 201);
+  const created = await create.json();
+  assert.equal(created.task.assigneeId, employeeId);
+  assert.equal(created.task.status, 'Новая');
+
+  const recipients = await sessionApi('/api/tasks/recipients', {}, adminCookie);
+  assert.equal(recipients.status, 200);
+  assert.ok((await recipients.json()).recipients.some(person => person.id === employeeId));
+
+  const inbox = await sessionApi('/api/tasks', {}, employeeCookie);
+  assert.equal(inbox.status, 200);
+  const inboxBody = await inbox.json();
+  assert.ok(inboxBody.tasks.some(task => task.id === created.task.id));
+  assert.ok(inboxBody.unreadNotifications >= 1);
+
+  const blockedStatus = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie);
+  assert.equal(blockedStatus.status, 403);
+
+  const status = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'В работе' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(status.status, 200);
+  assert.equal((await status.json()).task.status, 'В работе');
+
+  const complete = await sessionApi('/api/tasks/' + created.task.id, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'Выполнено' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(complete.status, 200);
+  assert.equal((await complete.json()).task.status, 'Выполнено');
+
+  const creatorInbox = await sessionApi('/api/tasks', {}, adminCookie);
+  assert.equal(creatorInbox.status, 200);
+  assert.ok((await creatorInbox.json()).unreadNotifications >= 1);
+
+  const doneRead = await sessionApi('/api/tasks/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }, adminCookie, adminCsrf);
+  assert.equal(doneRead.status, 200);
+
+  const employeeCannotAssign = await sessionApi('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ assigneeId: employeeId, title: 'Запрещённое поручение' })
+  }, employeeCookie, employeeCsrf);
+  assert.equal(employeeCannotAssign.status, 403);
+});
+
+test('role workspaces expose shared task and controlled inspection modules', () => {
+  const workspace = fs.readFileSync(path.join(__dirname, '..', 'ops-workspace.js'), 'utf8');
+  assert.ok(workspace.includes("id:'sharedTasks'"));
+  assert.ok(workspace.includes("id:'roleControl'"));
+  assert.ok(workspace.includes('/api/control/role-data/'));
+  assert.ok(workspace.includes('/api/tasks/recipients'));
+  const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  assert.ok(senior.includes('loadSeniorTasks'));
+  assert.ok(senior.includes('/api/tasks'));
+});
+
 test('shared personnel roster deduplicates legacy role lists and synchronizes across roles', async () => {
   const legacyHead = {
     set: {},
