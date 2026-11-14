@@ -303,6 +303,30 @@
       shell('<div class="ops-empty">Нет соединения с журналом старших патруля.</div><button class="ops-secondary" data-ops="home">К разделам</button>');
     }
   }
+  function printRollCall(recordId){
+    const record=data().records.find(item=>item.id===recordId&&item.module==='rollCall');if(!record)return;
+    const fields=record.fields||{},attendance=Array.isArray(fields.attendance)?fields.attendance:[];
+    const labels={present:'Прибыл',late:'Опоздал',absent:'Отсутствует',excused:'Уважительная причина',unmarked:'Не отмечено'};
+    const rows=attendance.map((person,index)=>'<tr><td>'+(index+1)+'</td><td>'+esc(person.name)+'</td><td>'+esc(person.position||'')+'</td><td>'+esc(labels[person.status]||person.status)+'</td><td></td></tr>').join('');
+    const printRoot=document.createElement('div');printRoot.id='ops-rollcall-print-surface';
+    printRoot.innerHTML='<h1>Ведомость электронного развода</h1><p><b>'+esc(fields.departmentName||'Все отделения')+'</b> · '+dateText(record.date)+'</p>'+
+      '<p>Ведущий развода: '+esc(fields.instructor||'—')+' · Пост / участок: '+esc(fields.post||'—')+'</p>'+
+      '<p>Готовность смены: '+esc(fields.readiness||'Не оценена')+'</p>'+
+      (fields.uniform?'<p>Форма и внешний вид: '+esc(fields.uniform)+'</p>':'')+
+      (fields.briefing?'<p>Инструктаж и задачи: '+esc(fields.briefing)+'</p>':'')+
+      (fields.remarks?'<p>Замечания: '+esc(fields.remarks)+'</p>':'')+
+      '<table><thead><tr><th>№</th><th>ФИО</th><th>Должность</th><th>Явка</th><th>Подпись</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<p>Всего сотрудников: '+attendance.length+' · Прибыли: '+attendance.filter(x=>x.status==='present').length+' · Опоздали: '+attendance.filter(x=>x.status==='late').length+' · Отсутствуют: '+attendance.filter(x=>x.status==='absent').length+'</p>'+
+      '<p class="signatures">Ведущий развода: ____________________ Подпись: ____________</p>';
+    const style=document.createElement('style');style.id='ops-rollcall-print-style';
+    style.textContent='@media screen{#ops-rollcall-print-surface{display:none}}@media print{body>*:not(#ops-rollcall-print-surface){display:none!important}#ops-rollcall-print-surface{display:block!important;position:static!important;background:#fff!important;color:#111!important;font:12pt/1.45 Arial,sans-serif;padding:0!important;margin:0!important}#ops-rollcall-print-surface h1{font-size:18pt;margin:0 0 12px}#ops-rollcall-print-surface table{width:100%;border-collapse:collapse;margin:18px 0}#ops-rollcall-print-surface th,#ops-rollcall-print-surface td{border:1px solid #555;padding:7px;text-align:left}#ops-rollcall-print-surface .signatures{margin-top:40px}}';
+    document.head.appendChild(style);document.body.appendChild(printRoot);
+    const cleanup=()=>{printRoot.remove();style.remove();window.removeEventListener('afterprint',cleanup);};
+    window.addEventListener('afterprint',cleanup);
+    window.print();
+    cleanup();
+  }
+
   async function rollCall(departmentId='',serviceDate=today()){
     currentModule='rollCall';
     shell('<div class="ops-empty">Загружаем общий личный состав для электронного развода…</div>');
@@ -336,7 +360,7 @@
           (fields.briefing?'<p><b>Инструктаж:</b> '+esc(fields.briefing)+'</p>':'')+
           (fields.remarks?'<p><b>Замечания:</b> '+esc(fields.remarks)+'</p>':'')+
           '<details><summary>Явка по сотрудникам</summary><div class="ops-list">'+details+'</div></details>'+
-          '<div class="ops-actions"><button type="button" data-ops="task-from-record" data-id="'+esc(item.id)+'">Поставить поручение по замечаниям</button><button type="button" data-ops="archive" data-id="'+esc(item.id)+'">В архив</button></div></article>';
+          '<div class="ops-actions"><button type="button" data-ops="rollcall-print" data-id="'+esc(item.id)+'">Печать ведомости</button><button type="button" data-ops="task-from-record" data-id="'+esc(item.id)+'">Поставить поручение по замечаниям</button><button type="button" data-ops="archive" data-id="'+esc(item.id)+'">В архив</button></div></article>';
       }).join('');
       shell('<div class="ops-toolbar"><button class="ops-secondary" data-ops="home">Все разделы</button><span class="ops-muted">Общий личный состав · версия '+Number(result.version||0)+'</span></div>'+
         '<div class="ops-panel"><div class="ops-panel-head"><div><h2>Электронный развод</h2><p class="ops-muted">Отметки берутся из единого списка сотрудников. Новые записи личного состава здесь не создаются.</p></div><span class="ops-status">'+roster.length+' сотрудников</span></div>'+
@@ -702,7 +726,8 @@
       if(action==='exit'){goHome();return;}
       if(action==='module'){filterText='';filterStatus='Все записи';list(id);return;}
       if(action==='new'){form(currentModule||'numbering',null);return;}
-      if(action==='task-from-record'){startTaskFromRecord(id);return;}
+      if(action==='rollcall-print'){printRollCall(id);return;}
+       if(action==='task-from-record'){startTaskFromRecord(id);return;}
        if(action==='chief-refresh'){loadChiefOperationalOverview();return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
       if(action==='cancel'){list(currentModule);return;}
