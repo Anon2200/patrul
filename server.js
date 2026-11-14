@@ -214,6 +214,8 @@ async function initDatabase() {
   await pool.query(sharedStaffSchema);
   const patrolSeniorSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '006_patrol_senior_role.sql'), 'utf8');
   await pool.query(patrolSeniorSchema);
+  const sharedTasksSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '007_shared_tasks.sql'), 'utf8');
+  await pool.query(sharedTasksSchema);
   await migratePlaintextRows(pool);
 }
 
