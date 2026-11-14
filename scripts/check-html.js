@@ -115,6 +115,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (html.includes('localStorage.setItem(KEY,JSON.stringify(D))')) fail(file + ' must not persist plaintext application data in localStorage');
   if (!html.includes('function load(){return norm(seed())')) fail(file + ' must not load legacy local data before authentication');
+  if (!html.includes("window.addEventListener('patrul:ready',cmFirst)") || !html.includes('cmfirst:async()=>') || !html.includes('await window.PATRUL_SAVE_NOW()') || !html.includes('Первоначальные настройки сохранены на сервере')) fail(file + ' first-run setup must wait for authenticated server data and confirmed save');
   if (!html.includes("if(!c||!c.startsWith('s_'))return;const k=c.slice(2),v=t.type=='checkbox'?t.checked:t.value;D.set[k]=['interval','coef'].includes(k)?(+v||1):v;save()") || !html.includes("toast('Настройка сохранена')")) fail(file + ' initial role settings must persist as they are edited');
   if (!html.includes('delete copy.sx.pw')) fail(file + ' manual backup must not export the shared exchange password');
   if (!html.includes("if(!pw)throw new Error('needpw')") || !html.includes("throw new Error('unencrypted')") || html.includes("return useZ?'ПАТРУЛЬ1Z'")) fail(file + ' inter-role exchange must reject unencrypted packets');
