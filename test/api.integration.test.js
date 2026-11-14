@@ -902,9 +902,18 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'present', title: 'Проверка явки' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorAttendance.status, 201);
+  const seniorAttendanceUpdate = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'late', title: 'Повторная отметка явки' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorAttendanceUpdate.status, 201);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
   assert.equal(supervisorReports.status, 200);
-  assert.ok((await supervisorReports.json()).entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  const supervisorReportsBody = await supervisorReports.json();
+  assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  assert.ok(Array.isArray(supervisorReportsBody.latestAttendance));
+  assert.ok(supervisorReportsBody.latestAttendance.some(entry => entry.staffKey === 'head-ivanov' && entry.status === 'late'));
+  assert.equal(supervisorReportsBody.latestAttendance.filter(entry => entry.staffKey === 'head-ivanov').length, 1);
   const seniorReportsDenied = await sessionApi('/api/patrol-senior/reports', {}, seniorCookie);
   assert.equal(seniorReportsDenied.status, 403);
   const seniorLogin = await sessionApi('/api/patrol-senior/login', {
