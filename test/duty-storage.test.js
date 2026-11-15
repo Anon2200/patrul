@@ -21,27 +21,25 @@ test('next cleanup timer targets the next local midnight through DST changes', (
   assert.equal(nextDutyMidnight(Date.parse('2026-10-25T22:59:59.000Z')),Date.parse('2026-10-25T23:00:00.000Z'));
 });
 
-test('daily cleanup atomically removes expired rosters, schedules and senior daily logs', async () => {
+test('daily cleanup atomically removes expired rosters and senior daily logs but preserves calendar schedule history', async () => {
   const calls=[];
   let released=false;
   const responses=[
     {rowCount:3,rows:[]},
-    {rowCount:2,rows:[]},
     {rowCount:4,rows:[]}
   ];
   const client={
     async query(sql,params) {
       calls.push({sql:String(sql).replace(/\s+/g,' ').trim(),params:params||[]});
       if(/^DELETE FROM patrul_duty_rosters/.test(String(sql)))return responses[0];
-      if(/^DELETE FROM patrul_duty_schedule/.test(String(sql)))return responses[1];
-      if(/^DELETE FROM patrul_patrol_senior_entries/.test(String(sql)))return responses[2];
+      if(/^DELETE FROM patrul_patrol_senior_entries/.test(String(sql)))return responses[1];
       return {rowCount:0,rows:[]};
     },
     release(){released=true;}
   };
   const pool={async connect(){return client;}};
   const result=await purgeExpiredDutyData(pool);
-  assert.deepEqual(result,{today:dutyDateAt(),rosters:3,schedules:2,seniorEntries:4});
+  assert.deepEqual(result,{today:dutyDateAt(),rosters:3,seniorEntries:4});
   assert.equal(calls[0].sql,'BEGIN');
   assert.match(calls[1].sql,/DELETE FROM patrul_duty_rosters WHERE duty_date < \$1::date/);
   assert.match(calls[2].sql,/DELETE FROM patrul_duty_schedule WHERE duty_date < \$1::date/);
