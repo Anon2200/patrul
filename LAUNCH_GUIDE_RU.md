@@ -24,7 +24,7 @@
 | `PATRUL_PUBLIC_ORIGIN` | Точно `https://patrul-ippolitovartem63-ms5l.onreza.app`, без завершающего слеша |
 | `PATRUL_DATA_ENCRYPTION_KEY` | 32 случайных байта в base64url или 64 hex-символа |
 | `PATRUL_BOOTSTRAP_SECRET` | Временный случайный секрет минимум 32 байта; нужен только для первичного создания администратора |
-| `PATRUL_TIME_ZONE` | Необязательно; по умолчанию `Europe/Berlin` |
+| `PATRUL_TIME_ZONE` | Необязательно; по умолчанию `Europe/Moscow` |
 
 Сгенерировать каждый случайный секрет отдельно в локальном терминале:
 
