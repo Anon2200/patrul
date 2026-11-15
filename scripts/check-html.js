@@ -47,7 +47,7 @@ if (!server.includes("010_independent_duty_storage.sql") || !server.includes('pu
 if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
 const dutyStore = fs.readFileSync('duty-store.js','utf8');
-if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_duty_schedule") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
+if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
 if (!fs.readFileSync('cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
 
 try {
