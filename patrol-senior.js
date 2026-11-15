@@ -36,7 +36,7 @@ return key;
 async function saveOfflineEncrypted(storeName,id,userId,value){
 const key=await offlineKey(),iv=crypto.getRandomValues(new Uint8Array(12));
 const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(value)));
-await offlineStore(storeName,'readwrite',store=>store.put({id,userId,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(encrypted)),createdAt:Date.now()},id));
+const record={id,userId,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(encrypted)),createdAt:Date.now()};await offlineStore(storeName,'readwrite',store=>storeName==='keys'?store.put(value,id):store.put(record));
 }
 async function readOfflineEncrypted(storeName,id){
 const record=await offlineStore(storeName,'readonly',store=>store.get(id));
