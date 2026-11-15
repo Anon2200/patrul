@@ -919,6 +919,11 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorHandoverRetry.status, 200);
   assert.equal((await seniorHandoverRetry.json()).duplicate, true);
+  const conflictingHandoverRetry = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ ...queuedHandoverPayload, body: queuedHandoverPayload.body + '\\nИзменённые данные' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(conflictingHandoverRetry.status, 409);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
   assert.equal(supervisorReports.status, 200);
   const supervisorReportsBody = await supervisorReports.json();
