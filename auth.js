@@ -407,6 +407,7 @@ function createAuth(pool,send,readJson) {
           const shared=await readSharedStaffForSenior();
           const departments=new Map((shared.departments||[]).map(item=>[String(item.id),item]));
           const assignmentIds=new Set();
+          const seniorBookingKeys=new Set();
           const assignments=[];
           for(const item of body.assignments){
             if(!item||typeof item!=='object'){send(res,400,{error:'Некорректное назначение отделения'});return true;}
@@ -416,10 +417,16 @@ function createAuth(pool,send,readJson) {
               send(res,400,{error:'Отделение должно существовать, пост — быть заполнен, повторные назначения запрещены'});return true;
             }
             assignmentIds.add(departmentId);
+            const seniorId=String(item.seniorId||'').trim(),seniorName=String(item.seniorName||'').trim();
+            const seniorKey=seniorId?'id:'+seniorId:(seniorName?'name:'+sharedNameKey(seniorName):'');
+            if(seniorKey&&seniorBookingKeys.has(seniorKey)){
+              send(res,400,{error:'Этот Старший патруля уже назначен на другое отделение в этот день.'});return true;
+            }
+            if(seniorKey)seniorBookingKeys.add(seniorKey);
             assignments.push({
               departmentId,departmentName:String(department.name||'').slice(0,160),post,
-              seniorId:String(item.seniorId||'').slice(0,160),
-              seniorName:String(item.seniorName||'').trim().slice(0,160),
+              seniorId:seniorId.slice(0,160),
+              seniorName:seniorName.slice(0,160),
               updatedAt:new Date().toISOString(),
               updatedBy:String(session.display_name||session.username||'Начальник патруля').slice(0,160)
             });
@@ -439,10 +446,16 @@ function createAuth(pool,send,readJson) {
               send(res,400,{error:'Подмена должна относиться к назначенному отделению и содержать разных старшего и заменяющего с основанием'});return true;
             }
             substitutionIds.add(departmentId);
+            const replacementId=String(item.substituteSeniorId||'').trim();
+            const replacementKey=replacementId?'id:'+replacementId:'name:'+sharedNameKey(substituteSenior);
+            if(seniorBookingKeys.has(replacementKey)){
+              send(res,400,{error:'Этот Старший патруля уже назначен на другое отделение в этот день.'});return true;
+            }
+            seniorBookingKeys.add(replacementKey);
             substitutions.push({
               departmentId,departmentName:String(department.name||'').slice(0,160),
               primarySenior,primarySeniorId:String(item.primarySeniorId||'').slice(0,160),
-              substituteSenior,substituteSeniorId:String(item.substituteSeniorId||'').slice(0,160),
+              substituteSenior,substituteSeniorId:replacementId.slice(0,160),
               reason,date,createdAt:new Date().toISOString(),
               createdBy:String(session.display_name||session.username||'Начальник патруля').slice(0,160)
             });
