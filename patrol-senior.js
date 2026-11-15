@@ -20,7 +20,7 @@ const db=await openOfflineDb();
 return new Promise((resolve,reject)=>{
 const tx=db.transaction(storeName,mode),store=tx.objectStore(storeName);let value;
 try{value=operation(store);}catch(error){db.close();reject(error);return;}
-tx.oncomplete=()=>{db.close();resolve(value&&value.result!==undefined?value.result:value);};
+tx.oncomplete=()=>{db.close();resolve(value?value.result:value);};
 tx.onerror=()=>{const error=tx.error;db.close();reject(error||new Error('Ошибка локального хранилища'));};
 tx.onabort=()=>{const error=tx.error;db.close();reject(error||new Error('Операция локального хранилища отменена'));};
 });
