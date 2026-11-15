@@ -38,7 +38,7 @@ const newDutyRosterIndex = commanderDutyPage.indexOf('src="duty-roster-section.j
 if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex || newDutyRosterIndex < staffScriptIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
 const newDutyRoster = fs.readFileSync('duty-roster-section.js', 'utf8');
 try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } catch (error) { fail('new duty roster workspace: ' + error.message); }
-for (const required of ['Параметры смены','Распределение отделений по постам','Состав наряда и получение снаряжения','Пересобрать наряд на все дни','function rebuildAll','function makePlan','function applyPlan']) {
+for (const required of ['Параметры смены','Распределение отделений по постам','Состав наряда и получение снаряжения','Пересобрать наряд на все дни','function rebuildAll','const makePlan =','const applyPlan =']) {
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
