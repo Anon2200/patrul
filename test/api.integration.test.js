@@ -521,7 +521,7 @@ test('shared tasks can be assigned, tracked, and notified across roles', async (
       title: 'Проверить тестовое поручение',
       description: 'Проверить получение и изменение статуса',
       priority: 'Важный',
-      dueDate: new Date().toISOString().slice(0,10)
+      dueDate: testDutyDate
     })
   }, adminCookie, adminCsrf);
   assert.equal(create.status, 201);
