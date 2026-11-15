@@ -274,7 +274,7 @@ async function purgeLegacyCommanderDuty() {
     );
     if (!saved.rowCount) throw new Error('Commander role data changed while retiring legacy duty records');
     await client.query('COMMIT');
-    console.info('Independent duty storage initialized: future schedule days imported='+moved+'; legacy daily rosters retired.');
+    console.info('Independent duty storage initialized: schedule days imported='+moved+'; legacy daily rosters retired.');
   } catch (error) {
     await client.query('ROLLBACK').catch(()=>{});
     throw error;
