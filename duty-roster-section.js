@@ -1,399 +1,446 @@
-/* Complete duty-roster workspace.
- * Replaces the old roster screen while preserving the existing D.duty data model.
+/* Independent daily duty roster UI.
+ * This module reads/writes patrul_duty_rosters only; schedule assignments are separate.
  */
 (() => {
   'use strict';
   if (typeof D === 'undefined' || typeof TABS === 'undefined' || typeof EXV === 'undefined' || typeof A === 'undefined') return;
 
-  let pane = 'overview';
-  const esc = value => typeof e === 'function' ? e(String(value == null ? '' : value)) : String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const clean = value => String(value == null ? '' : value).trim();
-  const norm = value => clean(value).toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/g, ' ');
-  const fullNameKey = value => norm(value).replace(/[.,]/g, '').replace(/\s+/g, ' ');
-  const rowName = row => clean(row && (row.fio || row.name));
-  const nonEmpty = value => value !== undefined && value !== null && clean(value) !== '';
-  const dateRecord = date => {
-    if (!D.duty || typeof D.duty !== 'object') D.duty = {};
-    if (!D.duty[date]) D.duty[date] = typeof ddef === 'function' ? ddef() : { rows:{}, defects:[], incs:[] };
-    const record = D.duty[date];
-    if (!record.rows || typeof record.rows !== 'object' || Array.isArray(record.rows)) record.rows = {};
-    if (!Array.isArray(record.defects)) record.defects = [];
-    if (!Array.isArray(record.incs)) record.incs = [];
-    if (!Array.isArray(record.departmentAssignments)) record.departmentAssignments = [];
-    if (!Array.isArray(record.seniorSubstitutions)) record.seniorSubstitutions = [];
-    return record;
+  let pane='overview';
+  let loadToken=0;
+  let busyAll=false;
+  let loadedAll=false;
+  const rosters=new Map();
+  const versions=new Map();
+  const schedules=new Map();
+  const saveTimers=new Map();
+  const saving=new Set();
+  const saveErrors=new Map();
+  const defaultRecord=()=>({t1:'',t2:'',boss:'',dep:'',dut:'',brief:false,briefT:'',rows:{},defects:[],incs:[],summary:'',rep:false,repT:''});
+  const clone=value=>JSON.parse(JSON.stringify(value==null?{}:value));
+  const clean=value=>String(value==null?'':value).trim();
+  const normalize=value=>clean(value).toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/\s+/g,' ');
+  const nameKey=value=>normalize(value).replace(/[.,]/g,'');
+  const escape=value=>typeof e==='function'?e(String(value==null?'':value)):String(value==null?'':value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const api=(url,method='GET',body=null)=>{
+    if(typeof window.PATRUL_API_REQUEST!=='function')throw new Error('Сервис сохранения наряда ещё не готов');
+    return window.PATRUL_API_REQUEST(url,method,body);
   };
-  const departments = () => {
-    const source = Array.isArray(D.departments) ? D.departments : Array.isArray(D.set && D.set.departments) ? D.set.departments : [];
-    const list = source.map((item,index) => typeof item === 'string'
-      ? { id:String(index + 1), name:item }
-      : { id:String(item.id || item.key || index + 1), name:String(item.name || item.title || ('Отделение ' + (index + 1))) }
-    ).filter(item => item.name);
-    if (list.length) return list;
-    const grouped = new Map();
-    (D.staff || []).forEach(person => {
-      const name = clean(person && (person.departmentName || person.department || person.depName || person.otdelenie));
-      if (!name) return;
-      const n = Number(person.sq);
-      const id = Number.isInteger(n) && n > 0 ? 'legacy-' + n : 'legacy-' + (grouped.size + 1);
-      if (!grouped.has(id)) grouped.set(id,name);
-    });
-    if (grouped.size) return [...grouped].map(([id,name]) => ({id,name}));
-    return Array.from({length:9},(_,index) => ({id:'legacy-' + (index + 1),name:'Отделение ' + (index + 1)}));
-  };
-  const personDepartment = person => {
-    const id = person && (person.departmentId != null ? person.departmentId : person.depId);
-    if (id != null && clean(id)) return {id:String(id),name:''};
-    const n = Number(person && person.sq);
-    if (Number.isInteger(n) && n > 0) return {id:'legacy-' + n,name:''};
-    return {id:'',name:clean(person && (person.departmentName || person.department || person.depName || person.otdelenie))};
-  };
-  const membersOf = department => {
-    const unique = new Map();
-    (D.staff || []).filter(person => {
-      if (!person || !clean(person.name || person.fio)) return false;
-      const status = norm(person.st || person.status);
-      if (['уволен','исключен','исключён','не в штате'].includes(status)) return false;
-      const ref = personDepartment(person);
-      return ref.id ? ref.id === String(department.id) : !!ref.name && norm(ref.name) === norm(department.name);
-    }).forEach(person => {
-      const name = clean(person.name || person.fio), key = fullNameKey(name);
-      const current = unique.get(key);
-      if (!current) unique.set(key,{name,pos:clean(person.pos || person.position || person.dolzhnost),id:String(person.id || person.k || person.key || name)});
-      else if (!current.pos) current.pos = clean(person.pos || person.position || person.dolzhnost);
+  const selectedDate=()=>typeof dsel==='string'&&dsel?dsel:today();
+  const scheduleFor=date=>schedules.get(date)||{assignments:[],substitutions:[]};
+  const recordFor=date=>rosters.get(date)||defaultRecord();
+  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value);
+  const allPosts=()=>typeof posts==='function'?posts().map(String).filter(Boolean):[];
+  const postKit=post=>typeof postKitText==='function'?postKitText(post):'';
+  const staffPerson=name=>(D.staff||[]).find(person=>nameKey(person.name||person.fio)===nameKey(name));
+  const positionOf=row=>clean(row&&row.pos)||(staffPerson(rowName(row))&&clean(staffPerson(rowName(row)).pos))||'';
+  const isSenior=row=>/старш.*патрул/i.test(positionOf(row))||scheduleFor(selectedDate()).assignments.some(item=>nameKey(item.effectiveSenior||item.seniorName)===nameKey(rowName(row)));
+  const rowName=row=>clean(row&&(row.fio||row.name));
+
+  function membersOf(department) {
+    const unique=new Map();
+    (D.staff||[]).filter(person=>{
+      if(!person||!clean(person.name||person.fio))return false;
+      const status=normalize(person.st||person.status);
+      if(['уволен','исключен','исключён','не в штате'].includes(status))return false;
+      const id=person.departmentId!=null?String(person.departmentId):person.depId!=null?String(person.depId):'';
+      const name=clean(person.departmentName||person.department||person.depName||person.otdelenie);
+      return id? id===String(department.id) : normalize(name)===normalize(department.name);
+    }).forEach(person=>{
+      const name=clean(person.name||person.fio),key=nameKey(name),existing=unique.get(key);
+      if(!existing)unique.set(key,{name,pos:clean(person.pos||person.position||person.dolzhnost),id:String(person.id||person.k||person.key||name)});
+      else if(!existing.pos)existing.pos=clean(person.pos||person.position||person.dolzhnost);
     });
     return [...unique.values()];
-  };
-  const assignmentFor = (record,id) => record.departmentAssignments.find(item => String(item.departmentId) === String(id));
-  const effectiveSeniorName = (record,item) => {
-    const substitution = (record.seniorSubstitutions || []).find(entry =>
-      String(entry.departmentId) === String(item.departmentId) && norm(entry.primarySenior) === norm(item.seniorName));
-    return substitution ? substitution.substituteSenior : item.seniorName;
-  };
-  const isSeniorForRecord = (record,row,post) => isSenior(row) || record.departmentAssignments.some(item =>
-    item.post === post && fullNameKey(effectiveSeniorName(record,item)) === fullNameKey(rowName(row)));
-  const initialsKey = value => {
-    const parts = norm(value).split(' ').filter(Boolean);
-    if (parts.length < 2) return '';
-    const surname = parts[0].replace(/[.,]/g,'');
-    const tail = parts.slice(1);
-    const initials = norm(value).includes('.') ? tail.join('').replace(/[^a-zа-яё]/g,'') : tail.map(part => part[0]).join('');
-    return initials ? surname + ' ' + initials.replace(/ё/g,'е') : '';
-  };
-  const personMatches = (row,members) => {
-    const key = fullNameKey(rowName(row));
-    if (!key) return [];
-    const exact = members.filter(member => fullNameKey(member.name) === key);
-    if (exact.length) return exact;
-    const initials = initialsKey(rowName(row));
-    if (initials) {
-      const abbreviated = members.filter(member => initialsKey(member.name) === initials);
-      if (abbreviated.length) return abbreviated;
-    }
-    const parts = key.split(' ').filter(Boolean);
-    if (parts.length < 2) return [];
-    return members.filter(member => {
-      const candidate = fullNameKey(member.name).split(' ').filter(Boolean);
-      if (candidate[0] !== parts[0] || candidate.length < 2) return false;
-      const given = parts.slice(1);
-      if (given.length > candidate.length - 1) return false;
-      return given.every((part,index) => part.length === 1
-        ? candidate[index + 1] && candidate[index + 1][0] === part
-        : candidate[index + 1] === part);
+  }
+  function departments() {
+    const source=Array.isArray(D.departments)?D.departments:Array.isArray(D.set&&D.set.departments)?D.set.departments:[];
+    const list=source.map((item,index)=>typeof item==='string'?{id:String(index+1),name:item}:{id:String(item.id||item.key||index+1),name:String(item.name||item.title||('Отделение '+(index+1)))}).filter(item=>item.name);
+    if(list.length)return list;
+    const found=new Map();
+    (D.staff||[]).forEach(person=>{
+      const name=clean(person.departmentName||person.department||person.depName||person.otdelenie);
+      if(!name)return;
+      const id=String(person.departmentId||person.depId||'legacy-'+(found.size+1));
+      if(!found.has(id))found.set(id,name);
     });
-  };
-  const clone = value => JSON.parse(JSON.stringify(value));
-  const postsList = () => typeof posts === 'function' ? posts().map(clean).filter(Boolean) : [];
-  const isSenior = row => typeof isSeniorPatrolRow === 'function'
-    ? isSeniorPatrolRow(row)
-    : /старш.*патрул/i.test(clean(row && row.pos));
-  const kitText = post => typeof postKitText === 'function' ? postKitText(post) : '';
-  const options = (items,selected) => '<option value="">Не выбрано</option>' + items.map(item =>
-    '<option value="' + esc(item) + '" ' + (String(item) === String(selected || '') ? 'selected' : '') + '>' + esc(item) + '</option>'
-  ).join('');
-
+    return [...found].map(([id,name])=>({id,name}));
+  }
+  function membersMatch(row,members) {
+    const key=nameKey(rowName(row));
+    if(!key)return [];
+    const exact=members.filter(person=>nameKey(person.name)===key);
+    if(exact.length)return exact;
+    const parts=key.split(' ').filter(Boolean);
+    if(parts.length<2)return [];
+    return members.filter(person=>{
+      const candidate=nameKey(person.name).split(' ').filter(Boolean);
+      if(candidate[0]!==parts[0]||candidate.length<2||parts.length>candidate.length)return false;
+      return parts.slice(1).every((part,index)=>part.length===1?candidate[index+1]&&candidate[index+1][0]===part:candidate[index+1]===part);
+    });
+  }
   function makePlan(record,post,members) {
-    const allRows = [];
-    Object.keys(record.rows || {}).forEach(existingPost => (Array.isArray(record.rows[existingPost]) ? record.rows[existingPost] : []).forEach((row,index) => {
-      if (row && rowName(row)) allRows.push({post:existingPost,index,row});
+    const allRows=[];
+    Object.keys(record.rows||{}).forEach(existingPost=>(Array.isArray(record.rows[existingPost])?record.rows[existingPost]:[]).forEach((row,index)=>{
+      if(row&&rowName(row))allRows.push({post:existingPost,index,row});
     }));
-    const issues = [];
-    const memberPlans = members.map(member => {
-      const found = allRows.filter(entry => personMatches(entry.row,[member]).length === 1);
-      const merged = {};
-      found.forEach(entry => Object.keys(entry.row).forEach(key => {
-        if (!nonEmpty(entry.row[key]) || key === 'fio' || key === 'name') return;
-        if (nonEmpty(merged[key]) && String(merged[key]) !== String(entry.row[key])) {
-          issues.push('У сотрудника «' + member.name + '» расходятся значения поля «' + key + '» в нескольких строках.');
-        } else merged[key] = entry.row[key];
+    const issues=[];
+    const memberPlans=members.map(member=>{
+      const found=allRows.filter(entry=>membersMatch(entry.row,[member]).length===1);
+      const merged={};
+      found.forEach(entry=>Object.keys(entry.row).forEach(key=>{
+        if(!nonEmpty(entry.row[key])||key==='fio'||key==='name')return;
+        if(nonEmpty(merged[key])&&String(merged[key])!==String(entry.row[key]))issues.push('У сотрудника «'+member.name+'» конфликтуют сохранённые значения поля «'+key+'».');
+        else merged[key]=entry.row[key];
       }));
       return {member,found,merged};
     });
-    allRows.forEach(entry => {
-      const matches = personMatches(entry.row,members);
-      if (matches.length > 1) issues.push('Строка «' + rowName(entry.row) + '» неоднозначна: подходит нескольким сотрудникам отделения.');
+    allRows.forEach(entry=>{
+      const matches=membersMatch(entry.row,members);
+      if(matches.length>1)issues.push('Сокращённое ФИО «'+rowName(entry.row)+'» подходит нескольким сотрудникам отделения.');
     });
-    const matchedKeys = new Set();
-    const duplicates = [];
-    allRows.forEach(entry => {
-      const matches = personMatches(entry.row,members);
-      if (matches.length !== 1) return;
-      const key = fullNameKey(matches[0].name);
-      if (matchedKeys.has(key)) duplicates.push(entry);
-      matchedKeys.add(key);
+    const seen=new Set(),duplicates=[];
+    allRows.forEach(entry=>{
+      const matches=membersMatch(entry.row,members);
+      if(matches.length!==1)return;
+      const key=nameKey(matches[0].name);
+      if(seen.has(key))duplicates.push(entry);
+      seen.add(key);
     });
     return {post,members,memberPlans,issues:[...new Set(issues)],duplicates};
   }
+  function nonEmpty(value){return value!==undefined&&value!==null&&clean(value)!=='';}
   function applyPlan(record,plan) {
-    if (plan.issues.length) return {applied:false,reason:plan.issues.join(' ')};
-    const rows = record.rows || (record.rows = {});
-    const keepTarget = (Array.isArray(rows[plan.post]) ? rows[plan.post] : []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
-    const rebuilt = [];
-    const defaults = {tin:clean(record.t1),tout:clean(record.t2)};
-    plan.memberPlans.forEach(item => {
-      const row = {...item.merged};
-      row.fio = item.member.name;
-      if (!nonEmpty(row.pos)) row.pos = item.member.pos;
-      if (!nonEmpty(row.tin)) row.tin = defaults.tin;
-      if (!nonEmpty(row.tout)) row.tout = defaults.tout;
+    if(plan.issues.length)return {applied:false,reason:plan.issues.join(' ')};
+    const rows=record.rows||(record.rows={});
+    const keep=(Array.isArray(rows[plan.post])?rows[plan.post]:[]).filter(row=>!rowName(row)||!membersMatch(row,plan.members).length);
+    const rebuilt=[];
+    plan.memberPlans.forEach(item=>{
+      const row={...item.merged};
+      row.fio=item.member.name;
+      if(!nonEmpty(row.pos))row.pos=item.member.pos;
+      if(!nonEmpty(row.tin))row.tin=clean(record.t1);
+      if(!nonEmpty(row.tout))row.tout=clean(record.t2);
       rebuilt.push(row);
     });
-    rows[plan.post] = keepTarget.concat(rebuilt);
-    Object.keys(rows).forEach(existingPost => {
-      if (existingPost === plan.post) return;
-      rows[existingPost] = (Array.isArray(rows[existingPost]) ? rows[existingPost] : []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
+    rows[plan.post]=keep.concat(rebuilt);
+    Object.keys(rows).forEach(existingPost=>{
+      if(existingPost===plan.post)return;
+      rows[existingPost]=(Array.isArray(rows[existingPost])?rows[existingPost]:[]).filter(row=>!rowName(row)||!membersMatch(row,plan.members).length);
     });
     return {
       applied:true,
-      moved:plan.memberPlans.filter(item => item.found.some(entry => entry.post !== plan.post)).length,
-      added:plan.memberPlans.filter(item => !item.found.length).length,
-      already:plan.memberPlans.filter(item => item.found.some(entry => entry.post === plan.post)).length,
+      moved:plan.memberPlans.filter(item=>item.found.some(entry=>entry.post!==plan.post)).length,
+      added:plan.memberPlans.filter(item=>!item.found.length).length,
+      already:plan.memberPlans.filter(item=>item.found.some(entry=>entry.post===plan.post)).length,
       duplicatesRemoved:plan.duplicates.length
     };
   }
-  function rebuildDate(date,departmentId) {
-    const original = D.duty && D.duty[date];
-    if (!original || !Array.isArray(original.departmentAssignments) || !original.departmentAssignments.length) {
-      return {skipped:true,reason:'На эту дату нет сохранённых назначений отделений.'};
+  function rebuildDate(date,record,schedule) {
+    const assignments=Array.isArray(schedule&&schedule.assignments)?schedule.assignments:[];
+    if(!assignments.length)return {skipped:true,reason:'На выбранную дату нет назначений отделений в графике.'};
+    const working=clone(record),totals={applied:0,moved:0,added:0,already:0,duplicatesRemoved:0,errors:[]},used=new Set();
+    for(const assignment of assignments){
+      const dept=departments().find(item=>String(item.id)===String(assignment.departmentId));
+      const post=clean(assignment.post);
+      if(!dept){totals.errors.push((assignment.departmentName||assignment.departmentId)+': отделение не найдено в личном составе.');continue;}
+      if(!post||!allPosts().includes(post)){totals.errors.push(dept.name+': пост не найден в настройках.');continue;}
+      const members=membersOf(dept);
+      if(!members.length){totals.errors.push(dept.name+': не найден личный состав в строю.');continue;}
+      const overlap=members.filter(person=>used.has(nameKey(person.name)));
+      if(overlap.length){totals.errors.push(dept.name+': сотрудник также включён в другое отделение ('+overlap.map(person=>person.name).join(', ')+').');continue;}
+      members.forEach(person=>used.add(nameKey(person.name)));
+      const plan=makePlan(working,post,members);
+      if(plan.issues.length){totals.errors.push(dept.name+': '+plan.issues.join(' '));continue;}
+      const result=applyPlan(working,plan);
+      if(!result.applied){totals.errors.push(dept.name+': '+result.reason);continue;}
+      totals.applied++;totals.moved+=result.moved;totals.added+=result.added;totals.already+=result.already;totals.duplicatesRemoved+=result.duplicatesRemoved;
     }
-    const targets = original.departmentAssignments.filter(item => !departmentId || String(item.departmentId) === String(departmentId));
-    if (!targets.length) return {skipped:true,reason:'Для выбранного отделения нет назначения на эту дату.'};
-    const working = clone(original);
-    const totals = {applied:0,moved:0,added:0,already:0,duplicatesRemoved:0,errors:[]};
-    const usedPeople = new Set();
-    for (const item of targets) {
-      const dept = departments().find(entry => String(entry.id) === String(item.departmentId));
-      const post = clean(item.post);
-      if (!dept) { totals.errors.push((item.departmentName || item.departmentId) + ': отделение не найдено в личном составе.'); continue; }
-      if (!post || !postsList().includes(post)) { totals.errors.push(dept.name + ': пост из графика не найден в текущем списке постов.'); continue; }
-      const members = membersOf(dept);
-      if (!members.length) { totals.errors.push(dept.name + ': в отделении нет сотрудников в строю.'); continue; }
-      const overlap = members.filter(person => usedPeople.has(fullNameKey(person.name)));
-      if (overlap.length) { totals.errors.push(dept.name + ': сотрудник уже включён в другое назначенное отделение (' + overlap.map(x => x.name).join(', ') + ').'); continue; }
-      members.forEach(person => usedPeople.add(fullNameKey(person.name)));
-      const plan = makePlan(working,post,members);
-      if (plan.issues.length) { totals.errors.push(dept.name + ': ' + plan.issues.join(' ')); continue; }
-      const result = applyPlan(working,plan);
-      if (!result.applied) { totals.errors.push(dept.name + ': ' + result.reason); continue; }
-      totals.applied++;
-      totals.moved += result.moved;
-      totals.added += result.added;
-      totals.already += result.already;
-      totals.duplicatesRemoved += result.duplicatesRemoved;
-    }
-    if (totals.errors.length) return {...totals,skipped:true,reason:'Дата не изменена: сначала устраните ошибки назначений.',errors:totals.errors};
-    original.rows = working.rows || {};
-    return {...totals,skipped:false};
+    if(totals.errors.length)return {...totals,skipped:true,errors:totals.errors,reason:'Наряд за эту дату не изменён из-за конфликтов.'};
+    return {...totals,skipped:false,data:working};
   }
-  function rebuildAll(departmentId) {
-    const totals = {datesChecked:0,datesChanged:0,moved:0,added:0,already:0,duplicatesRemoved:0,skipped:0,errors:[]};
-    Object.keys(D.duty || {}).sort().forEach(date => {
-      const record = D.duty[date];
-      if (!record || !Array.isArray(record.departmentAssignments)) return;
-      if (!record.departmentAssignments.some(item => !departmentId || String(item.departmentId) === String(departmentId))) return;
-      totals.datesChecked++;
-      const result = rebuildDate(date,departmentId);
-      if (result.skipped) {
-        totals.skipped++;
-        (result.errors || (result.reason ? [result.reason] : [])).forEach(error => totals.errors.push(date + ': ' + error));
-        return;
+
+  async function loadOne(date,force=false) {
+    if(!validDate(date))return;
+    if(!force&&rosters.has(date))return;
+    const token=++loadToken;
+    try{
+      const result=await api('/api/duty-roster?date='+encodeURIComponent(date));
+      if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить наряд');
+      if(token!==loadToken&&date===selectedDate())return;
+      rosters.set(date,{...defaultRecord(),...(result.result.data||{}),rows:result.result.data&&result.result.data.rows||{},defects:result.result.data&&result.result.data.defects||[],incs:result.result.data&&result.result.data.incs||[]});
+      versions.set(date,Number(result.result.version)||0);
+      schedules.set(date,result.result.schedule||{assignments:[],substitutions:[]});
+      saveErrors.delete(date);
+      draw(1);
+    }catch(error){
+      saveErrors.set(date,error.message);
+      draw(1);
+    }
+  }
+  async function loadAll() {
+    if(busyAll)return;
+    busyAll=true;
+    try{
+      const result=await api('/api/duty-roster?all=1');
+      if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить сохранённые наряды');
+      (result.result.items||[]).forEach(item=>{
+        rosters.set(item.date,{...defaultRecord(),...(item.data||{}),rows:item.data&&item.data.rows||{},defects:item.data&&item.data.defects||[],incs:item.data&&item.data.incs||[]});
+        versions.set(item.date,Number(item.version)||0);
+        schedules.set(item.date,item.schedule||{assignments:[],substitutions:[]});
+      });
+      loadedAll=true;
+    }catch(error){toast(error.message);}
+    finally{busyAll=false;}
+  }
+  function syncSave(date) {
+    if(saveTimers.has(date))clearTimeout(saveTimers.get(date));
+    saveErrors.delete(date);
+    const timer=setTimeout(()=>persistDate(date),550);
+    saveTimers.set(date,timer);
+  }
+  async function persistDate(date) {
+    if(saving.has(date))return;
+    const timer=saveTimers.get(date);if(timer)clearTimeout(timer);
+    saveTimers.delete(date);
+    saving.add(date);
+    try{
+      const expectedVersion=versions.get(date)||0;
+      const result=await api('/api/duty-roster','PUT',{date,expectedVersion,data:clone(recordFor(date))});
+      if(result.response.status===409){
+        const reload=await api('/api/duty-roster?date='+encodeURIComponent(date));
+        if(reload.response.ok){
+          rosters.set(date,{...defaultRecord(),...(reload.result.data||{})});
+          versions.set(date,Number(reload.result.version)||0);
+          schedules.set(date,reload.result.schedule||{assignments:[],substitutions:[]});
+        }
+        throw new Error('Наряд изменился на другом устройстве. Загружена последняя версия — проверьте изменения ещё раз.');
       }
-      if (result.applied) totals.datesChanged++;
-      totals.moved += result.moved || 0;
-      totals.added += result.added || 0;
-      totals.already += result.already || 0;
-      totals.duplicatesRemoved += result.duplicatesRemoved || 0;
-    });
-    return totals;
+      if(!result.response.ok)throw new Error(result.result.error||'Не удалось сохранить наряд');
+      versions.set(date,Number(result.result.version)||expectedVersion+1);
+      rosters.set(date,{...defaultRecord(),...(result.result.data||{})});
+      saveErrors.delete(date);
+      if(date===selectedDate())toast('Наряд сохранён.');
+    }catch(error){
+      saveErrors.set(date,error.message);
+      if(date===selectedDate())toast(error.message);
+    }finally{saving.delete(date);draw(1);}
   }
-  function paneButton(key,label) {
-    return '<button type="button" class="nr-tab ' + (pane === key ? 'active' : '') + '" data-act="nrPane" data-pane="' + key + '">' + label + '</button>';
+  function getPath(object,path){return path.split('|').reduce((value,key)=>value==null?undefined:value[key],object);}
+  function setPath(object,path,value){const keys=path.split('|');let target=object;for(let i=0;i<keys.length-1;i++){const key=keys[i];if(target[key]==null)target[key]=/^\d+$/.test(keys[i+1])?[]:{};target=target[key];}target[keys[keys.length-1]]=value;}
+  function updateField(target) {
+    const date=target.dataset.nrDate||selectedDate(),record=recordFor(date),path=target.dataset.nrField;
+    if(!path)return;
+    const value=target.type==='checkbox'?target.checked:target.value;
+    setPath(record,path,value);
+    const parts=path.split('|');
+    if(parts[0]==='rows'&&parts[parts.length-1]==='fio'){
+      const row=getPath(record,parts.slice(0,-1).join('|'));
+      const person=staffPerson(value);
+      if(person&&!clean(row.pos))row.pos=person.pos||person.position||'';
+    }
+    syncSave(date);
   }
-  function assignmentPanel(record,date) {
-    const list = departments();
-    if (!list.length) return '<p class="mu">Сначала добавьте отделения в разделе «Личный состав».</p>';
-    return '<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Отделение</th><th>Назначенный пост</th><th>Старший патруля</th><th>Личный состав</th><th>Состояние</th></tr></thead><tbody>' +
-      list.map(dept => {
-        const current = assignmentFor(record,dept.id);
-        const senior = current ? effectiveSeniorName(record,current) || '—' : '—';
-        const count = membersOf(dept).length;
-        const valid = current && current.post && postsList().includes(current.post);
-        return '<tr><td><b>' + esc(dept.name) + '</b></td><td>' + esc(current && current.post || 'Не назначен') + '</td><td>' + esc(senior) + '</td><td>' + count + ' чел.</td><td>' +
-          (valid ? '<span class="nr-status good">Назначено</span>' : current ? '<span class="nr-status bad">Проверить пост</span>' : '<span class="nr-status muted">Нет назначения</span>') + '</td></tr>';
-      }).join('') + '</tbody></table></div><p class="nr-hint">Назначения на дату берутся из «Графика дежурств». Менять пост и старшего патруля нужно там — здесь наряд использует сохранённый график.</p>';
+  function rowsOf(record,post) {
+    const source=Array.isArray(record.rows&&record.rows[post])?record.rows[post]:[];
+    return Array.from({length:Math.max(2,source.length)},(_,index)=>source[index]||{});
   }
-  function rosterPanel(record) {
-    const allPosts = postsList();
-    if (!allPosts.length) return '<div class="nr-empty">Сначала добавьте посты в настройках.</div>';
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав наряда по постам</h3><p>Внесите сотрудников, время заступления и сдачи смены</p></div><button class="btn s g" data-act="nrResetRoster">Сбросить состав за дату</button></div></section>' + allPosts.map(post => {
-      const source = record.rows[post] || [];
-      const rows = Array.from({length:Math.max(2,source.length)},(_,index) => source[index] || {});
-      const filled = rows.filter(row => rowName(row)).length;
-      return '<section class="nr-post"><div class="nr-post-head"><div><h3>' + esc(post) + '</h3><span>' + filled + ' сотрудников</span></div><button class="btn s g" data-act="drow" data-p="' + esc(post) + '">+ строка</button></div>' +
-        '<div class="nr-table-wrap"><table class="nr-table nr-roster"><thead><tr><th>ФИО</th><th>Должность</th><th>Снаряжение</th><th>Заступление</th><th>Сдача</th></tr></thead><tbody>' +
-        rows.map((row,index) => {
-          const prefix = 'rows|' + post + '|' + index + '|';
-          const field = key => 'value="' + esc(row[key] || '') + '" data-chg="duty" data-p="' + esc(prefix + key) + '"';
-          const senior = isSeniorForRecord(record,row,post);
-          const kit = kitText(post);
-          const equipment = senior
-            ? (kit && row.fio ? '<div class="nr-kit">' + esc(kit) + '</div>' : '<input ' + field('eq') + ' placeholder="Выданное снаряжение">')
-            : '<span class="nr-muted">Не выдаётся</span>';
-          return '<tr><td><input list="dl_staff" ' + field('fio') + ' placeholder="Фамилия Имя Отчество"></td><td><input ' + field('pos') + ' placeholder="Должность"></td><td>' + equipment + '</td><td><input type="time" ' + field('tin') + '></td><td><input type="time" ' + field('tout') + '></td></tr>';
-        }).join('') + '</tbody></table></div></section>';
-    }).join('');
+  function field(path,value,type='text',placeholder='') {
+    return 'type="'+type+'" value="'+escape(value||'')+'" data-nr-field="'+escape(path)+'" data-nr-date="'+escape(selectedDate())+'"'+(placeholder?' placeholder="'+escape(placeholder)+'"':'');
+  }
+  function assignmentPanel(date) {
+    const schedule=scheduleFor(date),assignments=schedule.assignments||[];
+    if(!assignments.length)return '<div class="nr-empty">На эту дату отделения ещё не распределены по постам. Откройте «График дежурств» и сохраните назначения.</div>';
+    return '<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Отделение</th><th>Пост</th><th>Старший патруля</th><th>Личный состав</th><th>Подмена</th></tr></thead><tbody>'+
+      assignments.map(item=>{
+        const dept=departments().find(entry=>String(entry.id)===String(item.departmentId));
+        const sub=(schedule.substitutions||[]).find(entry=>String(entry.departmentId)===String(item.departmentId));
+        const count=dept?membersOf(dept).length:0;
+        return '<tr><td><b>'+escape(item.departmentName||dept&&dept.name||'Отделение')+'</b></td><td>'+escape(item.post||'Не назначен')+'</td><td>'+escape(item.seniorName||'—')+'</td><td>'+count+' чел.</td><td>'+(sub?'<span class="nr-status good">'+escape(sub.substituteSenior)+'</span>':'<span class="nr-status muted">Нет</span>')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  function rosterPanel(record,date) {
+    const postsList=allPosts();
+    if(!postsList.length)return '<div class="nr-empty">Сначала добавьте посты в настройках.</div>';
+    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав наряда по постам</h3><p>Сотрудники, время заступления и сдачи службы</p></div><button class="btn s g" data-act="nrResetRoster">Сбросить состав за дату</button></div></section>'+
+      postsList.map(post=>{
+        const rows=rowsOf(record,post),filled=rows.filter(row=>rowName(row)).length;
+        return '<section class="nr-post"><div class="nr-post-head"><div><h3>'+escape(post)+'</h3><span>'+filled+' сотрудников</span></div><button class="btn s g" data-act="nrAddRow" data-post="'+escape(post)+'">+ строка</button></div><div class="nr-table-wrap"><table class="nr-table nr-roster"><thead><tr><th>ФИО</th><th>Должность</th><th>Снаряжение</th><th>Заступление</th><th>Сдача</th></tr></thead><tbody>'+
+          rows.map((row,index)=>{
+            const prefix='rows|'+post+'|'+index+'|',senior=isSeniorForDate(date,row,post),kit=postKit(post);
+            const equipment=senior?(kit&&row.fio?'<div class="nr-kit">'+escape(kit)+'</div>':'<input '+field(prefix+'eq',row.eq,'text','Выданное снаряжение')+'>'):'<span class="nr-muted">Не выдаётся</span>';
+            return '<tr><td><input list="dl_staff" '+field(prefix+'fio',row.fio,'text','Фамилия Имя Отчество')+'></td><td><input '+field(prefix+'pos',row.pos,'text','Должность')+'></td><td>'+equipment+'</td><td><input '+field(prefix+'tin',row.tin,'time')+'></td><td><input '+field(prefix+'tout',row.tout,'time')+'></td></tr>';
+          }).join('')+'</tbody></table></div></section>';
+      }).join('');
+  }
+  function isSeniorForDate(date,row,post) {
+    if(/старш.*патрул/i.test(clean(row.pos||staffPerson(rowName(row))?.pos)))return true;
+    return (scheduleFor(date).assignments||[]).some(item=>item.post===post&&nameKey(item.effectiveSenior||item.seniorName)===nameKey(rowName(row)));
+  }
+  function equipmentPanel(record,date) {
+    const entries=[];
+    allPosts().forEach(post=>(record.rows[post]||[]).forEach((row,index)=>{
+      if(rowName(row)&&isSeniorForDate(date,row,post))entries.push({post,row,index});
+    }));
+    if(!entries.length)return '<section class="nr-panel"><h3>Получение снаряжения</h3><p class="nr-empty">Старший патруля пока не внесён в состав наряда.</p></section>';
+    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Получение снаряжения</h3><p>Снаряжение выдаётся только Старшему патруля каждого назначенного поста</p></div></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Пост</th><th>Старший патруля</th><th>Комплект по посту</th><th>Примечание о выдаче</th></tr></thead><tbody>'+
+      entries.map(item=>'<tr><td>'+escape(item.post)+'</td><td><b>'+escape(rowName(item.row))+'</b></td><td>'+escape(postKit(item.post)||'Не задан в настройках')+'</td><td><input '+field('rows|'+item.post+'|'+item.index+'|eq',item.row.eq,'text','Выдано / замечание')+'></td></tr>').join('')+
+      '</tbody></table></div></section>';
   }
   function eventsPanel(record) {
-    const postOptions = options(postsList(),'');
-    const defects = record.defects.length ? record.defects.map((item,index) => {
-      const prefix = 'defects|' + index + '|';
-      const field = key => 'value="' + esc(item[key] || '') + '" data-chg="duty" data-p="' + prefix + key + '"';
-      return '<tr><td><input type="time" ' + field('t') + '></td><td><select data-chg="duty" data-p="' + prefix + 'post">' + options(postsList(),item.post) + '</select></td><td><input ' + field('text') + ' placeholder="Что выявлено"></td><td><input list="dl_staff" ' + field('who') + ' placeholder="Сотрудник"></td><td><input ' + field('meas') + ' placeholder="Принятые меры"></td><td><input type="checkbox" data-chg="duty" data-p="' + prefix + 'fixed" ' + (item.fixed ? 'checked' : '') + '></td><td><button class="btn s g r" data-act="ddefdel" data-i="' + index + '">Удалить</button></td></tr>';
-    }).join('') : '<tr><td colspan="7" class="nr-empty-cell">Недочётов пока нет</td></tr>';
-    const incidents = record.incs.length ? record.incs.map((item,index) => {
-      const prefix = 'incs|' + index + '|';
-      const field = key => 'value="' + esc(item[key] || '') + '" data-chg="duty" data-p="' + prefix + key + '"';
-      return '<tr><td><input type="time" ' + field('t') + '></td><td><select data-chg="duty" data-p="' + prefix + 'post">' + options(postsList(),item.post) + '</select></td><td><input ' + field('text') + ' placeholder="Происшествие или замечание"></td><td><input ' + field('meas') + ' placeholder="Принятые меры"></td><td><button class="btn s g r" data-act="dindel" data-i="' + index + '">Удалить</button></td></tr>';
-    }).join('') : '<tr><td colspan="5" class="nr-empty-cell">Происшествий и замечаний пока нет</td></tr>';
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Недочёты службы</h3><p>Фиксируйте выявленное, ответственного и принятые меры</p></div><button class="btn s" data-act="ddefadd">+ Недочёт</button></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Кто допустил</th><th>Меры</th><th>Устранено</th><th></th></tr></thead><tbody>' + defects + '</tbody></table></div></section>' +
-      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Происшествия и замечания</h3><p>Серьёзные случаи дополнительно регистрируйте в разделе «Происшествия»</p></div><button class="btn s" data-act="dinadd">+ Запись</button></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Принятые меры</th><th></th></tr></thead><tbody>' + incidents + '</tbody></table></div></section>';
+    const defects=record.defects.length?record.defects.map((item,index)=>{
+      const p='defects|'+index+'|';
+      return '<tr><td><input '+field(p+'t',item.t,'time')+'></td><td><select data-nr-field="'+p+'post" data-nr-date="'+escape(selectedDate())+'"><option value="">Не выбран</option>'+allPosts().map(post=>'<option value="'+escape(post)+'" '+(post===item.post?'selected':'')+'>'+escape(post)+'</option>').join('')+'</select></td><td><input '+field(p+'text',item.text,'text','Что выявлено')+'></td><td><input list="dl_staff" '+field(p+'who',item.who,'text','Сотрудник')+'></td><td><input '+field(p+'meas',item.meas,'text','Принятые меры')+'></td><td><input type="checkbox" data-nr-field="'+p+'fixed" data-nr-date="'+escape(selectedDate())+'" '+(item.fixed?'checked':'')+'></td><td><button class="btn s g r" data-act="nrDeleteDefect" data-index="'+index+'">Удалить</button></td></tr>';
+    }).join(''):'<tr><td colspan="7" class="nr-empty-cell">Недочётов пока нет</td></tr>';
+    const incidents=record.incs.length?record.incs.map((item,index)=>{
+      const p='incs|'+index+'|';
+      return '<tr><td><input '+field(p+'t',item.t,'time')+'></td><td><select data-nr-field="'+p+'post" data-nr-date="'+escape(selectedDate())+'"><option value="">Не выбран</option>'+allPosts().map(post=>'<option value="'+escape(post)+'" '+(post===item.post?'selected':'')+'>'+escape(post)+'</option>').join('')+'</select></td><td><input '+field(p+'text',item.text,'text','Происшествие или замечание')+'></td><td><input '+field(p+'meas',item.meas,'text','Принятые меры')+'></td><td><button class="btn s g r" data-act="nrDeleteIncident" data-index="'+index+'">Удалить</button></td></tr>';
+    }).join(''):'<tr><td colspan="5" class="nr-empty-cell">Происшествий и замечаний пока нет</td></tr>';
+    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Недочёты службы</h3><p>Фиксируйте выявленное, ответственного и принятые меры</p></div><button class="btn s" data-act="nrAddDefect">+ Недочёт</button></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Кто допустил</th><th>Меры</th><th>Устранено</th><th></th></tr></thead><tbody>'+defects+'</tbody></table></div></section>'+
+      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Происшествия и замечания</h3><p>Серьёзные случаи дополнительно регистрируйте в разделе «Происшествия»</p></div><button class="btn s" data-act="nrAddIncident">+ Запись</button></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Принятые меры</th><th></th></tr></thead><tbody>'+incidents+'</tbody></table></div></section>';
   }
   function shiftPanel(record) {
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Параметры смены</h3><p>Данные сохраняются в наряде выбранной даты</p></div></div><div class="nr-fields">' +
-      '<label>Начало смены<input type="time" value="' + esc(record.t1 || '') + '" data-chg="duty" data-p="t1"></label>' +
-      '<label>Окончание смены<input type="time" value="' + esc(record.t2 || '') + '" data-chg="duty" data-p="t2"></label>' +
-      '<label>Начальник патруля<input list="dl_staff" value="' + esc(record.boss || '') + '" data-chg="duty" data-p="boss"></label>' +
-      '<label>Заместитель начальника<input list="dl_staff" value="' + esc(record.dep || '') + '" data-chg="duty" data-p="dep"></label>' +
-      '<label>Дежурный по помещению<input list="dl_staff" value="' + esc(record.dut || '') + '" data-chg="duty" data-p="dut"></label>' +
-      '<label class="nr-check"><input type="checkbox" data-chg="duty" data-p="brief" ' + (record.brief ? 'checked' : '') + '> Инструктаж проведён</label>' +
-      '<label>Время инструктажа<input type="time" value="' + esc(record.briefT || '') + '" data-chg="duty" data-p="briefT"></label>' +
-      '</div></section>';
-  }
-  function equipmentPanel(record) {
-    const rows = [];
-    postsList().forEach(post => (record.rows[post] || []).forEach(row => {
-      if (rowName(row) && isSeniorForRecord(record,row,post)) rows.push({post,row});
-    }));
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Получение снаряжения</h3><p>Снаряжение закрепляется только за Старшим патруля; для остальных сотрудников оно не выдаётся</p></div></div>' +
-      (rows.length ? '<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Пост</th><th>Старший патруля</th><th>Комплект по посту</th><th>Фактическая отметка</th></tr></thead><tbody>' +
-        rows.map(item => '<tr><td>' + esc(item.post) + '</td><td><b>' + esc(rowName(item.row)) + '</b></td><td>' + esc(kitText(item.post) || 'Не задан в настройках') + '</td><td>' +
-          (kitText(item.post) ? '<span class="nr-status good">Комплект по ведомости</span>' : '<input value="' + esc(item.row.eq || '') + '" data-chg="duty" data-p="rows|' + esc(item.post) + '|' + (record.rows[item.post] || []).indexOf(item.row) + '|eq" placeholder="Укажите выданное">') + '</td></tr>').join('') +
-        '</tbody></table></div>' : '<div class="nr-empty">Старшие патруля пока не внесены в состав наряда.</div>') + '</section>';
+    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Параметры смены</h3><p>Сохраняются в отдельной записи выбранного дня</p></div></div><div class="nr-fields">'+
+      '<label>Начало смены<input '+field('t1',record.t1,'time')+'></label><label>Окончание смены<input '+field('t2',record.t2,'time')+'></label>'+
+      '<label>Начальник патруля<input list="dl_staff" '+field('boss',record.boss)+'></label><label>Заместитель начальника<input list="dl_staff" '+field('dep',record.dep)+'></label>'+
+      '<label>Дежурный по помещению<input list="dl_staff" '+field('dut',record.dut)+'></label>'+
+      '<label class="nr-check"><input type="checkbox" data-nr-field="brief" data-nr-date="'+escape(selectedDate())+'" '+(record.brief?'checked':'')+'> Инструктаж проведён</label>'+
+      '<label>Время инструктажа<input '+field('briefT',record.briefT,'time')+'></label></div></section>';
   }
   function reportPanel(record) {
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Итоги службы</h3><p>Кратко зафиксируйте результат дежурства и доклад руководству</p></div></div>' +
-      '<label class="nr-report-label">Итоги дня<textarea rows="6" data-chg="duty" data-p="summary" placeholder="Что выполнено, какие задачи решены, что требует внимания…">' + esc(record.summary || '') + '</textarea></label>' +
-      '<label class="nr-check"><input type="checkbox" data-chg="duty" data-p="rep" ' + (record.rep ? 'checked' : '') + '> Итоги доложены руководству</label>' +
-      '<label class="nr-report-time">Время доклада<input type="time" value="' + esc(record.repT || '') + '" data-chg="duty" data-p="repT"></label></section>';
+    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Итоги службы</h3><p>Сводка за выбранные сутки</p></div></div>'+
+      '<label class="nr-report-label">Итоги дня<textarea rows="6" data-nr-field="summary" data-nr-date="'+escape(selectedDate())+'" placeholder="Что выполнено, какие задачи решены, что требует внимания…">'+escape(record.summary||'')+'</textarea></label>'+
+      '<label class="nr-check"><input type="checkbox" data-nr-field="rep" data-nr-date="'+escape(selectedDate())+'" '+(record.rep?'checked':'')+'> Итоги доложены руководству</label>'+
+      '<label class="nr-report-time">Время доклада<input '+field('repT',record.repT,'time')+'></label></section>';
   }
-  function summaryCards(record) {
-    const count = postsList().reduce((sum,post) => sum + (record.rows[post] || []).filter(row => rowName(row)).length,0);
-    const assigned = record.departmentAssignments.length;
-    const defects = record.defects.length;
-    const fixed = record.defects.filter(item => item.fixed).length;
-    const incidents = record.incs.length;
-    return '<div class="nr-stats"><div><b>' + count + '</b><span>сотрудников в наряде</span></div><div><b>' + assigned + '</b><span>назначений отделений</span></div><div><b>' + defects + '</b><span>недочётов</span></div><div><b>' + fixed + '/' + defects + '</b><span>устранено</span></div><div><b>' + incidents + '</b><span>происшествий</span></div></div>';
+  function stats(record,date) {
+    const count=allPosts().reduce((sum,post)=>sum+(record.rows[post]||[]).filter(row=>rowName(row)).length,0);
+    const assignments=scheduleFor(date).assignments||[];
+    const defects=record.defects.length,fixed=record.defects.filter(item=>item.fixed).length;
+    return '<div class="nr-stats"><div><b>'+count+'</b><span>сотрудников в наряде</span></div><div><b>'+assignments.length+'</b><span>назначений отделений</span></div><div><b>'+defects+'</b><span>недочётов</span></div><div><b>'+fixed+'/'+defects+'</b><span>устранено</span></div><div><b>'+record.incs.length+'</b><span>происшествий</span></div></div>';
   }
-  function overviewPanel(record,date) {
-    return shiftPanel(record) +
-      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Назначения отделений на дату</h3><p>Сверка с календарём дежурств, отдельный пост для каждого дня</p></div><button class="btn s g" data-act="nrRefresh">Обновить</button></div>' + assignmentPanel(record,date) + '</section>' +
-      '<section class="nr-panel nr-rebuild"><div><h3>Сформировать состав наряда</h3><p>Переносит сотрудников на посты из графика, убирает дубли. Существующие времена, снаряжение, подписи и дополнительные поля сохраняются. Если обнаружен конфликт, соответствующая дата не меняется.</p></div><div class="nr-actions"><button class="btn" data-act="nrRebuildDay">Пересобрать эту дату</button><button class="btn g" data-act="nrRebuildAll">Пересобрать все дни</button></div></section>' +
-      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав по постам</h3><p>Краткий просмотр текущего распределения</p></div><button class="btn s g" data-act="nrPane" data-pane="roster">Открыть состав</button></div>' +
-      '<div class="nr-post-summary">' + postsList().map(post => {
-        const names = (record.rows[post] || []).filter(row => rowName(row)).map(row => rowName(row));
-        return '<div><b>' + esc(post) + '</b><span>' + (names.length ? names.map(esc).join(', ') : 'Пока никого нет') + '</span></div>';
-      }).join('') + '</div></section>';
+  function overview(record,date) {
+    const assignments=scheduleFor(date).assignments||[];
+    return shiftPanel(record)+
+      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Назначения отделений на дату</h3><p>Посты берутся из отдельного календаря дежурств</p></div><button class="btn s g" data-act="nrRefresh">Обновить</button></div>'+assignmentPanel(date)+'</section>'+
+      '<section class="nr-panel nr-rebuild"><div><h3>Сформировать состав наряда</h3><p>Сотрудники перемещаются на посты из графика; дубли удаляются. Время, снаряжение, подписи и дополнительные поля сохраняются. При конфликте ФИО конкретная дата не изменяется.</p></div><div class="nr-actions"><button class="btn" data-act="nrRebuildDay">Пересобрать эту дату</button><button class="btn g" data-act="nrRebuildAll">Пересобрать все дни</button></div></section>'+
+      '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав по постам</h3><p>Сотрудники, назначенные на дату</p></div><button class="btn s g" data-act="nrPane" data-pane="roster">Открыть состав</button></div><div class="nr-post-summary">'+
+      allPosts().map(post=>'<div><b>'+escape(post)+'</b><span>'+((record.rows[post]||[]).filter(row=>rowName(row)).map(row=>escape(rowName(row))).join(', ')||'Пока никого нет')+'</span></div>').join('')+
+      '</div></section>';
   }
   function render() {
-    const date = typeof dsel === 'string' && dsel ? dsel : (typeof today === 'function' ? today() : new Date().toISOString().slice(0,10));
-    const record = dateRecord(date);
-    const dateLabel = typeof fl === 'function' ? fl(date) : date;
-    let body = '';
-    if (pane === 'overview') body = overviewPanel(record,date);
-    else if (pane === 'roster') body = rosterPanel(record);
-    else if (pane === 'events') body = eventsPanel(record);
-    else if (pane === 'report') body = reportPanel(record);
-    else if (pane === 'equipment') body = equipmentPanel(record);
-    return '<style>' +
-      '.nr-shell{max-width:1500px;margin:0 auto}.nr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.nr-date{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.nr-date input{width:155px}.nr-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px}.nr-tab{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:9px;padding:9px 13px;font:inherit;font-size:13px;cursor:pointer}.nr-tab.active{border-color:var(--ac);background:var(--acs);font-weight:700}.nr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin:0 0 14px}.nr-stats>div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;min-width:0}.nr-stats b{display:block;font-size:23px;font-variant-numeric:tabular-nums}.nr-stats span{display:block;color:var(--mu);font-size:12px;margin-top:3px}.nr-panel{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin:0 0 13px;min-width:0}.nr-panel h3,.nr-post h3{margin:0;font-size:16px}.nr-panel-head,.nr-post-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.nr-panel-head p,.nr-post-head span{color:var(--mu);font-size:12px;margin:4px 0 0}.nr-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 14px}.nr-fields label,.nr-report-label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--mu);font-weight:600}.nr-fields input,.nr-report-label textarea,.nr-report-time input{width:100%;box-sizing:border-box}.nr-fields .nr-check,.nr-check{display:flex;align-items:center;gap:8px;flex-direction:row;color:var(--tx);font-size:13px}.nr-check input{width:auto}.nr-report-label textarea{margin:6px 0 12px;min-height:130px}.nr-report-time{display:flex;flex-direction:column;gap:5px;width:min(220px,100%);font-size:12px;color:var(--mu)}.nr-report-time input{width:100%}.nr-table-wrap{width:100%;overflow:auto}.nr-table{width:100%;border-collapse:collapse;min-width:720px}.nr-table th,.nr-table td{padding:9px 8px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}.nr-table th{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}.nr-table td input:not([type=checkbox]){min-width:110px;width:100%;box-sizing:border-box}.nr-table td input[type=time]{min-width:105px}.nr-status{display:inline-block;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap}.nr-status.good{background:#e4f4ea;color:#216b3d}.nr-status.bad{background:#fff0df;color:#96510c}.nr-status.muted{background:var(--hv);color:var(--mu)}.nr-hint,.nr-muted{font-size:12px;color:var(--mu)}.nr-hint{margin:10px 0 0}.nr-rebuild{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-color:var(--ac)}.nr-rebuild p{max-width:760px;margin:5px 0 0;color:var(--mu);font-size:12px;line-height:1.5}.nr-actions{display:flex;gap:8px;flex-wrap:wrap}.nr-post{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px;margin-bottom:12px}.nr-roster{min-width:820px}.nr-kit{font-size:12px;max-width:260px;white-space:normal}.nr-empty,.nr-empty-cell{color:var(--mu);padding:18px;text-align:center}.nr-post-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.nr-post-summary>div{border:1px solid var(--bd);border-radius:9px;padding:10px;min-width:0}.nr-post-summary b,.nr-post-summary span{display:block}.nr-post-summary span{font-size:12px;color:var(--mu);margin-top:5px;overflow-wrap:anywhere}.nr-mobile-note{font-size:11px;color:var(--mu)}@media(max-width:650px){.nr-panel{padding:12px}.nr-date{width:100%}.nr-date input{flex:1;min-width:130px}.nr-actions{width:100%}.nr-actions button{flex:1}}' +
-      '</style><div class="nr-shell"><div class="nr-head"><div><h1 style="margin-bottom:4px">Наряд на службу</h1><p class="sub" style="margin:0">Единый рабочий документ смены — назначения, личный состав, снаряжение, контроль и итоговый рапорт.</p></div><div class="nr-date"><button class="btn g" data-act="dday" data-d="-1">‹</button><input type="date" value="' + esc(date) + '" data-chg="dsel"><button class="btn g" data-act="dday" data-d="1">›</button><button class="btn g" data-act="dtoday">Сегодня</button><button class="btn s" data-act="prdoc" data-doc="d1">Печать книги</button><button class="btn s g" data-act="prdoc" data-doc="d2">Рапорт</button></div></div>' +
-      summaryCards(record) + '<nav class="nr-tabs">' + paneButton('overview','Обзор смены') + paneButton('roster','Состав наряда') + paneButton('equipment','Снаряжение') + paneButton('events','Недочёты и происшествия') + paneButton('report','Итоги службы') + '</nav>' + body + '</div>';
+    const date=selectedDate();
+    if(!rosters.has(date)){loadOne(date);return '<h1>Наряд на службу</h1><p class="sub">Загружаем отдельную запись наряда за '+escape(date)+'…</p>';}
+    const record=recordFor(date),dayName=typeof fl==='function'?fl(date):date;
+    let content='';
+    if(pane==='overview')content=overview(record,date);
+    else if(pane==='roster')content=rosterPanel(record,date);
+    else if(pane==='equipment')content=equipmentPanel(record,date);
+    else if(pane==='events')content=eventsPanel(record);
+    else if(pane==='report')content=reportPanel(record);
+    const issue=saveErrors.get(date);
+    return '<style>'+
+      '.nr-shell{max-width:1500px;margin:0 auto}.nr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.nr-date{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.nr-date input{width:155px}.nr-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px}.nr-tab{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:9px;padding:9px 13px;font:inherit;font-size:13px;cursor:pointer}.nr-tab.active{border-color:var(--ac);background:var(--acs);font-weight:700}.nr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin:0 0 14px}.nr-stats>div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;min-width:0}.nr-stats b{display:block;font-size:23px;font-variant-numeric:tabular-nums}.nr-stats span{display:block;color:var(--mu);font-size:12px;margin-top:3px}.nr-panel{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin:0 0 13px;min-width:0}.nr-panel h3,.nr-post h3{margin:0;font-size:16px}.nr-panel-head,.nr-post-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.nr-panel-head p,.nr-post-head span{color:var(--mu);font-size:12px;margin:4px 0 0}.nr-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 14px}.nr-fields label,.nr-report-label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--mu);font-weight:600}.nr-fields input,.nr-report-label textarea,.nr-report-time input{width:100%;box-sizing:border-box}.nr-fields .nr-check,.nr-check{display:flex;align-items:center;gap:8px;flex-direction:row;color:var(--tx);font-size:13px}.nr-check input{width:auto}.nr-report-label textarea{margin:6px 0 12px;min-height:130px}.nr-report-time{display:flex;flex-direction:column;gap:5px;width:min(220px,100%);font-size:12px;color:var(--mu)}.nr-report-time input{width:100%}.nr-table-wrap{width:100%;overflow:auto}.nr-table{width:100%;border-collapse:collapse;min-width:720px}.nr-table th,.nr-table td{padding:9px 8px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}.nr-table th{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}.nr-table td input:not([type=checkbox]),.nr-table td select{min-width:110px;width:100%;box-sizing:border-box}.nr-table td input[type=time]{min-width:105px}.nr-status{display:inline-block;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap}.nr-status.good{background:#e4f4ea;color:#216b3d}.nr-status.muted{background:var(--hv);color:var(--mu)}.nr-hint,.nr-muted{font-size:12px;color:var(--mu)}.nr-empty,.nr-empty-cell{color:var(--mu);padding:18px;text-align:center}.nr-rebuild{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-color:var(--ac)}.nr-rebuild p{max-width:760px;margin:5px 0 0;color:var(--mu);font-size:12px;line-height:1.5}.nr-actions{display:flex;gap:8px;flex-wrap:wrap}.nr-post{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px;margin-bottom:12px}.nr-roster{min-width:820px}.nr-kit{font-size:12px;max-width:260px;white-space:normal}.nr-post-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.nr-post-summary>div{border:1px solid var(--bd);border-radius:9px;padding:10px;min-width:0}.nr-post-summary b,.nr-post-summary span{display:block}.nr-post-summary span{font-size:12px;color:var(--mu);margin-top:5px;overflow-wrap:anywhere}.nr-warning{padding:10px 12px;border:1px solid #e2a24a;border-radius:9px;background:#fff7e9;color:#8a4b08;margin-bottom:12px;font-size:13px}@media(max-width:650px){.nr-panel{padding:12px}.nr-date{width:100%}.nr-date input{flex:1;min-width:130px}.nr-actions{width:100%}.nr-actions button{flex:1}}'+
+      '</style><div class="nr-shell"><div class="nr-head"><div><h1 style="margin-bottom:4px">Наряд на службу</h1><p class="sub" style="margin:0">Отдельная дневная запись. Старые наряды автоматически удаляются в 00:00.</p></div><div class="nr-date"><button class="btn g" data-act="dday" data-d="-1">‹</button><input type="date" value="'+escape(date)+'" data-chg="dsel"><button class="btn g" data-act="dday" data-d="1">›</button><button class="btn g" data-act="dtoday">Сегодня</button><button class="btn s" data-act="nrPrintRoster">Печать книги</button><button class="btn s g" data-act="nrPrintReport">Рапорт</button></div></div>'+
+      (issue?'<div class="nr-warning">'+escape(issue)+'</div>':'')+
+      stats(record,date)+'<nav class="nr-tabs">'+
+      '<button class="nr-tab '+(pane==='overview'?'active':'')+'" data-act="nrPane" data-pane="overview">Обзор смены</button>'+
+      '<button class="nr-tab '+(pane==='roster'?'active':'')+'" data-act="nrPane" data-pane="roster">Состав наряда</button>'+
+      '<button class="nr-tab '+(pane==='equipment'?'active':'')+'" data-act="nrPane" data-pane="equipment">Снаряжение</button>'+
+      '<button class="nr-tab '+(pane==='events'?'active':'')+'" data-act="nrPane" data-pane="events">Недочёты и происшествия</button>'+
+      '<button class="nr-tab '+(pane==='report'?'active':'')+'" data-act="nrPane" data-pane="report">Итоги службы</button></nav>'+content+'</div>';
   }
-
-  A.nrPane = target => { pane = target.dataset.pane || 'overview'; draw(1); };
-  A.nrRefresh = () => { draw(1); toast('Данные графика обновлены.'); };
-  A.nrRebuildDay = () => {
-    const result = rebuildDate(dsel);
-    if (result.skipped) {
-      const errors = result.errors || [result.reason || 'Дата не обработана.'];
-      return modal('<h3>Наряд не изменён</h3><p>' + errors.map(esc).join('<br>') + '</p><div class="bar"><button class="btn" data-act="cl">Закрыть</button></div>');
-    }
-    save(); draw(1);
-    toast('Наряд обновлён: перенесено ' + result.moved + ', добавлено ' + result.added + ', уже на месте ' + result.already + ', дублей удалено ' + result.duplicatesRemoved + '.');
-  };
-  A.nrRebuildAll = () => {
-    const overlay = document.createElement('div');
-    overlay.className = 'ov';
-    overlay.innerHTML = '<div class="mod"><h3>Пересобрать наряды на все дни?</h3><p>Проверяются все сохранённые даты с назначениями. Для каждой даты используется её собственный пост из графика. Если на конкретной дате обнаружен конфликт, эта дата останется без изменений. Даты без назначений не затрагиваются.</p><div class="bar"><button class="btn" data-nr-confirm>Пересобрать все дни</button><button class="btn g" data-nr-cancel>Отмена</button></div></div>';
-    overlay.addEventListener('click',event => {
-      if (event.target.hasAttribute('data-nr-cancel') || event.target === overlay) { overlay.remove(); return; }
-      if (!event.target.hasAttribute('data-nr-confirm')) return;
-      overlay.remove();
-      const totals = rebuildAll();
-      save(); draw(1);
-      const message = 'Дат проверено: ' + totals.datesChecked + '; обновлено: ' + totals.datesChanged + '; сотрудников перенесено: ' + totals.moved + '; добавлено: ' + totals.added + '; уже на месте: ' + totals.already + '; дублей удалено: ' + totals.duplicatesRemoved + '; без изменений: ' + totals.skipped + '.';
-      toast(message);
-      if (totals.errors.length) modal('<h3>Нужна проверка отдельных дат</h3><p>' + totals.errors.slice(0,40).map(esc).join('<br>') + (totals.errors.length > 40 ? '<br>… и ещё ' + (totals.errors.length - 40) : '') + '</p><div class="bar"><button class="btn" data-act="cl">Закрыть</button></div>');
+  function refreshSelected(force=true){return loadOne(selectedDate(),force);}
+  A.nrPane=target=>{pane=target.dataset.pane||'overview';draw(1);};
+  A.nrRefresh=()=>{schedules.delete(selectedDate());loadOne(selectedDate(),true);};
+  A.nrAddRow=target=>{const record=recordFor(selectedDate()),post=target.dataset.post;record.rows[post]=Array.isArray(record.rows[post])?record.rows[post]:[];record.rows[post].push({});syncSave(selectedDate());draw(1);};
+  A.nrAddDefect=()=>{recordFor(selectedDate()).defects.push({});syncSave(selectedDate());draw(1);};
+  A.nrDeleteDefect=target=>{recordFor(selectedDate()).defects.splice(Number(target.dataset.index),1);syncSave(selectedDate());draw(1);};
+  A.nrAddIncident=()=>{recordFor(selectedDate()).incs.push({});syncSave(selectedDate());draw(1);};
+  A.nrDeleteIncident=target=>{recordFor(selectedDate()).incs.splice(Number(target.dataset.index),1);syncSave(selectedDate());draw(1);};
+  A.nrResetRoster=()=>{
+    const overlay=document.createElement('div');overlay.className='ov';
+    overlay.innerHTML='<div class="mod"><h3>Сбросить состав наряда за '+escape(typeof fl==='function'?fl(selectedDate()):selectedDate())+'?</h3><p>Будут удалены только сотрудники по постам за выбранную дату. График назначений, параметры смены, недочёты, происшествия и итоги останутся без изменений.</p><div class="bar"><button class="btn g r" data-nr-reset-confirm>Сбросить состав</button><button class="btn" data-nr-reset-cancel>Отмена</button></div></div>';
+    overlay.addEventListener('click',event=>{
+      if(event.target.hasAttribute('data-nr-reset-cancel')||event.target===overlay){overlay.remove();return;}
+      if(!event.target.hasAttribute('data-nr-reset-confirm'))return;
+      overlay.remove();recordFor(selectedDate()).rows={};syncSave(selectedDate());draw(1);toast('Состав за выбранную дату очищен. Остальные данные не тронуты.');
     });
     document.body.appendChild(overlay);
   };
-  A.nrResetRoster = () => {
-    const overlay = document.createElement('div');
-    overlay.className = 'ov';
-    overlay.innerHTML = '<div class="mod"><h3>Очистить состав наряда за ' + esc(typeof fl === 'function' ? fl(dsel) : dsel) + '?</h3><p>Будут удалены только строки сотрудников по постам за выбранную дату. График назначений, параметры смены, недочёты, происшествия и итоги останутся на месте. Это действие нельзя отменить.</p><div class="bar"><button class="btn g r" data-nr-reset-confirm>Очистить состав</button><button class="btn" data-nr-reset-cancel>Отмена</button></div></div>';
-    overlay.addEventListener('click',event => {
-      if (event.target.hasAttribute('data-nr-reset-cancel') || event.target === overlay) { overlay.remove(); return; }
-      if (!event.target.hasAttribute('data-nr-reset-confirm')) return;
-      overlay.remove();
-      const record = dateRecord(dsel);
-      record.rows = {};
-      save(); draw(1);
-      toast('Состав наряда за выбранную дату очищен. Назначения и остальные записи сохранены.');
+
+  A.nrRebuildDay=async()=>{
+    const date=selectedDate(),record=recordFor(date),result=rebuildDate(date,record,scheduleFor(date));
+    if(result.skipped){modal('<h3>Наряд не изменён</h3><p>'+result.errors.map(escape).join('<br>')+'</p><div class="bar"><button class="btn" data-act="cl">Закрыть</button></div>');return;}
+    rosters.set(date,result.data);syncSave(date);
+    await persistDate(date);
+    toast('Пересборка завершена: перенесено '+result.moved+', добавлено '+result.added+', уже на месте '+result.already+', дублей удалено '+result.duplicatesRemoved+'.');
+  };
+  A.nrRebuildAll=async()=>{
+    const overlay=document.createElement('div');overlay.className='ov';
+    overlay.innerHTML='<div class="mod"><h3>Пересобрать наряды на все будущие и текущие даты?</h3><p>Обрабатываются только уже созданные дневные наряды, для которых есть назначения в календаре. Прошлые записи удаляются автоматически. При конфликте ФИО конкретная дата останется без изменений.</p><div class="bar"><button class="btn" data-nr-all-confirm>Пересобрать</button><button class="btn g" data-nr-all-cancel>Отмена</button></div></div>';
+    overlay.addEventListener('click',async event=>{
+      if(event.target.hasAttribute('data-nr-all-cancel')||event.target===overlay){overlay.remove();return;}
+      if(!event.target.hasAttribute('data-nr-all-confirm'))return;
+      overlay.remove();await loadAll();
+      const totals={dates:0,changed:0,moved:0,added:0,already:0,duplicates:0,skipped:0,errors:[]};
+      for(const [date,record] of rosters.entries()){
+        if(date<today())continue;
+        const result=rebuildDate(date,record,scheduleFor(date));
+        if(result.skipped){totals.skipped++;if(result.errors.length)totals.errors.push(date+': '+result.errors.join(' '));continue;}
+        totals.dates++;totals.changed++;totals.moved+=result.moved;totals.added+=result.added;totals.already+=result.already;totals.duplicates+=result.duplicatesRemoved;
+        rosters.set(date,result.data);
+        try{
+          const expectedVersion=versions.get(date)||0;
+          const saved=await api('/api/duty-roster','PUT',{date,expectedVersion,data:clone(result.data)});
+          if(!saved.response.ok)throw new Error(saved.result.error||'Не удалось сохранить');
+          versions.set(date,Number(saved.result.version)||expectedVersion+1);
+          rosters.set(date,{...defaultRecord(),...(saved.result.data||{})});
+        }catch(error){totals.errors.push(date+': '+error.message);}
+      }
+      draw(1);
+      toast('Проверено дат: '+totals.dates+'; пересобрано: '+totals.changed+'; перенесено: '+totals.moved+'; добавлено: '+totals.added+'; уже на месте: '+totals.already+'; удалено дублей: '+totals.duplicates+'; без изменений: '+totals.skipped+'.');
+      if(totals.errors.length)modal('<h3>Есть даты для ручной проверки</h3><p>'+totals.errors.slice(0,40).map(escape).join('<br>')+'</p><div class="bar"><button class="btn" data-act="cl">Закрыть</button></div>');
     });
     document.body.appendChild(overlay);
   };
-  A.newDutySaveAssignment = () => toast('Назначения изменяются в разделе «График дежурств».');
-  A.newDutyReloadAssignments = A.nrRefresh;
-  A.newDutyRebuildDay = A.nrRebuildDay;
-  A.newDutyRebuildAll = A.nrRebuildAll;
 
-  const tabIndex = TABS.findIndex(item => item[0] === 'nr');
-  if (tabIndex < 0) TABS.push(['nr','Наряд на службу']);
+  function printDocument(kind) {
+    const date=selectedDate(),record=recordFor(date),dateLabel=typeof fl==='function'?fl(date):date;
+    const lines=[];
+    allPosts().forEach(post=>(record.rows[post]||[]).filter(row=>rowName(row)).forEach(row=>{
+      const senior=isSeniorForDate(date,row,post),equipment=senior?(postKit(post)||row.eq||''):'—';
+      lines.push('<tr><td>'+escape(post)+'</td><td>'+escape(rowName(row))+'</td><td>'+escape(row.pos||positionOf(row))+'</td><td>'+escape(equipment)+'</td><td>'+escape(row.tin||'')+'</td><td>'+escape(row.tout||'')+'</td><td>________________</td></tr>');
+    }));
+    const html=kind==='report'
+      ? '<h1>РАПОРТ ОБ ИТОГАХ НЕСЕНИЯ СЛУЖБЫ</h1><p>Дата: '+escape(dateLabel)+'. Смена: '+escape(record.t1||'—')+' — '+escape(record.t2||'—')+'.</p><p>Личного состава в наряде: '+lines.length+'. Недочётов: '+record.defects.length+'. Происшествий: '+record.incs.length+'.</p><p><b>Итоги:</b> '+escape(record.summary||'—')+'</p><p>Доложено: '+(record.rep?'да':'нет')+(record.repT?' в '+escape(record.repT):'')+'.</p><p style="margin-top:50px">Начальник патруля __________________ / '+escape(record.boss||'')+'</p>'
+      : '<h1>КНИГА СЛУЖБЫ. НАРЯД НА '+escape(dateLabel)+'</h1><p>Смена: '+escape(record.t1||'—')+' — '+escape(record.t2||'—')+'. Начальник патруля: '+escape(record.boss||'—')+'. Заместитель: '+escape(record.dep||'—')+'. Дежурный по помещению: '+escape(record.dut||'—')+'.</p><p>Инструктаж: '+(record.brief?'проведён':'не отмечен')+(record.briefT?' в '+escape(record.briefT):'')+'.</p><table><thead><tr><th>Пост</th><th>ФИО</th><th>Должность</th><th>Снаряжение (Старший патруля)</th><th>Заступление</th><th>Сдача</th><th>Подпись</th></tr></thead><tbody>'+(lines.join('')||'<tr><td colspan="7">Состав не заполнен</td></tr>')+'</tbody></table><h2>Недочёты</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Кто допустил</th><th>Меры</th><th>Устранено</th></tr>'+record.defects.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.who)+'</td><td>'+escape(item.meas)+'</td><td>'+(item.fixed?'да':'нет')+'</td></tr>').join('')+'</table><h2>Происшествия и замечания</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Меры</th></tr>'+record.incs.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.meas)+'</td></tr>').join('')+'</table>';
+    const win=window.open('','_blank');
+    if(!win){toast('Разрешите всплывающее окно для печати документа.');return;}
+    win.document.open();
+    win.document.write('<!doctype html><html lang="ru"><meta charset="utf-8"><title>'+escape(kind==='report'?'Рапорт':'Наряд на службу')+'</title><style>body{font:14px Arial,sans-serif;color:#111;margin:20mm}h1{text-align:center;font-size:18px;margin:0 0 20px}h2{font-size:15px;margin:24px 0 8px}table{width:100%;border-collapse:collapse;margin:10px 0 18px}th,td{border:1px solid #333;padding:6px;text-align:left;font-size:11px}th{background:#eee}p{line-height:1.5}@page{size:A4 landscape;margin:12mm}</style><body>'+html+'</body></html>');
+    win.document.close();win.focus();win.print();
+  }
+  A.nrPrintRoster=()=>printDocument('roster');
+  A.nrPrintReport=()=>printDocument('report');
+
+  document.addEventListener('change',event=>{
+    const target=event.target;
+    if(!target||!target.dataset||!target.dataset.nrField)return;
+    updateField(target);
+  });
+  document.addEventListener('change',event=>{
+    const target=event.target;
+    if(target&&target.matches('[data-chg="dsel"]'))loadOne(target.value||today(),true);
+  });
+
+  const tabIndex=TABS.findIndex(item=>item[0]==='nr');
+  if(tabIndex<0)TABS.push(['nr','Наряд на службу']);
   function install() {
-    EXV.nr = render;
-    if (typeof draw === 'function' && tab === 'nr') draw(1);
+    EXV.nr=render;
+    if(window.PATRUL_READY)loadOne(selectedDate());
+    if(typeof draw==='function'&&tab==='nr')draw(1);
   }
   window.addEventListener('patrul:ready',install);
   install();
-  if (window.PATRUL_READY) install();
+  if(window.PATRUL_READY)install();
 })();
