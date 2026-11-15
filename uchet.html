@@ -634,7 +634,7 @@ function exAfter(){const m=$('#m');if(!m||m.querySelector('.exnp'))return;let t=
 draw=(function(o){return function(k){const r=o(k);try{exAfter()}catch(x){}return r}})(draw);
 EXA.exprint=()=>window.print();
 /* --- установка как приложение (офлайн-кэш) --- */
-if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=20261115-06',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=20261115-07',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{}));
 /* --- QR: показ и считывание --- */
 /* QR-генератор: Kazuhiko Arase, лицензия MIT (http://www.d-project.com/) */
 (function(){var M={"./QRMode":function(module,require){module.exports = {
@@ -2051,4 +2051,4 @@ function exWeekItems(){const t=today(),f=exAdd(t,-6),L=[],O=(D.ops||[]).filter(o
 
 draw();$('#cnt')&&cnt();window.addEventListener('patrul:ready',cmFirst);if(window.PATRUL_READY)cmFirst();
 const _d=draw;draw=function(k){_d(k);cnt()};cnt();
-</script><script>window.PATRUL_ROLE='uchet';</script><script src="cloud-sync.js?v=20261115-06"></script><script src="ops-workspace.js?v=20261115-06"></script><script src="personal-workspace.js?v=20261115-06"></script><script src="staff-workspace.js?v=20261115-06"></script><script src="duty-calendar-global.js?v=20261115-06"></script></body></html>
+</script><script>window.PATRUL_ROLE='uchet';</script><script src="cloud-sync.js?v=20261115-07"></script><script src="ops-workspace.js?v=20261115-07"></script><script src="personal-workspace.js?v=20261115-07"></script><script src="staff-workspace.js?v=20261115-07"></script><script src="duty-calendar-global.js?v=20261115-07"></script></body></html>
