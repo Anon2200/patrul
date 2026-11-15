@@ -192,7 +192,7 @@ if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server
 if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
 if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
 if (!patrolSeniorPage.includes('src="patrol-senior.js?v=' + ASSET_VERSION + '"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must load the cache-busted client and provide first-entry PIN setup and surname/PIN login');
-if (!patrolSeniorPage.includes("navigator.serviceWorker.register('/sw.js?v=20261115-13',{updateViaCache:'none'})") || !patrolSeniorPage.includes('.then(reg=>reg.update())')) fail('Patrol Senior page must register and immediately update the versioned offline worker');
+if (!patrolSeniorPage.includes("navigator.serviceWorker.register('/sw.js?v=20261115-14',{updateViaCache:'none'})") || !patrolSeniorPage.includes('.then(reg=>reg.update())')) fail('Patrol Senior page must register and immediately update the versioned offline worker');
 if (!patrolSeniorPage.includes('name="activationCode"') || !patrolSeniorClient.includes('activationCode:b.activationCode') || !patrolSeniorAuth.includes('/api/patrol-senior/activation-code') || !patrolSeniorAuth.includes('activation_code_hash') || !patrolSeniorAuth.includes('consumed_at')) fail('Patrol Senior enrollment must require a hashed, expiring, single-use supervisor activation code');
 if (!mailClient.includes("starshiy_patrulya:'Старший патруля'") || !mailClient.includes("starshiy_patrulya:{path:'/patrol-senior.html'")) fail('internal mail must recognize the Patrol Senior role and return to its workspace');
 if (!patrolSeniorClient.includes('href="/mail.html"')) fail('Patrol Senior workspace must link to internal mail');
@@ -309,7 +309,7 @@ for (const [file, role] of Object.entries(rolePages)) {
     const version = asset === 'cloud-sync.js' ? '20261115-11' : ASSET_VERSION;
     if (!html.includes('src="' + asset + '?v=' + version + '"')) fail(file + ' must load a cache-busted ' + asset);
   }
-  if (!html.includes("navigator.serviceWorker.register('/sw.js?v=20261115-13',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
+  if (!html.includes("navigator.serviceWorker.register('/sw.js?v=20261115-14',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
   if (!html.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load the shared duty calendar');
   if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
   if (file === 'nachalnik.html' && (!html.includes('postKitText') || !html.includes('kit-display'))) fail(file + ' must show shared post equipment in the duty roster');
@@ -400,7 +400,7 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-13'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-14'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
 if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-12')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
