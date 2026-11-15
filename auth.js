@@ -513,7 +513,8 @@ function createAuth(pool,send,readJson) {
         if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
         const profile=await currentSeniorProfile(session);
         if(!profile){send(res,403,{error:'Старший больше не закреплён за отделением'});return true;}
-        const b=await readJson(req),date=String(b.date||new Date().toISOString().slice(0,10)),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000);
+        const b=await readJson(req),date=String(b.date||new Date().toISOString().slice(0,10)),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000),clientEntryId=b.clientEntryId==null?null:String(b.clientEntryId);
+        if(clientEntryId!==null&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientEntryId)){send(res,400,{error:'Некорректный идентификатор офлайн-записи'});return true;}
         const parsedEntryDate=new Date(date+'T00:00:00.000Z');
         if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsedEntryDate.getTime())||parsedEntryDate.toISOString().slice(0,10)!==date||Math.abs(parsedEntryDate.getTime()-Date.now())>31*86400000){send(res,400,{error:'Дата должна быть корректной и находиться в пределах 31 дня от текущей'});return true;}
         const allowedTypes=new Set(['attendance','report','equipment','shift_start','shift_end','task_update']);
@@ -523,9 +524,14 @@ function createAuth(pool,send,readJson) {
         if(type==='equipment'&&!['received','missing','faulty','returned'].includes(status)){send(res,400,{error:'Укажите состояние комплекта'});return true;}
         if(['report','task_update'].includes(type)&&!body){send(res,400,{error:'Текст доклада обязателен'});return true;}
         if(type==='report'&&!title) {send(res,400,{error:'Укажите тему доклада'});return true;}
-        const saved=await pool.query('INSERT INTO patrul_patrol_senior_entries(senior_user_id,department_id,staff_key,entry_date,entry_type,status,title,body) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,created_at',[session.id,String(profile.department.id),staffKey||null,date,type,status||null,title||null,body||null]);
-        await audit(session.id,'patrol_senior_entry_created',session.id,{departmentId:profile.department.id,type,staffKey:staffKey||null});
-        send(res,201,{id:saved.rows[0].id,createdAt:saved.rows[0].created_at});return true;
+        const saved=await pool.query('INSERT INTO patrul_patrol_senior_entries(senior_user_id,department_id,staff_key,entry_date,entry_type,status,title,body,client_entry_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::uuid) ON CONFLICT (senior_user_id,client_entry_id) WHERE client_entry_id IS NOT NULL DO NOTHING RETURNING id,created_at',[session.id,String(profile.department.id),staffKey||null,date,type,status||null,title||null,body||null,clientEntryId]);
+        if(!saved.rowCount){
+          const existing=await pool.query('SELECT id,created_at FROM patrul_patrol_senior_entries WHERE senior_user_id=$1 AND client_entry_id=$2',[session.id,clientEntryId]);
+          if(!existing.rowCount){send(res,409,{error:'Не удалось подтвердить сохранение офлайн-записи'});return true;}
+          send(res,200,{id:existing.rows[0].id,createdAt:existing.rows[0].created_at,duplicate:true});return true;
+        }
+        await audit(session.id,'patrol_senior_entry_created',session.id,{departmentId:profile.department.id,type,staffKey:staffKey||null,offlineReplay:!!clientEntryId});
+        send(res,201,{id:saved.rows[0].id,createdAt:saved.rows[0].created_at,duplicate:false});return true;
       }
       if(p.startsWith('/api/patrol-senior/')) {send(res,404,{error:'Маршрут не найден'});return true;}
       if(p==='/api/auth/bootstrap'&&req.method==='POST') {
