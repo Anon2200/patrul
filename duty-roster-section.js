@@ -15,6 +15,8 @@
   const saveTimers=new Map();
   const saving=new Set();
   const saveErrors=new Map();
+  const revisions=new Map();
+  const pendingConflicts=new Map();
   const defaultRecord=()=>({t1:'',t2:'',boss:'',dep:'',dut:'',brief:false,briefT:'',rows:{},defects:[],incs:[],summary:'',rep:false,repT:''});
   const clone=value=>JSON.parse(JSON.stringify(value==null?{}:value));
   const clean=value=>String(value==null?'':value).trim();
@@ -205,40 +207,56 @@
     }catch(error){toast(error.message);}
     finally{busyAll=false;}
   }
-  function syncSave(date) {
+  function queuePersist(date) {
     if(saveTimers.has(date))clearTimeout(saveTimers.get(date));
-    saveErrors.delete(date);
     const timer=setTimeout(()=>persistDate(date),550);
     saveTimers.set(date,timer);
   }
+  function syncSave(date) {
+    revisions.set(date,(revisions.get(date)||0)+1);
+    if(pendingConflicts.has(date))return;
+    saveErrors.delete(date);
+    queuePersist(date);
+  }
   async function persistDate(date) {
-    if(saving.has(date))return;
+    if(pendingConflicts.has(date))return;
     const timer=saveTimers.get(date);if(timer)clearTimeout(timer);
     saveTimers.delete(date);
+    if(saving.has(date)){queuePersist(date);return;}
     saving.add(date);
+    const revision=revisions.get(date)||0;
+    const expectedVersion=versions.get(date)||0;
+    const snapshot=clone(recordFor(date));
     try{
-      const expectedVersion=versions.get(date)||0;
-      const result=await api('/api/duty-roster','PUT',{date,expectedVersion,data:clone(recordFor(date))});
+      const result=await api('/api/duty-roster','PUT',{date,expectedVersion,data:snapshot});
       if(result.response.status===409){
         const reload=await api('/api/duty-roster?date='+encodeURIComponent(date));
         if(reload.response.ok){
-          rosters.set(date,{...defaultRecord(),...(reload.result.data||{})});
-          versions.set(date,Number(reload.result.version)||0);
+          const remote={...defaultRecord(),...(reload.result.data||{}),rows:reload.result.data&&reload.result.data.rows||{},defects:reload.result.data&&reload.result.data.defects||[],incs:reload.result.data&&reload.result.data.incs||[]};
+          const remoteVersion=Number(reload.result.version)||0;
+          versions.set(date,remoteVersion);
           schedules.set(date,reload.result.schedule||{assignments:[],substitutions:[]});
+          pendingConflicts.set(date,{remote,version:remoteVersion});
           mirrorLegacy(date);
         }
-        throw new Error('Наряд изменился на другом устройстве. Загружена последняя версия — проверьте изменения ещё раз.');
+        throw new Error('Наряд изменился на другом устройстве. Ваши правки сохранены в этой вкладке. Выберите загрузку серверной версии или подтверждённую замену.');
       }
       if(!result.response.ok)throw new Error(result.result.error||'Не удалось сохранить наряд');
       versions.set(date,Number(result.result.version)||expectedVersion+1);
-      rosters.set(date,{...defaultRecord(),...(result.result.data||{})});
+      if((revisions.get(date)||0)===revision){
+        rosters.set(date,{...defaultRecord(),...(result.result.data||{})});
+        saveErrors.delete(date);
+      }
       mirrorLegacy(date);
-      saveErrors.delete(date);
       // Acknowledged save updates the server version; avoid noisy toast for every field.
     }catch(error){
       saveErrors.set(date,error.message);
       if(date===selectedDate())toast(error.message);
-    }finally{saving.delete(date);draw(1);}
+    }finally{
+      saving.delete(date);
+      if((revisions.get(date)||0)!==revision&&!pendingConflicts.has(date))queuePersist(date);
+      draw(1);
+    }
   }
   function getPath(object,path){return path.split('|').reduce((value,key)=>value==null?undefined:value[key],object);}
   function setPath(object,path,value){const keys=path.split('|');let target=object;for(let i=0;i<keys.length-1;i++){const key=keys[i];if(target[key]==null)target[key]=/^\d+$/.test(keys[i+1])?[]:{};target=target[key];}target[keys[keys.length-1]]=value;}
@@ -356,7 +374,7 @@
     return '<style>'+
       '.nr-shell{max-width:1500px;margin:0 auto}.nr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.nr-date{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.nr-date input{width:155px}.nr-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px}.nr-tab{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:9px;padding:9px 13px;font:inherit;font-size:13px;cursor:pointer}.nr-tab.active{border-color:var(--ac);background:var(--acs);font-weight:700}.nr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin:0 0 14px}.nr-stats>div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;min-width:0}.nr-stats b{display:block;font-size:23px;font-variant-numeric:tabular-nums}.nr-stats span{display:block;color:var(--mu);font-size:12px;margin-top:3px}.nr-panel{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin:0 0 13px;min-width:0}.nr-panel h3,.nr-post h3{margin:0;font-size:16px}.nr-panel-head,.nr-post-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.nr-panel-head p,.nr-post-head span{color:var(--mu);font-size:12px;margin:4px 0 0}.nr-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 14px}.nr-fields label,.nr-report-label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--mu);font-weight:600}.nr-fields input,.nr-report-label textarea,.nr-report-time input{width:100%;box-sizing:border-box}.nr-fields .nr-check,.nr-check{display:flex;align-items:center;gap:8px;flex-direction:row;color:var(--tx);font-size:13px}.nr-check input{width:auto}.nr-report-label textarea{margin:6px 0 12px;min-height:130px}.nr-report-time{display:flex;flex-direction:column;gap:5px;width:min(220px,100%);font-size:12px;color:var(--mu)}.nr-report-time input{width:100%}.nr-table-wrap{width:100%;overflow:auto}.nr-table{width:100%;border-collapse:collapse;min-width:720px}.nr-table th,.nr-table td{padding:9px 8px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}.nr-table th{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}.nr-table td input:not([type=checkbox]),.nr-table td select{min-width:110px;width:100%;box-sizing:border-box}.nr-table td input[type=time]{min-width:105px}.nr-status{display:inline-block;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap}.nr-status.good{background:#e4f4ea;color:#216b3d}.nr-status.muted{background:var(--hv);color:var(--mu)}.nr-hint,.nr-muted{font-size:12px;color:var(--mu)}.nr-empty,.nr-empty-cell{color:var(--mu);padding:18px;text-align:center}.nr-rebuild{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-color:var(--ac)}.nr-rebuild p{max-width:760px;margin:5px 0 0;color:var(--mu);font-size:12px;line-height:1.5}.nr-actions{display:flex;gap:8px;flex-wrap:wrap}.nr-post{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px;margin-bottom:12px}.nr-roster{min-width:820px}.nr-kit{font-size:12px;max-width:260px;white-space:normal}.nr-post-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.nr-post-summary>div{border:1px solid var(--bd);border-radius:9px;padding:10px;min-width:0}.nr-post-summary b,.nr-post-summary span{display:block}.nr-post-summary span{font-size:12px;color:var(--mu);margin-top:5px;overflow-wrap:anywhere}.nr-warning{padding:10px 12px;border:1px solid #e2a24a;border-radius:9px;background:#fff7e9;color:#8a4b08;margin-bottom:12px;font-size:13px}@media(max-width:650px){.nr-panel{padding:12px}.nr-date{width:100%}.nr-date input{flex:1;min-width:130px}.nr-actions{width:100%}.nr-actions button{flex:1}}'+
       '</style><div class="nr-shell"><div class="nr-head"><div><h1 style="margin-bottom:4px">Наряд на службу</h1><p class="sub" style="margin:0">Отдельная дневная запись. Старые наряды автоматически удаляются в 00:00.</p></div><div class="nr-date"><button class="btn g" data-act="dday" data-d="-1">‹</button><input type="date" value="'+escape(date)+'" data-chg="dsel"><button class="btn g" data-act="dday" data-d="1">›</button><button class="btn g" data-act="dtoday">Сегодня</button><button class="btn s" data-act="nrPrintRoster">Печать книги</button><button class="btn s g" data-act="nrPrintReport">Рапорт</button></div></div>'+
-      (issue?'<div class="nr-warning">'+escape(issue)+'</div>':'')+
+      (issue?'<div class="nr-warning">'+escape(issue)+(pendingConflicts.has(date)?'<div class="nr-actions" style="margin-top:8px"><button class="btn s g" data-act="nrReloadServer">Загрузить версию сервера</button><button class="btn s r" data-act="nrOverwriteServer">Оставить мои изменения</button></div>':'')+'</div>':'')+
       stats(record,date)+'<nav class="nr-tabs">'+
       '<button class="nr-tab '+(pane==='overview'?'active':'')+'" data-act="nrPane" data-pane="overview">Обзор смены</button>'+
       '<button class="nr-tab '+(pane==='roster'?'active':'')+'" data-act="nrPane" data-pane="roster">Состав наряда</button>'+
@@ -372,6 +390,32 @@
   A.nrDeleteDefect=target=>{recordFor(selectedDate()).defects.splice(Number(target.dataset.index),1);syncSave(selectedDate());draw(1);};
   A.nrAddIncident=()=>{recordFor(selectedDate()).incs.push({});syncSave(selectedDate());draw(1);};
   A.nrDeleteIncident=target=>{recordFor(selectedDate()).incs.splice(Number(target.dataset.index),1);syncSave(selectedDate());draw(1);};
+  A.nrReloadServer=()=>{
+    const date=selectedDate(),conflict=pendingConflicts.get(date);
+    if(!conflict)return;
+    rosters.set(date,conflict.remote);
+    versions.set(date,conflict.version);
+    pendingConflicts.delete(date);
+    saveErrors.delete(date);
+    mirrorLegacy(date);
+    draw(1);
+    toast('Загружена версия наряда с сервера.');
+  };
+  A.nrOverwriteServer=()=>{
+    const date=selectedDate();
+    if(!pendingConflicts.has(date))return;
+    modal('<h3>Заменить серверный наряд вашей версией?</h3><p>Изменения, которые успели сохранить на другом устройстве, будут перезаписаны вашим текущим вариантом.</p><div class="bar"><button class="btn g r" data-nr-overwrite-confirm>Подтвердить замену</button><button class="btn g" data-act="cl">Отмена</button></div>');
+    const confirm=document.querySelector('[data-nr-overwrite-confirm]');
+    if(confirm)confirm.addEventListener('click',()=>{
+      const conflict=pendingConflicts.get(date);
+      if(!conflict)return;
+      pendingConflicts.delete(date);
+      versions.set(date,conflict.version);
+      closeM();
+      syncSave(date);
+      persistDate(date);
+    },{once:true});
+  };
   A.nrResetRoster=()=>{
     const overlay=document.createElement('div');overlay.className='ov';
     overlay.innerHTML='<div class="mod"><h3>Сбросить состав наряда за '+escape(typeof fl==='function'?fl(selectedDate()):selectedDate())+'?</h3><p>Будут удалены только сотрудники по постам за выбранную дату. График назначений, параметры смены, недочёты, происшествия и итоги останутся без изменений.</p><div class="bar"><button class="btn g r" data-nr-reset-confirm>Сбросить состав</button><button class="btn" data-nr-reset-cancel>Отмена</button></div></div>';
@@ -438,6 +482,26 @@
   A.nrPrintRoster=()=>printDocument('roster');
   A.nrPrintReport=()=>printDocument('report');
 
+
+  let observedDutyDate=typeof today==='function'?today():selectedDate();
+  window.setInterval(()=>{
+    const current=typeof today==='function'?today():selectedDate();
+    if(current===observedDutyDate)return;
+    const previous=observedDutyDate;
+    observedDutyDate=current;
+    rosters.delete(previous);
+    versions.delete(previous);
+    schedules.delete(previous);
+    saveErrors.delete(previous);
+    pendingConflicts.delete(previous);
+    if(D.duty&&typeof D.duty==='object')delete D.duty[previous];
+    if(selectedDate()===previous){
+      dsel=current;
+      loadOne(current,true).then(()=>toast('Наступили новые сутки. Открыт новый дневной наряд.'));
+    } else if(selectedDate()<current) {
+      loadOne(selectedDate(),true);
+    }
+  },15000);
 
   window.addEventListener('patrul:duty-schedule-updated',event=>{
     const detail=event.detail||{};
