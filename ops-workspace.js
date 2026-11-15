@@ -319,7 +319,7 @@
     const name=document.createElement('p');name.textContent=record.title;name.style.cssText='margin:0 0 4px;font-weight:650';
     const number=document.createElement('p');number.textContent='Инвентарный № '+inventory;number.style.cssText='margin:0 0 12px;color:#526274;font-size:13px';
     canvas.style.cssText='display:block;width:240px;height:240px;max-width:100%;image-rendering:pixelated;margin:0 auto 12px';
-    const note=document.createElement('p');note.textContent='При сканировании отображается инвентарный номер. Персональные данные в QR не включены.';note.style.cssText='margin:0;color:#64748b;font-size:11px';
+    const note=document.createElement('p');note.textContent='QR содержит технический идентификатор имущества; инвентарный номер продублирован ниже. Персональные данные не включены.';note.style.cssText='margin:0;color:#64748b;font-size:11px';
     const actions=document.createElement('div');actions.className='ops-qr-actions';actions.style.cssText='display:flex;gap:8px;margin-top:16px';
     const print=document.createElement('button');print.type='button';print.className='ops-primary';print.textContent='Печать этикетки';print.style.cssText='flex:1;border:0;border-radius:9px;padding:10px;background:#176b65;color:#fff;font:600 14px system-ui';print.addEventListener('click',()=>window.print());
     const close=document.createElement('button');close.type='button';close.className='ops-secondary';close.textContent='Закрыть';close.style.cssText='border:1px solid #ccd5e0;border-radius:9px;padding:10px;background:#fff;color:#172536;font:600 14px system-ui';
