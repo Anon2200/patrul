@@ -437,11 +437,13 @@ function createAuth(pool,send,readJson) {
             if(!item||typeof item!=='object'){send(res,400,{error:'Некорректная подмена старшего патруля'});return true;}
             const departmentId=String(item.departmentId||'').trim();
             const department=departments.get(departmentId);
+            const targetAssignment=assignments.find(entry=>entry.departmentId===departmentId);
             const primarySenior=String(item.primarySenior||'').trim();
             const substituteSenior=String(item.substituteSenior||'').trim();
             const reason=String(item.reason||'').trim();
-            if(!department||!assignmentIds.has(departmentId)||substitutionIds.has(departmentId)||
-              !primarySenior||!substituteSenior||primarySenior===substituteSenior||!reason||
+            if(!department||!targetAssignment||substitutionIds.has(departmentId)||
+              !primarySenior||!substituteSenior||sharedNameKey(primarySenior)===sharedNameKey(substituteSenior)||
+              sharedNameKey(targetAssignment.seniorName)!==sharedNameKey(primarySenior)||!reason||
               primarySenior.length>160||substituteSenior.length>160||reason.length>500){
               send(res,400,{error:'Подмена должна относиться к назначенному отделению и содержать разных старшего и заменяющего с основанием'});return true;
             }
@@ -481,8 +483,8 @@ function createAuth(pool,send,readJson) {
         const session=await sessionFor(req);
         if(!session){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
-        if(!SHARED_STAFF_ROLES.includes(session.role)&&session.role!=='starshiy_patrulya'){
-          send(res,403,{error:'Просмотр наряда недоступен для этой роли'});return true;
+        if(!SHARED_STAFF_ROLES.includes(session.role)){
+          send(res,403,{error:'Просмотр дневного наряда недоступен для этой роли'});return true;
         }
         await purgeExpiredDutyData(pool);
         if(req.method==='GET') {
