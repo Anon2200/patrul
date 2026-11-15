@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 const { createAuth } = require('./auth');
-const { startDutyCleanup } = require('./duty-store');
+const { startDutyCleanup, DUTY_TIME_ZONE } = require('./duty-store');
 const { validateDataEncryptionKey, encryptData, decryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -104,6 +104,12 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => console.error('Unexpected PostgreSQL client error:', err.message));
+// CURRENT_DATE в запросах (сроки поручений, журналы) должен считаться по московскому дню, а не по UTC.
+pool.on('connect', (client) => {
+  if (/^[A-Za-z0-9_\/+-]+$/.test(DUTY_TIME_ZONE)) {
+    client.query("SET TIME ZONE '" + DUTY_TIME_ZONE + "'").catch((err) => console.error('Cannot set database time zone:', err.message));
+  }
+});
 
 function send(res, status, body, extraHeaders = {}) {
   res.writeHead(status, {
@@ -120,7 +126,12 @@ function send(res, status, body, extraHeaders = {}) {
 }
 
 function authFailureKey(req, role) {
-  return (req.socket.remoteAddress || 'unknown') + ':' + role;
+  let ip = req.socket.remoteAddress || 'unknown';
+  if (process.env.PATRUL_TRUST_PROXY !== '0') {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (forwarded.length) ip = forwarded[forwarded.length - 1].slice(0, 64);
+  }
+  return ip + ':' + role;
 }
 
 function recordAuthFailure(req, role) {
