@@ -924,6 +924,33 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.deepEqual(independentRosterBody.data,{});
   const seniorCannotReadFullRoster=await sessionApi('/api/duty-roster?date='+encodeURIComponent(testDutyDate),{},seniorCookie);
   assert.equal(seniorCannotReadFullRoster.status,403);
+
+  // Bulk rebuild must include calendar dates even before a daily roster row exists.
+  const bulkRosterBefore=await sessionApi('/api/duty-roster?all=1',{},headCookie);
+  assert.equal(bulkRosterBefore.status,200);
+  const bulkBeforeBody=await bulkRosterBefore.json();
+  const scheduledOnlyDay=bulkBeforeBody.items.find(item=>item.date===testDutyDate);
+  assert.ok(scheduledOnlyDay,'scheduled date must be returned for all-date rebuild');
+  assert.equal(scheduledOnlyDay.version,0);
+  assert.equal(scheduledOnlyDay.data,null);
+  assert.equal(scheduledOnlyDay.schedule.assignments.length,1);
+
+  const createScheduledRoster=await sessionApi('/api/duty-roster',{
+    method:'PUT',
+    body:JSON.stringify({
+      date:testDutyDate,expectedVersion:0,
+      data:{rows:{'КПП':[{fio:'Сидоров Сергей Сергеевич',pos:'Старший патруля'}]}}
+    })
+  },headCookie,headCsrf);
+  assert.equal(createScheduledRoster.status,200);
+  assert.equal((await createScheduledRoster.json()).version,1);
+
+  const bulkRosterAfter=await sessionApi('/api/duty-roster?all=1',{},headCookie);
+  assert.equal(bulkRosterAfter.status,200);
+  const bulkAfterBody=await bulkRosterAfter.json();
+  const savedScheduledDay=bulkAfterBody.items.find(item=>item.date===testDutyDate);
+  assert.equal(savedScheduledDay.version,1);
+  assert.equal(savedScheduledDay.data.rows['КПП'][0].fio,'Сидоров Сергей Сергеевич');
   const seniorControlView = await sessionApi('/api/control/role-data/starshiy_patrulya', {}, adminCookie);
   assert.equal(seniorControlView.status, 200);
   const seniorControlBody = await seniorControlView.json();
