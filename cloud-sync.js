@@ -40,7 +40,8 @@
       #nv #patrul-cloud-status{flex:0 0 116px;min-width:116px;max-width:140px;margin:0;padding:5px 4px;border-top:0;border-left:1px solid rgba(255,255,255,.16);justify-content:center;gap:3px;text-align:center;font:9px/1.2 system-ui}
       #nv #patrul-cloud-status button{align-self:center;font-size:9px;padding:2px 5px}
     }
-    #nv #patrul-admin-users{margin-top:4px}
+    #patrul-admin-users{position:fixed;top:12px;right:16px;z-index:10002;display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--bd,#dce2ea);border-radius:10px;background:var(--card,#fff);color:var(--tx,#18222f);box-shadow:0 4px 18px #0002;font:600 13px/1.2 system-ui;cursor:pointer}
+    @media(max-width:760px){#patrul-admin-users{top:8px;right:8px;padding:7px 9px;font-size:12px}}
     @media print{#patrul-cloud-status,#patrul-mail-button,#patrul-mail-link,#patrul-admin-users{display:none!important;visibility:hidden!important}}
   `;
   document.head.appendChild(menuControlsStyle);
@@ -524,8 +525,8 @@
       adminButton=document.createElement('button');
       adminButton.type='button';
       adminButton.id='patrul-admin-users';
-      adminButton.className='n patrul-menu-link';
-      adminButton.innerHTML='<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>Управление сотрудниками</span>';
+      adminButton.className='patrul-admin-control';
+      adminButton.innerHTML='<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>Администрирование</span>';
       adminButton.addEventListener('click',adminPanel);
     }
 
@@ -533,7 +534,7 @@
       const target=document.querySelector(role==='zam'?'#bn':'#nv');
       if(!target)return;
       if(!mail.isConnected||mail.parentElement!==target)target.appendChild(mail);
-      if(adminButton&&(!adminButton.isConnected||adminButton.parentElement!==target))target.appendChild(adminButton);
+      if(adminButton&&adminButton.parentElement!==document.body)document.body.appendChild(adminButton);
       if(!badge.isConnected||badge.parentElement!==target)target.appendChild(badge);
     }
     mountMenuControls();
