@@ -43,7 +43,7 @@ for (const required of ['Параметры смены','Распределен�
 }
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
 try {
-  const testSource = newDutyRoster.replace(/\\)\\(\\);\\s*$/, 'window.__rosterTest={rebuildAll};\\n})();');
+  const testSource = newDutyRoster.slice(0,newDutyRoster.lastIndexOf('})();')) + 'window.__rosterTest={rebuildAll};\n})();';
   if (testSource === newDutyRoster) throw new Error('test hook could not be attached');
   const sampleData = {
     departments:[{id:'dep-1',name:'Отделение 1'}],
