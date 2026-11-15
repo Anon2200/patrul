@@ -3,6 +3,7 @@ name: Patrul checks
 on:
   push:
     branches:
+      - main
       - feature/shared-data-center
       - feature/internal-mail
       - launch-hardening
@@ -13,9 +14,14 @@ on:
       - main
       - feature/shared-data-center
       - launch-hardening
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: patrul-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   syntax-and-page-checks:
