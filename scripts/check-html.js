@@ -42,6 +42,27 @@ try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } ca
 for (const required of ['Параметры смены','Назначения отделений на дату','Состав наряда по постам','Пересобрать все дни','function rebuildDate','function makePlan','function applyPlan','Сбросить состав наряда','/api/duty-roster']) {
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
+const bulkLoadStart = newDutyRoster.indexOf('async function loadAll()');
+const bulkLoadEnd = newDutyRoster.indexOf('\\n  function queuePersist', bulkLoadStart);
+const bulkLoadCode = bulkLoadStart >= 0 && bulkLoadEnd > bulkLoadStart
+  ? newDutyRoster.slice(bulkLoadStart, bulkLoadEnd) : '';
+if (!bulkLoadCode.includes('if(busyAll)return false') ||
+    !bulkLoadCode.includes('if(saveTimers.size||saving.size||pendingConflicts.size)') ||
+    !bulkLoadCode.includes('rosters.clear();versions.clear();schedules.clear();') ||
+    !bulkLoadCode.includes('return true;') || !bulkLoadCode.includes('return false;')) {
+  fail('bulk roster load must abort safely on pending edits or load errors and replace stale cached dates');
+}
+const bulkRebuildStart = newDutyRoster.indexOf('A.nrRebuildAll=async()=>');
+const bulkRebuildEnd = newDutyRoster.indexOf('\\n  function printDocument', bulkRebuildStart);
+const bulkRebuildCode = bulkRebuildStart >= 0 && bulkRebuildEnd > bulkRebuildStart
+  ? newDutyRoster.slice(bulkRebuildStart, bulkRebuildEnd) : '';
+const bulkSaveIndex = bulkRebuildCode.indexOf("const saved=await api('/api/duty-roster','PUT'");
+const bulkSaveCheckIndex = bulkRebuildCode.indexOf('if(!saved.response.ok)', bulkSaveIndex);
+const bulkCacheWriteIndex = bulkRebuildCode.indexOf('rosters.set(date,{...defaultRecord()', bulkSaveCheckIndex);
+if (!bulkRebuildCode.includes('if(!(await loadAll()))return;') ||
+    bulkSaveIndex < 0 || bulkSaveCheckIndex <= bulkSaveIndex || bulkCacheWriteIndex <= bulkSaveCheckIndex) {
+  fail('bulk roster rebuild must stop on failed load and update local data only after the server confirms each date');
+}
 if (newDutyRoster.includes('save();') || !newDutyRoster.includes("api('/api/duty-roster'") || !cloudSync.includes("if(role==='nachalnik')delete copy.duty")) fail('daily duty roster must persist only through its independent API, while commander role snapshots omit duty');
 if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule')) fail('duty APIs must use the independent PostgreSQL tables');
 if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
