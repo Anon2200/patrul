@@ -98,7 +98,9 @@ flushingOffline=true;
 try{
 const auth=await request('/api/auth/me');
 if(!auth.response.ok||!auth.result.user||auth.result.user.role!=='starshiy_patrulya'||String(auth.result.user.id)!==userId){
-offlineMode=true;offlineWarning='Не удалось подтвердить прежнюю учётную запись. Офлайн-записи сохранены на этом устройстве.';return;
+csrf='';workspace=null;offlineMode=false;sessionStorage.removeItem(OFFLINE_MARKER);
+authScreen('Сессия истекла или учётная запись изменилась. Офлайн-записи сохранены на этом устройстве. Войдите снова, чтобы продолжить синхронизацию.');
+return;
 }
 csrf=auth.result.csrfToken||'';
 const queued=await listOfflineRecords('queue',userId);
