@@ -11,7 +11,16 @@ const sha = v => crypto.createHash('sha256').update(v).digest();
 const token = () => crypto.randomBytes(32).toString('base64url');
 const equal = (a,b) => { const x=Buffer.from(a||''), y=Buffer.from(b||''); return x.length>0 && x.length===y.length && crypto.timingSafeEqual(x,y); };
 function readCookie(req) {
-  const out={}; for (const p of (req.headers.cookie||'').split(';')) { const i=p.indexOf('='); if(i>0) out[p.slice(0,i).trim()]=decodeURIComponent(p.slice(i+1).trim()); } return out;
+  const out={};
+  for (const part of (req.headers.cookie||'').split(';')) {
+    const separator=part.indexOf('=');
+    if(separator<=0) continue;
+    const name=part.slice(0,separator).trim();
+    const value=part.slice(separator+1).trim();
+    try { out[name]=decodeURIComponent(value); }
+    catch { continue; }
+  }
+  return out;
 }
 function sameOrigin(req) {
   if (!req.headers.origin) return false;
