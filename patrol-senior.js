@@ -49,14 +49,18 @@ async function listOfflineRecords(storeName,userId){
 const rows=await offlineStore(storeName,'readonly',store=>store.getAll());
 return (rows||[]).filter(row=>row.userId===userId).sort((a,b)=>a.createdAt-b.createdAt);
 }
-async function rememberWorkspace(){
+async function cacheOfflineWorkspace(){
 try{
 const userId=workspace&&workspace.user&&String(workspace.user.id||'');
 if(!userId)return false;
 await saveOfflineEncrypted('cache','workspace:'+userId,userId,workspace);
-sessionStorage.setItem(OFFLINE_MARKER,JSON.stringify({userId,savedAt:Date.now()}));
 return true;
 }catch(_){return false;}
+}
+async function rememberWorkspace(){
+const userId=workspace&&workspace.user&&String(workspace.user.id||'');
+if(!userId||!(await cacheOfflineWorkspace()))return false;
+try{sessionStorage.setItem(OFFLINE_MARKER,JSON.stringify({userId,savedAt:Date.now()}));return true;}catch(_){return false;}
 }
 async function restoreOfflineWorkspace(){
 try{
@@ -85,7 +89,7 @@ const pending={entry_type:queued.type,staff_key:queued.staffKey||null,status:que
 workspace.entries=Array.isArray(workspace.entries)?workspace.entries:[];
 workspace.entries.unshift(pending);pendingOfflineCount=(await listOfflineRecords('queue',userId)).length;
 offlineMode=true;offlineWarning='Нет связи. Запись сохранена в зашифрованной очереди этого устройства.';
-await rememberWorkspace();render();
+await cacheOfflineWorkspace();render();
 }
 async function flushOfflineQueue(){
 if(flushingOffline||!workspace||!navigator.onLine)return;
