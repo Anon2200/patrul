@@ -373,7 +373,7 @@ function createAuth(pool,send,readJson) {
                 substituteReason:String(substitution&&substitution.reason||'')
               };
             }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName||item.substituteSeniorId===ownSeniorKey);
-            return {date:day.date,assignments};
+            return {date:day.date,assignments,version:Number(day.version)||0};
           }).filter(day=>day.assignments.length);
           const headQ=await pool.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
           const head=headQ.rowCount?await readRoleData(pool,'nachalnik',headQ.rows[0]):null;
