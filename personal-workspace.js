@@ -2,7 +2,7 @@
 'use strict';
 const role=window.PATRUL_ROLE;
 if(!role)return;
-const labels={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',uchet:'Старший механик',dokumentoved:'Документовед'};
+const labels={nachalnik:'Начальник патруля',zam:'Заместитель начальника патруля',uchet:'Старший мастер',dokumentoved:'Документовед'};
 let key='patrul_workspace_v1_'+role;const defaults={device:'auto',compact:false,openHome:true,favorites:[]};
 let prefs=defaults,mailCount=0,ready=false,overlay=null;
 try{prefs=Object.assign({},defaults,JSON.parse(localStorage.getItem(key)||'{}'));}catch(_){}
