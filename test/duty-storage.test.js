@@ -42,10 +42,10 @@ test('daily cleanup atomically removes expired rosters and senior daily logs but
   assert.deepEqual(result,{today:dutyDateAt(),rosters:3,seniorEntries:4});
   assert.equal(calls[0].sql,'BEGIN');
   assert.match(calls[1].sql,/DELETE FROM patrul_duty_rosters WHERE duty_date < \$1::date/);
-  assert.match(calls[2].sql,/DELETE FROM patrul_duty_schedule WHERE duty_date < \$1::date/);
-  assert.match(calls[3].sql,/DELETE FROM patrul_patrol_senior_entries WHERE entry_date < \$1::date/);
-  for(const call of calls.slice(1,4))assert.deepEqual(call.params,[result.today]);
-  assert.equal(calls[4].sql,'COMMIT');
+  assert.match(calls[2].sql,/DELETE FROM patrul_patrol_senior_entries WHERE entry_date < \$1::date/);
+  for(const call of calls.slice(1,3))assert.deepEqual(call.params,[result.today]);
+  assert.equal(calls[3].sql,'COMMIT');
+  assert.equal(calls.some(call=>call.sql.includes('DELETE FROM patrul_duty_schedule')),false);
   assert.equal(released,true);
 });
 
