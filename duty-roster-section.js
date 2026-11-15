@@ -202,10 +202,11 @@
     try{
       const result=await api('/api/duty-roster?all=1');
       if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить сохранённые наряды');
+      if(!result.result||!Array.isArray(result.result.items))throw new Error('Сервер вернул некорректный список дат наряда');
 
-      // The server response is the source of truth for the complete active roster set.
+      // The server response is the source of truth for all scheduled and saved active dates.
       rosters.clear();versions.clear();schedules.clear();
-      (Array.isArray(result.result.items)?result.result.items:[]).forEach(item=>{
+      result.result.items.forEach(item=>{
         rosters.set(item.date,{...defaultRecord(),...(item.data||{}),rows:item.data&&item.data.rows||{},defects:item.data&&item.data.defects||[],incs:item.data&&item.data.incs||[]});
         versions.set(item.date,Number(item.version)||0);
         schedules.set(item.date,item.schedule||{assignments:[],substitutions:[]});
@@ -447,7 +448,7 @@
   };
   A.nrRebuildAll=async()=>{
     const overlay=document.createElement('div');overlay.className='ov';
-    overlay.innerHTML='<div class="mod"><h3>Пересобрать все сохранённые наряды?</h3><p>Будут обработаны все сохранённые текущие и будущие дневные наряды, для которых есть назначения в календаре. Данные прошедших суток удаляются ежедневной очисткой. При конфликте ФИО конкретная дата останется без изменений.</p><div class="bar"><button class="btn" data-nr-all-confirm>Пересобрать</button><button class="btn g" data-nr-all-cancel>Отмена</button></div></div>';
+    overlay.innerHTML='<div class="mod"><h3>Пересобрать все дни по графику?</h3><p>Будут обработаны все текущие и будущие даты с назначениями в календаре, даже если ежедневный наряд за эту дату ещё не создан. Существующие наряды без назначений не изменяются. Данные прошедших суток удаляются ежедневной очисткой. При конфликте ФИО конкретная дата останется без изменений.</p><div class="bar"><button class="btn" data-nr-all-confirm>Пересобрать</button><button class="btn g" data-nr-all-cancel>Отмена</button></div></div>';
     overlay.addEventListener('click',async event=>{
       if(event.target.hasAttribute('data-nr-all-cancel')||event.target===overlay){overlay.remove();return;}
       if(!event.target.hasAttribute('data-nr-all-confirm'))return;
@@ -455,7 +456,6 @@
       if(!(await loadAll()))return;
       const totals={dates:0,changed:0,moved:0,added:0,already:0,duplicates:0,skipped:0,errors:[]};
       for(const [date,record] of rosters.entries()){
-        if(date<today())continue;
         const result=rebuildDate(date,record,scheduleFor(date));
         if(result.skipped){totals.skipped++;if(result.errors.length)totals.errors.push(date+': '+result.errors.join(' '));continue;}
         const expectedVersion=versions.get(date)||0;
