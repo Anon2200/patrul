@@ -27,8 +27,8 @@ function dutyDateAt(timestamp = Date.now()) {
     String(p.day).padStart(2,'0');
 }
 
-function nextDutyMidnight() {
-  const now = partsAt(Date.now());
+function nextDutyMidnight(timestamp = Date.now()) {
+  const now = partsAt(timestamp);
   const target = Date.UTC(now.year,now.month-1,now.day+1,0,0,0);
   let guess = target;
   // Convert the next local midnight into UTC, including DST changes.
@@ -97,4 +97,4 @@ function startDutyCleanup(pool) {
   };
 }
 
-module.exports = {DUTY_TIME_ZONE,dutyDateAt,purgeExpiredDutyData,startDutyCleanup};
+module.exports = {DUTY_TIME_ZONE,dutyDateAt,nextDutyMidnight,purgeExpiredDutyData,startDutyCleanup};
