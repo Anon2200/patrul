@@ -26,11 +26,13 @@
     ).filter(item => item.name);
     if (list.length) return list;
     const names = [...new Set((D.staff || []).map(person => clean(person.departmentName || person.department || person.depName || person.otdelenie)).filter(Boolean))];
-    return (names.length ? names : Array.from({length:9}, (_, index) => 'Отделение ' + (index + 1))).map((name,index) => ({id:String(index + 1),name}));
+    return (names.length ? names : Array.from({length:9}, (_, index) => 'Отделение ' + (index + 1))).map((name,index) => ({id:'legacy-' + (index + 1),name}));
   };
   const personDepartment = person => {
     const id = person && (person.departmentId != null ? person.departmentId : person.depId);
     if (id != null && clean(id)) return { id:String(id), name:'' };
+    const legacy = Number(person && person.sq);
+    if (Number.isInteger(legacy) && legacy > 0) return { id:'legacy-' + legacy, name:'' };
     return { id:'', name:clean(person && (person.departmentName || person.department || person.depName || person.otdelenie)) };
   };
   const membersOf = department => (D.staff || []).filter(person => {
@@ -251,6 +253,11 @@
   };
   const tabIndex = TABS.findIndex(item => item[0] === 'nr');
   if (tabIndex < 0) TABS.push(['nr','Наряд на службу']);
-  EXV.nr = render;
-  if (typeof draw === 'function' && tab === 'nr') draw(1);
+  function install() {
+    EXV.nr = render;
+    if (typeof draw === 'function' && tab === 'nr') draw(1);
+  }
+  window.addEventListener('patrul:ready', install);
+  install();
+  if (window.PATRUL_READY) install();
 })();
