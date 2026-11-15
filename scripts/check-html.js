@@ -76,6 +76,7 @@ if (!server.includes('009_patrol_senior_offline_queue.sql') || !patrolSeniorOffl
 if (!patrolSeniorAuth.includes('clientEntryId') || !patrolSeniorAuth.includes('ON CONFLICT (senior_user_id,client_entry_id)')) fail('Patrol Senior API must accept idempotent queued entries');
 if (!patrolSeniorAuth.includes('Идентификатор офлайн-записи уже использован для другого содержимого')) fail('Patrol Senior API must reject conflicting reuse of offline entry identifiers');
 if (!patrolSeniorClient.includes('function flushOfflineQueue') || !patrolSeniorClient.includes('indexedDB.open') || !patrolSeniorClient.includes('AES-GCM') || !patrolSeniorClient.includes('patrul-senior-offline-auth') || !patrolSeniorClient.includes('clientEntryId') || !patrolSeniorClient.includes('OFFLINE_SESSION_MS=8*60*60*1000')) fail('Patrol Senior offline queue must be encrypted, session-bound and replayed after reconnection');
+if (!patrolSeniorClient.includes('Войдите снова, чтобы продолжить синхронизацию.') || !patrolSeniorClient.includes('sessionStorage.removeItem(OFFLINE_MARKER)')) fail('Patrol Senior must preserve its queue and require online reauthentication after session expiry');
 
 
 
