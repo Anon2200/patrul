@@ -35,7 +35,7 @@ const staffScriptIndex = commanderDutyPage.indexOf('src="staff-workspace.js');
 if (dutyScriptIndex < 0 || staffScriptIndex < 0 || dutyScriptIndex > staffScriptIndex) fail('commander duty schedule must load before staff workspace so the roster assignment block can bind to nr');
 const calendarGlobalIndex = commanderDutyPage.indexOf('src="duty-calendar-global.js');
 const newDutyRosterIndex = commanderDutyPage.indexOf('src="duty-roster-section.js');
-if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
+if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex || newDutyRosterIndex < staffScriptIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
 const newDutyRoster = fs.readFileSync('duty-roster-section.js', 'utf8');
 try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } catch (error) { fail('new duty roster workspace: ' + error.message); }
 for (const required of ['Параметры смены','Распределение отделений по постам','Состав наряда и получение снаряжения','Пересобрать наряд на все дни','function rebuildAll','function makePlan','function applyPlan']) {
