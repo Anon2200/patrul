@@ -46,6 +46,10 @@ if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAut
 if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
 if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
+const dutyStore = fs.readFileSync('duty-store.js','utf8');
+if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_duty_schedule") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
+if (!fs.readFileSync('cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
+
 try {
   const testSource = newDutyRoster.slice(0,newDutyRoster.lastIndexOf('})();')) + 'window.__rosterTest={rebuildDate,membersMatch};\n})();';
   if (testSource === newDutyRoster) throw new Error('test hook could not be attached');
@@ -400,7 +404,7 @@ if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWor
 if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-11')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
-if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
+if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
 if (!dutySchedule.includes('уже назначен на другое отделение') || !dutySchedule.includes('Постоянное закрепление не меняется')) fail('duty schedule must prevent same-day double booking and keep permanent assignments unchanged');
 if (!server.includes("['/duty-calendar-global.js', 'duty-calendar-global.js']") || !serviceWorker.includes("'/duty-calendar-global.js'")) fail('server and service worker must serve/cache the common role calendar');
 if (!patrolSeniorPage.includes('window.PATRUL_ROLE="starshiy_patrulya"') || !patrolSeniorPage.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail('Senior Patrol page must load the shared calendar after setting its role');
