@@ -909,7 +909,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   assert.equal(seniorAttendanceUpdate.status, 201);
   const seniorHandover = await sessionApi('/api/patrol-senior/entries', {
     method: 'POST',
-    body: JSON.stringify({ type: 'shift_end', date: seniorWorkspaceBody.date, title: 'Передача смены', body: 'Принимает смену: Иванов\\nНезакрытые вопросы: проверка поста\\nСостояние имущества: без замечаний' })
+    body: JSON.stringify({ type: 'shift_end', date: seniorWorkspaceBody.date, title: 'Передача смены', body: 'Принимает смену: Иванов\nНезакрытые вопросы: проверка поста\nСостояние имущества: без замечаний' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorHandover.status, 201);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
