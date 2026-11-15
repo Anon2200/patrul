@@ -608,7 +608,7 @@ function exAfter(){const m=$('#m');if(!m||m.querySelector('.exnp'))return;let t=
 draw=(function(o){return function(k){const r=o(k);try{exAfter()}catch(x){}return r}})(draw);
 EXA.exprint=()=>window.print();
 /* --- установка как приложение (офлайн-кэш) --- */
-if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=20261115-10',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=20261115-13',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{}));
 /* --- QR: показ и считывание --- */
 /* QR-генератор: Kazuhiko Arase, лицензия MIT (http://www.d-project.com/) */
 (function(){var M={"./QRMode":function(module,require){module.exports = {
