@@ -33,6 +33,15 @@ const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
 const dutyScriptIndex = commanderDutyPage.indexOf('src="duty-schedule.js');
 const staffScriptIndex = commanderDutyPage.indexOf('src="staff-workspace.js');
 if (dutyScriptIndex < 0 || staffScriptIndex < 0 || dutyScriptIndex > staffScriptIndex) fail('commander duty schedule must load before staff workspace so the roster assignment block can bind to nr');
+const calendarGlobalIndex = commanderDutyPage.indexOf('src="duty-calendar-global.js');
+const newDutyRosterIndex = commanderDutyPage.indexOf('src="duty-roster-section.js');
+if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
+const newDutyRoster = fs.readFileSync('duty-roster-section.js', 'utf8');
+try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } catch (error) { fail('new duty roster workspace: ' + error.message); }
+for (const required of ['Параметры смены','Распределение отделений по постам','Состав наряда и получение снаряжения','Пересобрать наряд на все дни','function rebuildAll','function makePlan','function applyPlan']) {
+  if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
+}
+if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
 const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
@@ -329,7 +338,7 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-10'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-11'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
 if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-10')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
