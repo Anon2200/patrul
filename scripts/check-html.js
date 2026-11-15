@@ -28,6 +28,7 @@ const mailClient = fs.readFileSync('mail.js', 'utf8');
 const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
 const mailPage = fs.readFileSync('mail.html', 'utf8');
 const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
+const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
 const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
 const dutyScriptIndex = commanderDutyPage.indexOf('src="duty-schedule.js');
@@ -107,7 +108,6 @@ const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
 try { new vm.Script(dutySchedule, { filename: 'duty-schedule.js' }); } catch (error) { fail('duty schedule script: ' + error.message); }
-const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
 const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
 let staffWorkspace = '';
