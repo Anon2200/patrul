@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 const { createAuth } = require('./auth');
-const { validateDataEncryptionKey, encryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
+const { startDutyCleanup } = require('./duty-store');
+const { validateDataEncryptionKey, encryptData, decryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROLE_TOKEN_ENV = {
@@ -223,7 +224,63 @@ async function initDatabase() {
   await pool.query(documentNumberingSchema);
   const patrolSeniorOfflineSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '009_patrol_senior_offline_queue.sql'), 'utf8');
   await pool.query(patrolSeniorOfflineSchema);
+  const independentDutySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '010_independent_duty_storage.sql'), 'utf8');
+  await pool.query(independentDutySchema);
   await migratePlaintextRows(pool);
+  await purgeLegacyCommanderDuty();
+}
+
+async function purgeLegacyCommanderDuty() {
+  const client = await pool.connect();
+  let moved = 0;
+  try {
+    await client.query('BEGIN');
+    const q = await client.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik' FOR UPDATE");
+    if (!q.rowCount) {
+      await client.query('COMMIT');
+      return;
+    }
+    const row = q.rows[0];
+    const data = decryptData(row.data,'nachalnik');
+    if (!data || typeof data !== 'object' || Array.isArray(data) ||
+        !Object.prototype.hasOwnProperty.call(data,'duty')) {
+      await client.query('COMMIT');
+      return;
+    }
+
+    const legacyDuty = data.duty && typeof data.duty === 'object' && !Array.isArray(data.duty)
+      ? data.duty : {};
+    for (const [date,duty] of Object.entries(legacyDuty)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const parsed = new Date(date+'T00:00:00.000Z');
+      if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date) continue;
+      const assignments = Array.isArray(duty && duty.departmentAssignments) ? duty.departmentAssignments : [];
+      const substitutions = Array.isArray(duty && duty.seniorSubstitutions) ? duty.seniorSubstitutions : [];
+      if (!assignments.length && !substitutions.length) continue;
+      const inserted = await client.query(
+        'INSERT INTO patrul_duty_schedule(duty_date,assignments,substitutions,version,updated_at) '+
+        'VALUES($1::date,$2::jsonb,$3::jsonb,1,NOW()) ON CONFLICT(duty_date) DO NOTHING RETURNING duty_date',
+        [date,JSON.stringify(assignments),JSON.stringify(substitutions)]
+      );
+      moved += inserted.rowCount;
+    }
+
+    // Drop the entire legacy duty payload: past rosters, daily rows, times,
+    // equipment marks, defects, incidents and reports are intentionally retired.
+    delete data.duty;
+    const saved = await client.query(
+      "UPDATE patrul_role_data SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE role='nachalnik' AND version=$2 RETURNING version",
+      [JSON.stringify(encryptData(data,'nachalnik')),row.version]
+    );
+    if (!saved.rowCount) throw new Error('Commander role data changed while retiring legacy duty records');
+    await client.query('COMMIT');
+    console.info('Independent duty storage initialized: schedule days imported='+moved+'; legacy daily rosters retired.');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(()=>{});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 const handleAuth = createAuth(pool, send, readJson);
@@ -273,9 +330,11 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { role, data: null, version: 0, updatedAt: null });
       }
       const row = result.rows[0];
+      const data = await readRoleData(pool, role, row);
+      if (role === 'nachalnik' && data && typeof data === 'object' && !Array.isArray(data)) delete data.duty;
       return send(res, 200, {
         role,
-        data: await readRoleData(pool, role, row),
+        data,
         version: Number(row.version),
         updatedAt: row.updated_at
       });
@@ -297,7 +356,7 @@ const server = http.createServer(async (req, res) => {
       'version = patrul_role_data.version + 1, updated_at = NOW() ' +
       'WHERE patrul_role_data.version = $3 ' +
       'RETURNING data, version, updated_at',
-      [role, JSON.stringify(encryptData(body.data, role)), body.expectedVersion]
+      [role, JSON.stringify(encryptData(role === 'nachalnik' && body.data && typeof body.data === 'object' ? Object.fromEntries(Object.entries(body.data).filter(([key]) => key !== 'duty')) : body.data, role)), body.expectedVersion]
     );
 
     if (result.rowCount === 0) {
@@ -325,7 +384,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+let stopDutyCleanup = null;
 initDatabase().then(() => {
+  stopDutyCleanup = startDutyCleanup(pool);
   server.listen(PORT, '0.0.0.0', () => console.log('Patrul API listening on port ' + PORT));
 }).catch((err) => {
   console.error('Startup failed:', err.message);
@@ -333,6 +394,7 @@ initDatabase().then(() => {
 });
 
 async function shutdown() {
+  if (stopDutyCleanup) stopDutyCleanup();
   server.close();
   await pool.end();
   process.exit(0);

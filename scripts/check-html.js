@@ -28,6 +28,7 @@ const mailClient = fs.readFileSync('mail.js', 'utf8');
 const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
 const mailPage = fs.readFileSync('mail.html', 'utf8');
 const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
+const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
 const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
 const dutyScriptIndex = commanderDutyPage.indexOf('src="duty-schedule.js');
@@ -38,56 +39,75 @@ const newDutyRosterIndex = commanderDutyPage.indexOf('src="duty-roster-section.j
 if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex || newDutyRosterIndex < staffScriptIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
 const newDutyRoster = fs.readFileSync('duty-roster-section.js', 'utf8');
 try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } catch (error) { fail('new duty roster workspace: ' + error.message); }
-for (const required of ['Параметры смены','Назначения отделений на дату','Состав наряда по постам','Пересобрать все дни','function rebuildAll','function makePlan','function applyPlan','Очистить состав наряда']) {
+for (const required of ['Параметры смены','Назначения отделений на дату','Состав наряда по постам','Пересобрать все дни','function rebuildDate','function makePlan','function applyPlan','Сбросить состав наряда','/api/duty-roster']) {
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
+if (newDutyRoster.includes('save();') || !newDutyRoster.includes("api('/api/duty-roster'") || !cloudSync.includes("if(role==='nachalnik')delete copy.duty")) fail('daily duty roster must persist only through its independent API, while commander role snapshots omit duty');
+if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule')) fail('duty APIs must use the independent PostgreSQL tables');
+if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
+if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
+const dutyStore = fs.readFileSync('duty-store.js','utf8');
+if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
+if (!fs.readFileSync('cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
+
 try {
-  const testSource = newDutyRoster.slice(0,newDutyRoster.lastIndexOf('})();')) + 'window.__rosterTest={rebuildAll};\n})();';
+  const testSource = newDutyRoster.slice(0,newDutyRoster.lastIndexOf('})();')) + 'window.__rosterTest={rebuildDate,membersMatch};\n})();';
   if (testSource === newDutyRoster) throw new Error('test hook could not be attached');
-  const sampleData = {
-    departments:[{id:'dep-1',name:'Отделение 1'}],
-    staff:[
-      {name:'Шабанов Сергей Александрович',pos:'Патрульный',departmentId:'dep-1'},
-      {name:'Осипова Ксения Евгеньевна',pos:'Патрульный',departmentId:'dep-1'},
-      {name:'Фурсов Сергей Сергеевич',pos:'Патрульный',departmentId:'dep-1'},
-      {name:'Широков Даниил Владимирович',pos:'Патрульный',departmentId:'dep-1'}
-    ],
-    duty:{
-      '2026-11-13':{t1:'08:00',t2:'20:00',departmentAssignments:[{departmentId:'dep-1',post:'Пост 2'}],rows:{
-        'Пост 1':[{fio:'Шабанов С.А.',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},{fio:'Осипова К.Е.',tin:'08:20',tout:'15:40',eq:'комплект 2'}],
-        'Пост 2':[{fio:'Шабанов Сергей Александрович',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},{fio:'Фурсов Сергей Сергеевич',tin:'08:10',tout:'15:50',eq:'комплект 3'}]
-      }},
-      '2026-11-14':{t1:'09:00',t2:'21:00',departmentAssignments:[{departmentId:'dep-1',post:'Пост 3'}],rows:{'Пост 3':[{fio:'Шабанов Сергей Александрович',tin:'09:15'}]}},
-      '2026-11-15':{rows:{'Старый пост':[{fio:'Иванов И.И.'}]}},
-      '2026-11-16':{departmentAssignments:[{departmentId:'dep-1',post:'Пост Удалённый'}],rows:{}}
-    }
-  };
   const sandbox = {
-    D:sampleData,TABS:[],EXV:{},A:{},window:{addEventListener(){},PATRUL_READY:true},document:{},
-    posts:()=>['Пост 1','Пост 2','Пост 3'],ddef:()=>({rows:{},defects:[],incs:[],departmentAssignments:[]}),
-    dcount:()=>[0,0,0],isSeniorPatrolRow:()=>false,postKitText:()=>'',e:value=>String(value),fl:value=>value,
-    save(){},draw(){},tab:'ov',dsel:'2026-11-15'
+    D:{
+      departments:[{id:'dep-1',name:'Отделение 1'}],
+      staff:[
+        {name:'Шабанов Сергей Александрович',pos:'Патрульный',departmentId:'dep-1'},
+        {name:'Осипова Ксения Евгеньевна',pos:'Патрульный',departmentId:'dep-1'},
+        {name:'Фурсов Сергей Сергеевич',pos:'Патрульный',departmentId:'dep-1'},
+        {name:'Широков Даниил Владимирович',pos:'Патрульный',departmentId:'dep-1'}
+      ],
+      duty:{}
+    },
+    TABS:[],EXV:{},A:{},window:{addEventListener(){},setInterval(){return 0;},PATRUL_READY:false},document:{addEventListener(){}},
+    posts:()=>['Пост 1','Пост 2','Пост 3'],postKitText:()=>'',isSeniorPatrolRow:()=>false,
+    today:()=>'2026-11-15',e:value=>String(value),fl:value=>value,draw(){},tab:'ov',dsel:'2026-11-15',
+    toast(){},modal(){}
   };
   vm.runInNewContext(testSource,sandbox);
-  const totals=sandbox.window.__rosterTest.rebuildAll();
-  const first=sampleData.duty['2026-11-13'],second=sampleData.duty['2026-11-14'];
-  const moved=first.rows['Пост 2'].find(row=>row.fio==='Шабанов Сергей Александрович');
-  if (totals.datesChanged!==2 || totals.moved!==2 || totals.duplicatesRemoved!==1) throw new Error('date-specific rebuild totals are incorrect');
-  if (first.rows['Пост 1'].some(row=>row.fio) || first.rows['Пост 2'].filter(row=>row.fio).length!==4) throw new Error('personnel were not moved and deduplicated');
-  if (!moved || moved.tin!=='08:15' || moved.tout!=='15:30' || moved.eq!=='радиостанция' || moved.signature!=='подписано') throw new Error('existing times, equipment or signatures were not preserved');
-  if (second.rows['Пост 3'].filter(row=>row.fio).length!==4) throw new Error('second date did not use its own scheduled post');
-  if (sampleData.duty['2026-11-15'].rows['Старый пост'].length!==1 || Object.keys(sampleData.duty['2026-11-16'].rows).length!==0) throw new Error('unassigned or invalid schedule dates were modified');
-  const repeat=sandbox.window.__rosterTest.rebuildAll();
-  if (repeat.added || repeat.moved || repeat.duplicatesRemoved) throw new Error('repeated rebuild is not idempotent');
+  const engine=sandbox.window.__rosterTest;
+  const first={
+    t1:'08:00',t2:'20:00',
+    rows:{
+      'Пост 1':[
+        {fio:'Шабанов С.А.',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},
+        {fio:'Осипова К.Е.',tin:'08:20',tout:'15:40',eq:'комплект 2'}
+      ],
+      'Пост 2':[
+        {fio:'Шабанов Сергей Александрович',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},
+        {fio:'Фурсов Сергей Сергеевич',tin:'08:10',tout:'15:50',eq:'комплект 3'}
+      ]
+    },defects:[],incs:[]
+  };
+  const schedule1={assignments:[{departmentId:'dep-1',departmentName:'Отделение 1',post:'Пост 2'}],substitutions:[]};
+  if(engine.membersMatch({fio:'Шабанов С.А.'},sandbox.D.staff).length!==1)throw new Error('abbreviated FIO matching failed');
+  const one=engine.rebuildDate('2026-11-13',first,schedule1);
+  if(one.skipped||one.moved!==2||one.added!==1||one.already!==2||one.duplicatesRemoved!==1)throw new Error('date-specific rebuild totals are incorrect: '+JSON.stringify(one));
+  const moved=one.data.rows['Пост 2'].find(row=>row.fio==='Шабанов Сергей Александрович');
+  if(one.data.rows['Пост 1'].some(row=>row.fio)||one.data.rows['Пост 2'].filter(row=>row.fio).length!==4)throw new Error('personnel were not moved and deduplicated');
+  if(!moved||moved.tin!=='08:15'||moved.tout!=='15:30'||moved.eq!=='радиостанция'||moved.signature!=='подписано')throw new Error('times, equipment or extra signature fields were not preserved');
+  const two=engine.rebuildDate('2026-11-14',{t1:'09:00',t2:'21:00',rows:{'Пост 3':[{fio:'Шабанов Сергей Александрович',tin:'09:15'}]},defects:[],incs:[]},{assignments:[{departmentId:'dep-1',post:'Пост 3'}],substitutions:[]});
+  if(two.skipped||two.data.rows['Пост 3'].filter(row=>row.fio).length!==4||two.data.rows['Пост 3'][0].tin!=='09:15')throw new Error('second date did not use its own post or preserve data');
+  const unchanged={rows:{'Старый пост':[{fio:'Иванов И.И.'}]},defects:[],incs:[]};
+  const noSchedule=engine.rebuildDate('2026-11-15',unchanged,{assignments:[]});
+  if(!noSchedule.skipped||unchanged.rows['Старый пост'].length!==1)throw new Error('date without assignment was changed');
+  const invalid=engine.rebuildDate('2026-11-16',{rows:{},defects:[],incs:[]},{assignments:[{departmentId:'dep-1',post:'Удалённый пост'}]});
+  if(!invalid.skipped||invalid.errors.length!==1)throw new Error('invalid scheduled post should be skipped safely');
+  const repeat=engine.rebuildDate('2026-11-13',one.data,schedule1);
+  if(repeat.skipped||repeat.added||repeat.moved||repeat.duplicatesRemoved)throw new Error('repeated rebuild is not idempotent');
 } catch (error) {
-  fail('new duty roster regression: ' + error.message);
+  fail('independent duty roster regression: ' + error.message);
 }
 const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
 try { new vm.Script(dutySchedule, { filename: 'duty-schedule.js' }); } catch (error) { fail('duty schedule script: ' + error.message); }
-const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
 const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
 let staffWorkspace = '';
@@ -172,7 +192,7 @@ if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server
 if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
 if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
 if (!patrolSeniorPage.includes('src="patrol-senior.js?v=' + ASSET_VERSION + '"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must load the cache-busted client and provide first-entry PIN setup and surname/PIN login');
-if (!patrolSeniorPage.includes("navigator.serviceWorker.register('/sw.js?v=" + ASSET_VERSION + "',{updateViaCache:'none'})") || !patrolSeniorPage.includes('.then(reg=>reg.update())')) fail('Patrol Senior page must register and immediately update the versioned offline worker');
+if (!patrolSeniorPage.includes("navigator.serviceWorker.register('/sw.js?v=20261115-14',{updateViaCache:'none'})") || !patrolSeniorPage.includes('.then(reg=>reg.update())')) fail('Patrol Senior page must register and immediately update the versioned offline worker');
 if (!patrolSeniorPage.includes('name="activationCode"') || !patrolSeniorClient.includes('activationCode:b.activationCode') || !patrolSeniorAuth.includes('/api/patrol-senior/activation-code') || !patrolSeniorAuth.includes('activation_code_hash') || !patrolSeniorAuth.includes('consumed_at')) fail('Patrol Senior enrollment must require a hashed, expiring, single-use supervisor activation code');
 if (!mailClient.includes("starshiy_patrulya:'Старший патруля'") || !mailClient.includes("starshiy_patrulya:{path:'/patrol-senior.html'")) fail('internal mail must recognize the Patrol Senior role and return to its workspace');
 if (!patrolSeniorClient.includes('href="/mail.html"')) fail('Patrol Senior workspace must link to internal mail');
@@ -286,9 +306,10 @@ for (const [file, role] of Object.entries(rolePages)) {
     fail(file + ' has an incorrect or missing role identifier');
   }
   for (const asset of ['cloud-sync.js','ops-workspace.js','personal-workspace.js','staff-workspace.js']) {
-    if (!html.includes('src="' + asset + '?v=' + ASSET_VERSION + '"')) fail(file + ' must load a cache-busted ' + asset);
+    const version = asset === 'cloud-sync.js' ? '20261115-11' : ASSET_VERSION;
+    if (!html.includes('src="' + asset + '?v=' + version + '"')) fail(file + ' must load a cache-busted ' + asset);
   }
-  if (!html.includes("navigator.serviceWorker.register('/sw.js?v=" + ASSET_VERSION + "',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
+  if (!html.includes("navigator.serviceWorker.register('/sw.js?v=20261115-14',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
   if (!html.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load the shared duty calendar');
   if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
   if (file === 'nachalnik.html' && (!html.includes('postKitText') || !html.includes('kit-display'))) fail(file + ' must show shared post equipment in the duty roster');
@@ -379,16 +400,16 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-12'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-14'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
-if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-10')) fail('commander cabinet must load the versioned duty schedule client');
+if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-12')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
-if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
+if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
 if (!dutySchedule.includes('уже назначен на другое отделение') || !dutySchedule.includes('Постоянное закрепление не меняется')) fail('duty schedule must prevent same-day double booking and keep permanent assignments unchanged');
 if (!server.includes("['/duty-calendar-global.js', 'duty-calendar-global.js']") || !serviceWorker.includes("'/duty-calendar-global.js'")) fail('server and service worker must serve/cache the common role calendar');
 if (!patrolSeniorPage.includes('window.PATRUL_ROLE="starshiy_patrulya"') || !patrolSeniorPage.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail('Senior Patrol page must load the shared calendar after setting its role');
-if (!patrolSeniorAuth.includes("p==='/api/duty-schedule'&&req.method==='GET'") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(session.role)") || !patrolSeniorAuth.includes("session.role==='starshiy_patrulya'")) fail('shared duty calendar endpoint must authenticate all role views and scope Senior Patrol');
+if (!patrolSeniorAuth.includes("if(p==='/api/duty-schedule')") || !patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(session.role)") || !patrolSeniorAuth.includes("session.role==='starshiy_patrulya'")) fail('independent schedule and roster endpoints must authenticate role views and scope Senior Patrol');
 const uchetPage = fs.readFileSync('uchet.html', 'utf8');
 if (!uchetPage.includes('<aside id="nv"></aside>') || !uchetPage.includes('class="sp"')) fail('Senior Master sidebar must provide the calendar insertion point before its flex spacer');
 if (!dutyCalendarGlobal.includes("if(spacer)menu.insertBefore(b,spacer)")) fail('shared calendar navigation must be inserted before the sidebar footer spacer so it remains visible');
