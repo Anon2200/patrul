@@ -1319,15 +1319,28 @@ function createAuth(pool,send,readJson) {
         if(req.method==='GET'){
           const q=await pool.query('SELECT data,version,updated_at FROM patrul_role_data WHERE role=$1',[role]);
           if(!q.rowCount){send(res,200,{role,data:null,version:0,updatedAt:null});return true;}
-          send(res,200,{role,data:await readRoleData(pool,role,q.rows[0]),version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+          const row=q.rows[0],data=await readRoleData(pool,role,row);
+          let version=Number(row.version),updatedAt=row.updated_at;
+          if(role==='nachalnik'&&data&&typeof data==='object'&&!Array.isArray(data)&&Object.prototype.hasOwnProperty.call(data,'duty')){
+            delete data.duty;
+            const cleaned=await pool.query(
+              "UPDATE patrul_role_data SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE role=$2 AND version=$3 RETURNING version,updated_at",
+              [JSON.stringify(encryptData(data,role)),role,row.version]
+            );
+            if(cleaned.rowCount){version=Number(cleaned.rows[0].version);updatedAt=cleaned.rows[0].updated_at;}
+            else {send(res,409,{error:'Старые данные наряда одновременно изменились. Обновите страницу.'});return true;}
+          }
+          send(res,200,{role,data,version,updatedAt});return true;
         }
         if(req.method==='PUT'){
           if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
-          const b=await readJson(req);if(!b||typeof b!=='object'||Array.isArray(b)||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<0||!Object.prototype.hasOwnProperty.call(b,'data')){send(res,400,{error:'Некорректные данные'});return true;}
-          const q=await pool.query('INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW() WHERE patrul_role_data.version=$3 RETURNING data,version,updated_at',[role,JSON.stringify(encryptData(b.data,role)),b.expectedVersion]);
+          const b=await readJson(req);if(!b||typeof b!=='object'||Array.isArray(b)||!Number.isSafeInteger(b.expectedVersion)||b.expectedVersion<0||!Object.prototype.hasOwnProperty.call(b,'data')||!b.data||typeof b.data!=='object'||Array.isArray(b.data)){send(res,400,{error:'Некорректные данные'});return true;}
+          const roleData={...b.data};
+          if(role==='nachalnik')delete roleData.duty;
+          const q=await pool.query('INSERT INTO patrul_role_data(role,data,version,updated_at) VALUES($1,$2::jsonb,1,NOW()) ON CONFLICT(role) DO UPDATE SET data=EXCLUDED.data,version=patrul_role_data.version+1,updated_at=NOW() WHERE patrul_role_data.version=$3 RETURNING data,version,updated_at',[role,JSON.stringify(encryptData(roleData,role)),b.expectedVersion]);
           if(!q.rowCount){const v=await pool.query('SELECT version FROM patrul_role_data WHERE role=$1',[role]);send(res,409,{error:'Данные уже изменились',currentVersion:v.rowCount?Number(v.rows[0].version):0});return true;}
           await audit(s.id,'role_data_updated',s.id,{role,version:Number(q.rows[0].version)});
-          send(res,200,{role,data:b.data,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
+          send(res,200,{role,data:roleData,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at});return true;
         }
         send(res,404,{error:'Маршрут не найден'});return true;
       }
