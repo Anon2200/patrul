@@ -73,6 +73,16 @@
     if (!key) return [];
     const exact = members.filter(member => fullNameKey(member.name) === key);
     if (exact.length) return exact;
+    const rowParts = key.split(' ').filter(Boolean);
+    if (rowParts.length < 2) return [];
+    const abbreviated = members.filter(member => {
+      const parts = fullNameKey(member.name).split(' ').filter(Boolean);
+      if (parts[0] !== rowParts[0] || parts.length < 2) return false;
+      const given = rowParts.slice(1);
+      if (given.every(part => part.length === 1)) return given.every((part,index) => parts[index + 1] && parts[index + 1][0] === part);
+      return given.every((part,index) => parts[index + 1] && (parts[index + 1] === part || (part.length === 1 && parts[index + 1][0] === part)));
+    });
+    if (abbreviated.length) return abbreviated;
     const initials = initialsKey(rowName(row));
     return initials ? members.filter(member => initialsKey(member.name) === initials) : [];
   };
