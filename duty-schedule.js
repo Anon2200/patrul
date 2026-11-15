@@ -123,6 +123,7 @@
     days.set(date,next);
     versions.set(date,Number(r.result.version)||expectedVersion+1);
     ensureLegacySchedule(date,next);
+    window.dispatchEvent(new CustomEvent('patrul:duty-schedule-updated',{detail:{date,data:next}}));
     return next;
   }
 
