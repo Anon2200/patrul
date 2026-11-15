@@ -32,6 +32,7 @@ const PUBLIC_FILES = new Map([
   ['/patrol-senior.html', 'patrol-senior.html'],
   ['/patrol-senior.js', 'patrol-senior.js'],
   ['/duty-schedule.js', 'duty-schedule.js'],
+  ['/duty-calendar-global.js', 'duty-calendar-global.js'],
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/ops-workspace.js', 'ops-workspace.js'],
   ['/personal-workspace.js', 'personal-workspace.js'],
