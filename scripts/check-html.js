@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const zlib = require('node:zlib');
 
-const ASSET_VERSION = '20261115-08';
+const ASSET_VERSION = '20261115-09';
 
 const rolePages = {
   'nachalnik.html': 'nachalnik',
@@ -77,6 +77,53 @@ if (moveHelperStart < 0 || moveHelperEnd < 0) {
   } catch (error) {
     fail('whole-department duty-row transfer: ' + error.message);
   }
+}
+
+
+const dutyRebuildPayload = staffWorkspaceLoader.match(/const dutyRebuildCode = ("(?:\\.|[^"\\])*");/);
+if (!dutyRebuildPayload) {
+  fail('staff workspace must inject the all-days roster rebuild action');
+} else {
+  try {
+    const dutyRebuildCode = JSON.parse(dutyRebuildPayload[1]);
+    const planStart = dutyRebuildCode.indexOf('function sqRebuildPlanForDays(');
+    const planEnd = dutyRebuildCode.indexOf('\nlet sqRebuildPending', planStart);
+    if (planStart < 0 || planEnd < 0) throw new Error('all-days planning helper is missing');
+    const planHelper = dutyRebuildCode.slice(planStart, planEnd);
+    const moveStart = staffWorkspace.indexOf('function sqMoveDutyRow(d,post,member,defaults){');
+    const moveEnd = staffWorkspace.indexOf('\n}', moveStart);
+    const moveHelper = staffWorkspace.slice(moveStart, moveEnd + 2);
+    const exercise = [
+      '(function(){',
+      "const members=[{name:'Иванов И.И.',pos:'Патрульный'},{name:'Петров П.П.',pos:'Патрульный'}];",
+      "const duty={",
+      "'2026-11-13':{departmentAssignments:[{departmentId:'dep-1',post:'КПП ВЪЕЗДНОЕ'}],rows:{'Въездное-КПП':[{fio:'Иванов И.И.',pos:'Патрульный',tin:'08:00',tout:'20:00',eq:'радиостанция'}]}},",
+      "'2026-11-14':{departmentAssignments:[{departmentId:'dep-1',post:'ПАРК'}],rows:{ПАРК:[{fio:'Иванов И.И.',pos:'Патрульный',tin:'09:00',tout:'21:00'}]}},",
+      "'2026-11-15':{rows:{'Старый пост':[{fio:'Иванов И.И.'}]}},",
+      "'2026-11-16':{departmentAssignments:[{departmentId:'dep-1',post:'УДАЛЁННЫЙ ПОСТ'}],rows:{}}",
+      '};',
+      "const plan=sqRebuildPlanForDays('dep-1',duty,members,['КПП ВЪЕЗДНОЕ','ПАРК']);",
+      "if(plan.days.length!==2||plan.days[0].post!=='КПП ВЪЕЗДНОЕ'||plan.days[1].post!=='ПАРК')throw new Error('each date must use its own scheduled post');",
+      "if(plan.missing.length!==1||plan.missing[0]!=='2026-11-15'||plan.invalid.length!==1)throw new Error('dates without a scheduled post must be reported and left untouched');",
+      'const counts={added:0,moved:0,already:0};',
+      'plan.days.forEach(entry=>members.forEach(member=>{const result=sqMoveDutyRow(entry.day,entry.post,member,{tin:entry.day.t1||"",tout:entry.day.t2||""});counts[result.status]=(counts[result.status]||0)+1;}));',
+      "if(duty['2026-11-13'].rows['Въездное-КПП'].some(row=>row&&row.fio))throw new Error('old-post duplicate was not removed');",
+      "const first=duty['2026-11-13'].rows['КПП ВЪЕЗДНОЕ'].find(row=>row&&row.fio==='Иванов И.И.');",
+      "if(!first||first.tin!=='08:00'||first.tout!=='20:00'||first.eq!=='радиостанция')throw new Error('existing times and equipment must be preserved');",
+      "const second=duty['2026-11-14'].rows.ПАРК.find(row=>row&&row.fio==='Иванов И.И.');",
+      "if(!second||second.tin!=='09:00'||second.tout!=='21:00')throw new Error('each date keeps its own row details');",
+      "if(!duty['2026-11-13'].rows['КПП ВЪЕЗДНОЕ'].some(row=>row&&row.fio==='Петров П.П.'))throw new Error('missing personnel must be added on every scheduled date');",
+      '})()'
+    ].join('\n');
+    vm.runInNewContext(moveHelper + '\n' + planHelper + '\n' + exercise);
+  } catch (error) {
+    fail('all-days roster rebuild: ' + error.message);
+  }
+}
+if (!staffWorkspaceLoader.includes('Пересобрать наряд на все дни') ||
+    !staffWorkspaceLoader.includes("data-act=\\"sqrebuild\\"") ||
+    !staffWorkspaceLoader.includes("data-act=\\"sqrebuild2\\"")) {
+  fail('commander duty page must expose the all-days roster rebuild and confirmation actions');
 }
 
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
@@ -303,9 +350,9 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-08'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-09'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
-if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-08')) fail('commander cabinet must load the versioned duty schedule client');
+if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-09')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
 if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
