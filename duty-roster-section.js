@@ -219,7 +219,7 @@
       versions.set(date,Number(result.result.version)||expectedVersion+1);
       rosters.set(date,{...defaultRecord(),...(result.result.data||{})});
       saveErrors.delete(date);
-      if(date===selectedDate())toast('Наряд сохранён.');
+      // Acknowledged save updates the server version; avoid noisy toast for every field.
     }catch(error){
       saveErrors.set(date,error.message);
       if(date===selectedDate())toast(error.message);
@@ -274,7 +274,7 @@
   }
   function isSeniorForDate(date,row,post) {
     if(/старш.*патрул/i.test(clean(row.pos||staffPerson(rowName(row))?.pos)))return true;
-    return (scheduleFor(date).assignments||[]).some(item=>item.post===post&&nameKey(item.effectiveSenior||item.seniorName)===nameKey(rowName(row)));
+    return (scheduleFor(date).assignments||[]).some(item=>{const sub=(scheduleFor(date).substitutions||[]).find(entry=>String(entry.departmentId)===String(item.departmentId));const effective=sub&&sub.substituteSenior||item.seniorName;return item.post===post&&nameKey(effective)===nameKey(rowName(row));});
   }
   function equipmentPanel(record,date) {
     const entries=[];
@@ -423,6 +423,13 @@
   A.nrPrintRoster=()=>printDocument('roster');
   A.nrPrintReport=()=>printDocument('report');
 
+
+  window.addEventListener('patrul:duty-schedule-updated',event=>{
+    const detail=event.detail||{};
+    if(!detail.date||!detail.data)return;
+    schedules.set(detail.date,detail.data);
+    if(detail.date===selectedDate())draw(1);
+  });
   document.addEventListener('change',event=>{
     const target=event.target;
     if(!target||!target.dataset||!target.dataset.nrField)return;
