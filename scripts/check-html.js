@@ -64,7 +64,7 @@ try {
       ],
       duty:{}
     },
-    TABS:[],EXV:{},A:{},window:{addEventListener(){},PATRUL_READY:false},document:{addEventListener(){}},
+    TABS:[],EXV:{},A:{},window:{addEventListener(){},setInterval(){return 0;},PATRUL_READY:false},document:{addEventListener(){}},
     posts:()=>['Пост 1','Пост 2','Пост 3'],postKitText:()=>'',isSeniorPatrolRow:()=>false,
     today:()=>'2026-11-15',e:value=>String(value),fl:value=>value,draw(){},tab:'ov',dsel:'2026-11-15',
     toast(){},modal(){}
