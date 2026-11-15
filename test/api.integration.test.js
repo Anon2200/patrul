@@ -22,6 +22,18 @@ const tokens = {
 };
 const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@127.0.0.1:5432/patrul_test';
 
+function currentDutyDate() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone:process.env.PATRUL_TIME_ZONE || 'Europe/Berlin',
+    year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(new Date());
+  const values={};
+  for(const part of parts)if(part.type!=='literal')values[part.type]=part.value;
+  return values.year+'-'+values.month+'-'+values.day;
+}
+
+const testDutyDate = currentDutyDate();
+
 test('cloud status updates preserve employee and logout controls', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
   assert.ok(source.includes("const statusLabel = document.createElement('span')"));
@@ -798,7 +810,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
       { k: 'senior-sidorov', name: 'Сидоров Сергей Сергеевич', pos: 'Старший патруля', grp: '1', tel: '555-02', st: 'в строю', departmentId: 'head-dep-1', birthDate: '1998-04-12' }
     ],
     departments: [{ id: 'head-dep-1', name: 'Отделение 1', order: 1 }],
-    duty: { [new Date().toISOString().slice(0,10)]: { rows: { 'КПП': [{ fio: 'Сидоров Сергей Сергеевич' }] } } }
+    duty: { [testDutyDate]: { rows: { 'КПП': [{ fio: 'Сидоров Сергей Сергеевич' }] } } }
   };
   const legacyDok = {
     set: {},
@@ -866,6 +878,49 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const seniorBody = await seniorEnroll.json();
   assert.equal(seniorBody.user.role, 'starshiy_patrulya');
   const seniorCookie = (seniorEnroll.headers.get('set-cookie') || '').split(';')[0];
+
+  // Head owns the schedule editor. Department assignments are written to the
+  // independent schedule table; old embedded daily roster rows must not return.
+  const headCreate=await sessionApi('/api/admin/users',{
+    method:'POST',
+    body:JSON.stringify({username:'employee.head',displayName:'CI Head',role:'nachalnik'})
+  },adminCookie,adminCsrf);
+  assert.equal(headCreate.status,201);
+  const headCreated=await headCreate.json();
+  const headLogin=await sessionApi('/api/auth/login',{
+    method:'POST',
+    body:JSON.stringify({username:'employee.head',password:headCreated.temporaryPassword})
+  });
+  assert.equal(headLogin.status,200);
+  const headLoginBody=await headLogin.json();
+  const headCookie=(headLogin.headers.get('set-cookie')||'').split(';')[0];
+  const headCsrf=headLoginBody.csrfToken;
+  const headPasswordChanged=await sessionApi('/api/auth/change-password',{
+    method:'POST',
+    body:JSON.stringify({currentPassword:headCreated.temporaryPassword,newPassword:'CI-Head-Changed-Password-2026!'})
+  },headCookie,headCsrf);
+  assert.equal(headPasswordChanged.status,200);
+  const cleanHeadData=await sessionApi('/api/session-data/nachalnik',{},headCookie);
+  assert.equal(cleanHeadData.status,200);
+  const cleanHeadBody=await cleanHeadData.json();
+  assert.equal(Object.prototype.hasOwnProperty.call(cleanHeadBody.data,'duty'),false);
+
+  const scheduleWrite=await sessionApi('/api/duty-schedule','PUT'===null?{}:{
+    method:'PUT',
+    body:JSON.stringify({
+      date:testDutyDate,expectedVersion:0,
+      assignments:[{departmentId:'head-dep-1',departmentName:'Отделение 1',post:'КПП',seniorId:'senior-sidorov',seniorName:'Сидоров Сергей Сергеевич'}],
+      substitutions:[]
+    })
+  },headCookie,headCsrf);
+  assert.equal(scheduleWrite.status,200);
+
+  const independentRoster=await sessionApi('/api/duty-roster?date='+encodeURIComponent(testDutyDate),{},headCookie);
+  assert.equal(independentRoster.status,200);
+  const independentRosterBody=await independentRoster.json();
+  assert.deepEqual(independentRosterBody.data,{});
+  const seniorCannotReadFullRoster=await sessionApi('/api/duty-roster?date='+encodeURIComponent(testDutyDate),{},seniorCookie);
+  assert.equal(seniorCannotReadFullRoster.status,403);
   const seniorControlView = await sessionApi('/api/control/role-data/starshiy_patrulya', {}, adminCookie);
   assert.equal(seniorControlView.status, 200);
   const seniorControlBody = await seniorControlView.json();
@@ -883,7 +938,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ surname: 'Сидоров', activationCode: issuedCode.code, pin: '135790' })
   });
   assert.equal(reusedCode.status, 409);
-  const seniorWorkspace = await sessionApi('/api/patrol-senior/workspace?date=' + new Date().toISOString().slice(0,10), {}, seniorCookie);
+  const seniorWorkspace = await sessionApi('/api/patrol-senior/workspace?date=' + testDutyDate, {}, seniorCookie);
   assert.equal(seniorWorkspace.status, 200);
   const seniorWorkspaceBody = await seniorWorkspace.json();
   assert.equal(seniorWorkspaceBody.department.id, 'head-dep-1');
