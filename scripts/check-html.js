@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const zlib = require('node:zlib');
 
+const ASSET_VERSION = '20261115-03';
+
 const rolePages = {
   'nachalnik.html': 'nachalnik',
   'zam.html': 'zam',
@@ -24,6 +26,8 @@ const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
 const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
 const mailClient = fs.readFileSync('mail.js', 'utf8');
 const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
+const mailPage = fs.readFileSync('mail.html', 'utf8');
+const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
 const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
@@ -55,7 +59,8 @@ if (!server.includes("['/', 'index.html']")) fail('server does not serve / as in
 if (!server.includes("['/patrol-senior.html', 'patrol-senior.html']") || !server.includes("['/patrol-senior.js', 'patrol-senior.js']")) fail('server must serve the dedicated patrol senior page and client');
 if (!server.includes("006_patrol_senior_role.sql")) fail('server must apply the patrol senior identity migration');
 if (!index.includes('href="patrol-senior.html"') || !index.includes("starshiy_patrulya:'/patrol-senior.html'")) fail('index must expose and route only the dedicated patrol senior role');
-if (!patrolSeniorPage.includes('src="patrol-senior.js"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must provide first-entry PIN setup and surname/PIN login');
+if (!patrolSeniorPage.includes('src="patrol-senior.js?v=' + ASSET_VERSION + '"') || !patrolSeniorPage.includes('data-enroll') || !patrolSeniorPage.includes('data-login')) fail('patrol senior page must load the cache-busted client and provide first-entry PIN setup and surname/PIN login');
+if (!patrolSeniorPage.includes("navigator.serviceWorker.register('/sw.js?v=" + ASSET_VERSION + "',{updateViaCache:'none'})") || !patrolSeniorPage.includes('.then(reg=>reg.update())')) fail('Patrol Senior page must register and immediately update the versioned offline worker');
 if (!patrolSeniorPage.includes('name="activationCode"') || !patrolSeniorClient.includes('activationCode:b.activationCode') || !patrolSeniorAuth.includes('/api/patrol-senior/activation-code') || !patrolSeniorAuth.includes('activation_code_hash') || !patrolSeniorAuth.includes('consumed_at')) fail('Patrol Senior enrollment must require a hashed, expiring, single-use supervisor activation code');
 if (!mailClient.includes("starshiy_patrulya:'Старший патруля'") || !mailClient.includes("starshiy_patrulya:{path:'/patrol-senior.html'")) fail('internal mail must recognize the Patrol Senior role and return to its workspace');
 if (!patrolSeniorClient.includes('href="/mail.html"')) fail('Patrol Senior workspace must link to internal mail');
@@ -138,12 +143,13 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes("window.PATRUL_ROLE='" + role + "'")) {
     fail(file + ' has an incorrect or missing role identifier');
   }
-  if (!html.includes('src="cloud-sync.js"')) fail(file + ' does not load cloud-sync.js');
+  for (const asset of ['cloud-sync.js','ops-workspace.js','personal-workspace.js','staff-workspace.js']) {
+    if (!html.includes('src="' + asset + '?v=' + ASSET_VERSION + '"')) fail(file + ' must load a cache-busted ' + asset);
+  }
+  if (!html.includes("navigator.serviceWorker.register('/sw.js?v=" + ASSET_VERSION + "',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
   if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
   if (file === 'nachalnik.html' && (!html.includes('postKitText') || !html.includes('kit-display'))) fail(file + ' must show shared post equipment in the duty roster');
-  if (!html.includes('src="ops-workspace.js"')) fail(file + ' does not load ops-workspace.js');
-  if (!html.includes('src="personal-workspace.js"')) fail(file + ' does not load personal-workspace.js');
-  if (!html.includes('src="staff-workspace.js"') || html.indexOf('src="staff-workspace.js"') < html.indexOf('src="personal-workspace.js"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');
+  if (html.indexOf('src="staff-workspace.js?v=' + ASSET_VERSION + '"') < html.indexOf('src="personal-workspace.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);
   const homeStyles = html.match(/<style id="patrul-home-styles">([\s\S]*?)<\/style>/);
@@ -203,6 +209,7 @@ if (!personalWorkspace.includes('localDay=d=>[d.getFullYear(),String(d.getMonth(
 if (!personalWorkspace.includes('parsed.getFullYear()===y&&parsed.getMonth()===m-1&&parsed.getDate()===d')) fail('personal notifications must reject impossible calendar dates');
 if (!personalWorkspace.includes("Number(b.late)-Number(a.late)||(a.date?0:1)-(b.date?0:1)||a.date.localeCompare(b.date)")) fail('personal notifications must prioritize overdue and dated tasks before undated attention items');
 if (!opsWorkspace.includes('nachalnik:') || !opsWorkspace.includes('zam:') || !opsWorkspace.includes('uchet:') || !opsWorkspace.includes('dokumentoved:')) fail('role workspaces must define all four roles');
+if (!opsWorkspace.includes("modules.unshift({id:'sharedTasks'") || !opsWorkspace.includes("configs.uchet.modules.unshift({id:'roleControl'") || !opsWorkspace.includes("m.kind==='sharedTasks'") || !opsWorkspace.includes("m.kind==='roleControl'") || !opsWorkspace.includes('async function sharedTasks(') || !opsWorkspace.includes('async function roleControl(')) fail('Senior Master dashboard must visibly expose shared tasks and audited read-only control of every role');
 if (!opsWorkspace.includes('const dueToday=data().records.filter(r=>{const due=calendarDay(r.fields&&(r.fields.deadline||r.fields.due))') || !opsWorkspace.includes('due===now')) fail('home deadline indicator must validate date values consistently');
 if (!opsWorkspace.includes('const fields=r.fields||{},raw=calendarDay(fields.deadline||fields.due);return !r.archived&&raw&&raw<t') || !opsWorkspace.includes('const calendarDay=value=>') || !opsWorkspace.includes("String(value||'').slice(0,10)") || !opsWorkspace.includes('date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d?day')) fail('overdue home indicator must validate real calendar dates and tolerate missing fields');
 if (!opsWorkspace.includes('const dueToday=rows.filter') || !opsWorkspace.includes('fields.deadline||fields.due') || !opsWorkspace.includes('Укажите корректный период') || !opsWorkspace.includes('срок сегодня')) fail('reports must count due aliases, show due-today items and validate date range');
@@ -229,7 +236,10 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-02'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-03'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes('const cacheKey = new Request(url.origin + url.pathname)') || !serviceWorker.includes('cache.match(cacheKey)')) fail('service worker must reload versioned assets while retaining path-keyed offline fallbacks');
+if (!mailPage.includes('src="/mail.js?v=' + ASSET_VERSION + '"')) fail('mail page must load its cache-busted client');
+if (!mailViewerPage.includes('src="/mail-viewer.js?v=' + ASSET_VERSION + '"')) fail('mail viewer must load its cache-busted client');
 
 if (!serviceWorker.includes('cloud-sync.js')) {
   // The sync script is loaded by the HTML and cached through normal network fetches.
