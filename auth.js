@@ -45,8 +45,18 @@ function publicUser(u) {
   return {id:u.id,username:u.username,displayName:u.display_name,role:u.role,active:u.is_active,
     systemAdmin:u.is_system_admin,mustChangePassword:u.must_change_password,createdAt:u.created_at};
 }
-function loginKey(req,name) { return (req.socket.remoteAddress||'unknown')+':'+String(name).toLowerCase().slice(0,100); }
-function loginIpKey(req) { return 'ip:' + (req.socket.remoteAddress || 'unknown'); }
+// За обратным прокси (ONREZA) remoteAddress у всех пользователей одинаковый, из-за чего общий
+// лимит неудачных входов блокировал бы всех сразу. Берём адрес, дописанный ближайшим прокси
+// (последний элемент X-Forwarded-For). Отключается переменной PATRUL_TRUST_PROXY=0.
+function clientIp(req) {
+  if(process.env.PATRUL_TRUST_PROXY!=='0') {
+    const forwarded=String(req.headers['x-forwarded-for']||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(forwarded.length) return forwarded[forwarded.length-1].slice(0,64);
+  }
+  return req.socket.remoteAddress||'unknown';
+}
+function loginKey(req,name) { return clientIp(req)+':'+String(name).toLowerCase().slice(0,100); }
+function loginIpKey(req) { return 'ip:' + clientIp(req); }
 function failedIp(req) {
   const now=Date.now(), key=loginIpKey(req); let x=loginFailures.get(key);
   if(!x||x.until<=now) x={count:0,until:now+900000};
@@ -66,7 +76,7 @@ function mailFileHeaders(file, disposition) {
   const name=safeMailFilename(file.file_name);
   const fallback=name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,120)||'attachment';
   const encoded=encodeURIComponent(name).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
-  return {
+  const headers={
     'content-type':file.mime_type||'application/octet-stream',
     'content-length':String(data.length),
     'content-disposition':disposition+'; filename="'+fallback+'"; filename*=UTF-8\'\''+encoded,
@@ -76,6 +86,11 @@ function mailFileHeaders(file, disposition) {
     'referrer-policy':'no-referrer',
     'accept-ranges':'none'
   };
+  // HTML-вложение нельзя выполнять в нашем домене: изолируем его в песочнице без скриптов.
+  if(/^(text\/html|application\/xhtml|image\/svg)/i.test(String(file.mime_type||''))||/\.(html?|svg)$/i.test(name)) {
+    headers['content-security-policy']="sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'";
+  }
+  return headers;
 }
 async function insertMailAttachments(client,threadId,messageId,items) {
   if(items===undefined)return [];
@@ -266,8 +281,11 @@ function createAuth(pool,send,readJson) {
     const r=await pool.query('SELECT s.id AS session_id,s.csrf_token_hash,u.* FROM patrul_sessions s JOIN patrul_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>NOW() AND u.is_active=TRUE',[sha(t)]);
     return r.rowCount?r.rows[0]:null;
   }
+  // CSRF-токен выводится из токена сессии, поэтому /api/auth/me возвращает один и тот же токен
+  // и несколько вкладок или окно приложения не обесценивают токены друг друга.
+  const csrfFor=t=>crypto.createHmac('sha256',t).update('patrul-csrf-v1').digest('base64url');
   async function newSession(user,res) {
-    const t=token(), csrf=token();
+    const t=token(), csrf=csrfFor(t);
     await pool.query('INSERT INTO patrul_sessions(user_id,token_hash,csrf_token_hash,expires_at) VALUES($1,$2,$3,NOW()+INTERVAL \'12 days\')',[user.id,sha(t),sha(csrf)]);
     res.setHeader('set-cookie',COOKIE+'='+encodeURIComponent(t)+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=1036800');
     return csrf;
@@ -838,7 +856,9 @@ function createAuth(pool,send,readJson) {
       }
       if(p==='/api/auth/me'&&req.method==='GET') {
         const s=await sessionFor(req); if(!s){res.setHeader('set-cookie',COOKIE+'=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');send(res,401,{error:'Требуется персональный вход'});return true;}
-        const csrf=token(); await pool.query('UPDATE patrul_sessions SET csrf_token_hash=$1,last_seen_at=NOW() WHERE id=$2',[sha(csrf),s.session_id]);
+        const csrf=csrfFor(readCookie(req)[COOKIE]);
+        if(equal(sha(csrf),s.csrf_token_hash)) await pool.query('UPDATE patrul_sessions SET last_seen_at=NOW() WHERE id=$1',[s.session_id]);
+        else await pool.query('UPDATE patrul_sessions SET csrf_token_hash=$1,last_seen_at=NOW() WHERE id=$2',[sha(csrf),s.session_id]);
         send(res,200,{user:publicUser(s),csrfToken:csrf});return true;
       }
       if(p==='/api/auth/logout'&&req.method==='POST') {
@@ -931,7 +951,7 @@ function createAuth(pool,send,readJson) {
             'FROM patrul_mail_threads t JOIN patrul_mail_participants p ON p.thread_id=t.id AND p.user_id=$1 '+
             'JOIN LATERAL (SELECT m.body,m.sender_id,m.created_at FROM patrul_mail_messages m WHERE m.thread_id=t.id ORDER BY m.created_at DESC,m.id DESC LIMIT 1) lm ON TRUE '+
             'JOIN LATERAL (SELECT pu.display_name,pu.role FROM patrul_mail_participants op JOIN patrul_users pu ON pu.id=op.user_id WHERE op.thread_id=t.id AND op.user_id<>$1 LIMIT 1) u ON TRUE '+
-            'WHERE ($2=\'all\' OR ($2=\'sent\' AND t.created_by=$1) OR ($2=\'inbox\' AND t.created_by<>$1)) '+
+            'WHERE ($2=\'all\' OR ($2=\'sent\' AND t.created_by=$1) OR ($2=\'inbox\' AND EXISTS(SELECT 1 FROM patrul_mail_messages xm WHERE xm.thread_id=t.id AND xm.sender_id<>$1))) '+
             'AND ($3=\'\' OR t.subject ILIKE $4 OR EXISTS(SELECT 1 FROM patrul_mail_messages sm WHERE sm.thread_id=t.id AND sm.body ILIKE $4)) '+
             'ORDER BY lm.created_at DESC,t.id DESC LIMIT 100',
             [s.id,box,search,'%'+search+'%']);

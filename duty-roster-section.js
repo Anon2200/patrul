@@ -6,7 +6,7 @@
   if (typeof D === 'undefined' || typeof TABS === 'undefined' || typeof EXV === 'undefined' || typeof A === 'undefined') return;
 
   let pane='overview';
-  let loadToken=0;
+  const loadTokens=new Map();
   let busyAll=false;
   let loadedAll=false;
   const rosters=new Map();
@@ -183,11 +183,11 @@
   async function loadOne(date,force=false) {
     if(!validDate(date))return;
     if(!force&&rosters.has(date))return;
-    const token=++loadToken;
+    const token=(loadTokens.get(date)||0)+1;loadTokens.set(date,token);
     try{
       const result=await api('/api/duty-roster?date='+encodeURIComponent(date));
       if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить наряд');
-      if(token!==loadToken&&date===selectedDate())return;
+      if(loadTokens.get(date)!==token)return;
       rosters.set(date,{...defaultRecord(),...(result.result.data||{}),rows:result.result.data&&result.result.data.rows||{},defects:result.result.data&&result.result.data.defects||[],incs:result.result.data&&result.result.data.incs||[]});
       versions.set(date,Number(result.result.version)||0);
       schedules.set(date,result.result.schedule||{assignments:[],substitutions:[]});
@@ -380,7 +380,10 @@
   }
   function render() {
     const date=selectedDate();
-    if(!rosters.has(date)){loadOne(date);return '<h1>Наряд на службу</h1><p class="sub">Загружаем отдельную запись наряда за '+escape(date)+'…</p>';}
+    if(!rosters.has(date)){
+      if(saveErrors.has(date))return '<h1>Наряд на службу</h1><div class="nr-warning">'+escape(saveErrors.get(date))+'<div class="nr-actions" style="margin-top:8px"><button class="btn s" data-act="nrRetryLoad">Повторить загрузку</button></div></div>';
+      loadOne(date);return '<h1>Наряд на службу</h1><p class="sub">Загружаем отдельную запись наряда за '+escape(date)+'…</p>';
+    }
     const record=recordFor(date),dayName=typeof fl==='function'?fl(date):date;
     let content='';
     if(pane==='overview')content=overview(record,date);
@@ -400,6 +403,7 @@
   }
   function refreshSelected(force=true){return loadOne(selectedDate(),force);}
   A.nrPane=target=>{pane=target.dataset.pane||'overview';draw(1);};
+  A.nrRetryLoad=()=>{saveErrors.delete(selectedDate());loadOne(selectedDate(),true);};
   A.nrRefresh=()=>{schedules.delete(selectedDate());loadOne(selectedDate(),true);};
   A.nrAddRow=target=>{const record=recordFor(selectedDate()),post=target.dataset.post;record.rows[post]=Array.isArray(record.rows[post])?record.rows[post]:[];record.rows[post].push({});syncSave(selectedDate());draw(1);};
   A.nrAddDefect=()=>{recordFor(selectedDate()).defects.push({});syncSave(selectedDate());draw(1);};
