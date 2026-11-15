@@ -251,7 +251,7 @@ async function purgeLegacyCommanderDuty() {
     const legacyDuty = data.duty && typeof data.duty === 'object' && !Array.isArray(data.duty)
       ? data.duty : {};
     for (const [date,duty] of Object.entries(legacyDuty)) {
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       const parsed = new Date(date+'T00:00:00.000Z');
       if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date) continue;
       const assignments = Array.isArray(duty && duty.departmentAssignments) ? duty.departmentAssignments : [];
