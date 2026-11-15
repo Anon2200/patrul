@@ -98,12 +98,12 @@
     if(versions.has(date))return versions.get(date);
     const r=await api('/api/duty-schedule?month='+encodeURIComponent(date.slice(0,7)));
     if(!r.response.ok)throw new Error(r.result.error||'Не удалось проверить версию графика');
-    const v=Number(r.result.version)||0;
-    versions.set(date,day?Number(day.version)||0:v);
     const day=(r.result.days||[]).find(item=>item.date===date);
+    const version=day?Number(day.version)||0:0;
+    versions.set(date,version);
     const data={assignments:day&&day.assignments||[],substitutions:day&&day.substitutions||[]};
     if(day){days.set(date,data);ensureLegacySchedule(date,data);}
-    return v;
+    return version;
   }
 
   async function saveDay(date,data) {
