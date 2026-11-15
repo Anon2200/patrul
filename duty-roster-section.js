@@ -65,6 +65,13 @@
     return [...unique.values()];
   };
   const assignmentFor = (record,id) => record.departmentAssignments.find(item => String(item.departmentId) === String(id));
+  const effectiveSeniorName = (record,item) => {
+    const substitution = (record.seniorSubstitutions || []).find(entry =>
+      String(entry.departmentId) === String(item.departmentId) && norm(entry.primarySenior) === norm(item.seniorName));
+    return substitution ? substitution.substituteSenior : item.seniorName;
+  };
+  const isSeniorForRecord = (record,row,post) => isSenior(row) || record.departmentAssignments.some(item =>
+    item.post === post && fullNameKey(effectiveSeniorName(record,item)) === fullNameKey(rowName(row)));
   const initialsKey = value => {
     const parts = norm(value).split(' ').filter(Boolean);
     if (parts.length < 2) return '';
@@ -107,7 +114,7 @@
 
   function makePlan(record,post,members) {
     const allRows = [];
-    Object.keys(record.rows || {}).forEach(existingPost => (record.rows[existingPost] || []).forEach((row,index) => {
+    Object.keys(record.rows || {}).forEach(existingPost => (Array.isArray(record.rows[existingPost]) ? record.rows[existingPost] : []).forEach((row,index) => {
       if (row && rowName(row)) allRows.push({post:existingPost,index,row});
     }));
     const issues = [];
@@ -140,7 +147,7 @@
   function applyPlan(record,plan) {
     if (plan.issues.length) return {applied:false,reason:plan.issues.join(' ')};
     const rows = record.rows || (record.rows = {});
-    const keepTarget = (rows[plan.post] || []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
+    const keepTarget = (Array.isArray(rows[plan.post]) ? rows[plan.post] : []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
     const rebuilt = [];
     const defaults = {tin:clean(record.t1),tout:clean(record.t2)};
     plan.memberPlans.forEach(item => {
@@ -154,7 +161,7 @@
     rows[plan.post] = keepTarget.concat(rebuilt);
     Object.keys(rows).forEach(existingPost => {
       if (existingPost === plan.post) return;
-      rows[existingPost] = (rows[existingPost] || []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
+      rows[existingPost] = (Array.isArray(rows[existingPost]) ? rows[existingPost] : []).filter(row => !rowName(row) || !personMatches(row,plan.members).length);
     });
     return {
       applied:true,
@@ -228,7 +235,7 @@
     return '<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Отделение</th><th>Назначенный пост</th><th>Старший патруля</th><th>Личный состав</th><th>Состояние</th></tr></thead><tbody>' +
       list.map(dept => {
         const current = assignmentFor(record,dept.id);
-        const senior = current && current.seniorName || '—';
+        const senior = current ? effectiveSeniorName(record,current) || '—' : '—';
         const count = membersOf(dept).length;
         const valid = current && current.post && postsList().includes(current.post);
         return '<tr><td><b>' + esc(dept.name) + '</b></td><td>' + esc(current && current.post || 'Не назначен') + '</td><td>' + esc(senior) + '</td><td>' + count + ' чел.</td><td>' +
@@ -247,7 +254,7 @@
         rows.map((row,index) => {
           const prefix = 'rows|' + post + '|' + index + '|';
           const field = key => 'value="' + esc(row[key] || '') + '" data-chg="duty" data-p="' + esc(prefix + key) + '"';
-          const senior = isSenior(row);
+          const senior = isSeniorForRecord(record,row,post);
           const kit = kitText(post);
           const equipment = senior
             ? (kit && row.fio ? '<div class="nr-kit">' + esc(kit) + '</div>' : '<input ' + field('eq') + ' placeholder="Выданное снаряжение">')
@@ -285,7 +292,7 @@
   function equipmentPanel(record) {
     const rows = [];
     postsList().forEach(post => (record.rows[post] || []).forEach(row => {
-      if (rowName(row) && isSenior(row)) rows.push({post,row});
+      if (rowName(row) && isSeniorForRecord(record,row,post)) rows.push({post,row});
     }));
     return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Получение снаряжения</h3><p>Снаряжение закрепляется только за Старшим патруля; для остальных сотрудников оно не выдаётся</p></div></div>' +
       (rows.length ? '<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Пост</th><th>Старший патруля</th><th>Комплект по посту</th><th>Фактическая отметка</th></tr></thead><tbody>' +
