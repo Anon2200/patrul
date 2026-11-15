@@ -174,7 +174,7 @@
     return saved;
   }
   function scheduleUpload(){if(!ready)return;unsavedChanges=true;clearTimeout(timer);timer=setTimeout(()=>upload(localSnapshot()),700);}
-  save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&!suppressUpload)scheduleUpload();if(ready&&!suppressSharedUpload)scheduleSharedUpload();};
+  save=function(){try{if(typeof exSched==='function')exSched();}catch(_){}if(ready&&role==='nachalnik'&&typeof window.PATRUL_SYNC_DUTY_SCHEDULE==='function')window.PATRUL_SYNC_DUTY_SCHEDULE(D.duty||{});if(ready&&!suppressUpload)scheduleUpload();if(ready&&!suppressSharedUpload)scheduleSharedUpload();};
   window.PATRUL_SAVE_NOW=async function(){
     if(!ready)return false;
     if(timer){clearTimeout(timer);timer=null;}
