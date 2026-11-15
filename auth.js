@@ -2,6 +2,7 @@
 const crypto = require('node:crypto');
 const { encryptData, decryptData, readRoleData } = require('./data-crypto');
 const { promisify } = require('node:util');
+const { dutyDateAt,purgeExpiredDutyData } = require('./duty-store');
 const scrypt = promisify(crypto.scrypt);
 const ROLES = new Set(['nachalnik','zam','uchet','dokumentoved']);
 const COOKIE = '__Host-patrul_session';
@@ -319,69 +320,221 @@ function createAuth(pool,send,readJson) {
     const p=url.pathname;
     if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule') return false;
     try {
-      if(p==='/api/duty-schedule'&&req.method==='GET') {
+      if(p==='/api/duty-schedule') {
         const session=await sessionFor(req);
         if(!session){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
         if(!SHARED_STAFF_ROLES.includes(session.role)&&session.role!=='starshiy_patrulya'){
           send(res,403,{error:'Просмотр графика недоступен для этой роли'});return true;
         }
-        const month=String(url.searchParams.get('month')||new Date().toISOString().slice(0,7));
-        if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){send(res,400,{error:'Укажите корректный месяц'});return true;}
-        const monthStart=month+'-01';
-        const nextMonthDate=new Date(monthStart+'T00:00:00.000Z');
-        nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth()+1);
-        const monthEnd=nextMonthDate.toISOString().slice(0,10);
-        const shared=await readSharedStaffForSenior();
-        let ownDepartment=null,ownSeniorKey='';
-        if(session.role==='starshiy_patrulya'){
-          const profile=await currentSeniorProfile(session);
-          if(!profile){send(res,403,{error:'Доступ к графику отделения отсутствует'});return true;}
-          ownDepartment={id:String(profile.department.id),name:String(profile.department.name||profile.department.id)};
-          ownSeniorKey=String(profile.person.k);
+        await purgeExpiredDutyData(pool);
+        if(req.method==='GET') {
+          const month=String(url.searchParams.get('month')||dutyDateAt().slice(0,7));
+          if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){send(res,400,{error:'Укажите корректный месяц'});return true;}
+          const monthStart=month+'-01';
+          const nextMonthDate=new Date(monthStart+'T00:00:00.000Z');
+          nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth()+1);
+          const monthEnd=nextMonthDate.toISOString().slice(0,10);
+          const shared=await readSharedStaffForSenior();
+          let ownDepartment=null,ownSeniorKey='';
+          if(session.role==='starshiy_patrulya'){
+            const profile=await currentSeniorProfile(session);
+            if(!profile){send(res,403,{error:'Доступ к графику отделения отсутствует'});return true;}
+            ownDepartment={id:String(profile.department.id),name:String(profile.department.name||profile.department.id)};
+            ownSeniorKey=String(profile.person.k);
+          }
+          const q=await pool.query(
+            "SELECT to_char(duty_date,'YYYY-MM-DD') AS date,assignments,substitutions,version,updated_at FROM patrul_duty_schedule WHERE duty_date>=$1::date AND duty_date<$2::date ORDER BY duty_date",
+            [monthStart,monthEnd]
+          );
+          const deptList=(shared.departments||[]).map(item=>({id:String(item.id),name:String(item.name||item.id)}));
+          const departmentById=new Map(deptList.map(item=>[item.id,item]));
+          const departmentByName=new Map(deptList.map(item=>[sharedNameKey(item.name),item]));
+          const canonicalDepartment=item=>departmentById.get(String(item.departmentId||''))||departmentByName.get(sharedNameKey(item.departmentName||''))||null;
+          const ownName=ownDepartment?sharedNameKey(ownDepartment.name):'';
+          const days=q.rows.map(day=>{
+            const substitutions=Array.isArray(day.substitutions)?day.substitutions:[];
+            const assignments=(Array.isArray(day.assignments)?day.assignments:[]).map(item=>{
+              const department=canonicalDepartment(item);
+              const substitution=substitutions.find(entry=>{
+                const subDepartment=canonicalDepartment(entry);
+                return subDepartment&&department&&subDepartment.id===department.id;
+              });
+              return {
+                departmentId:department?department.id:String(item.departmentId||''),
+                departmentName:department?department.name:String(item.departmentName||'Отделение'),
+                post:String(item.post||''),
+                seniorId:String(item.seniorId||''),
+                seniorName:String(item.seniorName||''),
+                effectiveSenior:String(substitution&&substitution.substituteSenior||item.seniorName||''),
+                isSubstitute:!!substitution,
+                substituteSeniorId:String(substitution&&substitution.substituteSeniorId||''),
+                substituteSenior:String(substitution&&substitution.substituteSenior||''),
+                substituteReason:String(substitution&&substitution.reason||'')
+              };
+            }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName||item.substituteSeniorId===ownSeniorKey);
+            return {date:day.date,assignments};
+          }).filter(day=>day.assignments.length);
+          const headQ=await pool.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
+          const head=headQ.rowCount?await readRoleData(pool,'nachalnik',headQ.rows[0]):null;
+          const posts=String(head&&head.set&&head.set.posts||'').split(',').map(item=>item.trim()).filter(Boolean);
+          send(res,200,{
+            month,days,departments:ownDepartment?[ownDepartment]:deptList,posts,
+            version:q.rows.reduce((max,row)=>Math.max(max,Number(row.version)||0),0),
+            updatedAt:q.rows.length?q.rows[q.rows.length-1].updated_at:null,
+            readOnly:true,actorRole:session.role,
+            scope:ownDepartment?'own_department_and_substitutions':'all_departments'
+          });
+          return true;
         }
-        const q=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
-        const head=q.rowCount?await readRoleData(pool,'nachalnik',q.rows[0]):null;
-        const departmentList=(shared.departments||[]).map(item=>({id:String(item.id),name:String(item.name||item.id)}));
-        const departmentById=new Map(departmentList.map(item=>[item.id,item]));
-        const departmentByName=new Map(departmentList.map(item=>[sharedNameKey(item.name),item]));
-        const canonicalDepartment=item=>{
-          const direct=departmentById.get(String(item.departmentId||''));
-          return direct||departmentByName.get(sharedNameKey(item.departmentName||''))||null;
-        };
-        const ownName=ownDepartment?sharedNameKey(ownDepartment.name):'';
-        const sourceDuty=head&&head.duty&&typeof head.duty==='object'?head.duty:{};
-        const days=Object.entries(sourceDuty).filter(([date])=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=monthStart&&date<monthEnd).map(([date,duty])=>{
-          const assignments=(Array.isArray(duty&&duty.departmentAssignments)?duty.departmentAssignments:[]).map(item=>{
-            const department=canonicalDepartment(item);
-            const substitution=(Array.isArray(duty.seniorSubstitutions)?duty.seniorSubstitutions:[]).find(x=>{
-              const subDepartment=canonicalDepartment(x);
-              return subDepartment&&department&&subDepartment.id===department.id;
+        if(req.method==='PUT') {
+          if(session.role!=='nachalnik'){send(res,403,{error:'Изменять график может только начальник патруля'});return true;}
+          if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const body=await readJson(req);
+          const date=typeof body.date==='string'?body.date.trim():'';
+          const expectedVersion=Number(body.expectedVersion);
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T00:00:00Z'))||
+            new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||date<dutyDateAt()||
+            !Number.isSafeInteger(expectedVersion)||expectedVersion<0||
+            !Array.isArray(body.assignments)||body.assignments.length>100||
+            (body.substitutions!==undefined&&(!Array.isArray(body.substitutions)||body.substitutions.length>100))){
+            send(res,400,{error:'Проверьте дату, версию и список назначений'});return true;
+          }
+          const shared=await readSharedStaffForSenior();
+          const departments=new Map((shared.departments||[]).map(item=>[String(item.id),item]));
+          const assignmentIds=new Set();
+          const assignments=[];
+          for(const item of body.assignments){
+            if(!item||typeof item!=='object'){send(res,400,{error:'Некорректное назначение отделения'});return true;}
+            const departmentId=String(item.departmentId||'').trim(),department=departments.get(departmentId);
+            const post=typeof item.post==='string'?item.post.trim():'';
+            if(!department||!post||post.length>180||assignmentIds.has(departmentId)){
+              send(res,400,{error:'Отделение должно существовать, пост — быть заполнен, повторные назначения запрещены'});return true;
+            }
+            assignmentIds.add(departmentId);
+            assignments.push({
+              departmentId,departmentName:String(department.name||'').slice(0,160),post,
+              seniorId:String(item.seniorId||'').slice(0,160),
+              seniorName:String(item.seniorName||'').trim().slice(0,160),
+              updatedAt:new Date().toISOString(),
+              updatedBy:String(session.display_name||session.username||'Начальник патруля').slice(0,160)
             });
-            return {
-              departmentId:department?department.id:String(item.departmentId||''),
-              departmentName:department?department.name:String(item.departmentName||'Отделение'),
-              post:String(item.post||''),
-              seniorId:String(item.seniorId||''),
-              seniorName:String(item.seniorName||''),
-              effectiveSenior:String(substitution&&substitution.substituteSenior||item.seniorName||''),
-              isSubstitute:!!substitution,
-              substituteSeniorId:String(substitution&&substitution.substituteSeniorId||''),
-              substituteSenior:String(substitution&&substitution.substituteSenior||''),
-              substituteReason:String(substitution&&substitution.reason||'')
-            };
-          }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName||item.substituteSeniorId===ownSeniorKey);
-          return {date,assignments};
-        }).filter(day=>day.assignments.length);
-        const posts=String(head&&head.set&&head.set.posts||'').split(',').map(item=>item.trim()).filter(Boolean);
-        send(res,200,{
-          month,days,departments:ownDepartment?[ownDepartment]:departmentList,posts,
-          version:q.rowCount?Number(q.rows[0].version):0,
-          updatedAt:q.rowCount?q.rows[0].updated_at:null,
-          readOnly:true,actorRole:session.role,
-          scope:ownDepartment?'own_department_and_substitutions':'all_departments'
-        });
-        return true;
+          }
+          const substitutions=[];
+          const substitutionIds=new Set();
+          for(const item of body.substitutions||[]){
+            if(!item||typeof item!=='object'){send(res,400,{error:'Некорректная подмена старшего патруля'});return true;}
+            const departmentId=String(item.departmentId||'').trim();
+            const department=departments.get(departmentId);
+            const primarySenior=String(item.primarySenior||'').trim();
+            const substituteSenior=String(item.substituteSenior||'').trim();
+            const reason=String(item.reason||'').trim();
+            if(!department||!assignmentIds.has(departmentId)||substitutionIds.has(departmentId)||
+              !primarySenior||!substituteSenior||primarySenior===substituteSenior||!reason||
+              primarySenior.length>160||substituteSenior.length>160||reason.length>500){
+              send(res,400,{error:'Подмена должна относиться к назначенному отделению и содержать разных старшего и заменяющего с основанием'});return true;
+            }
+            substitutionIds.add(departmentId);
+            substitutions.push({
+              departmentId,departmentName:String(department.name||'').slice(0,160),
+              primarySenior,primarySeniorId:String(item.primarySeniorId||'').slice(0,160),
+              substituteSenior,substituteSeniorId:String(item.substituteSeniorId||'').slice(0,160),
+              reason,date,createdAt:new Date().toISOString(),
+              createdBy:String(session.display_name||session.username||'Начальник патруля').slice(0,160)
+            });
+          }
+          const saved=await pool.query(
+            'INSERT INTO patrul_duty_schedule(duty_date,assignments,substitutions,version,updated_by,updated_at) VALUES($1,$2::jsonb,$3::jsonb,1,$4,NOW()) '+
+            'ON CONFLICT(duty_date) DO UPDATE SET assignments=EXCLUDED.assignments,substitutions=EXCLUDED.substitutions,version=patrul_duty_schedule.version+1,updated_by=EXCLUDED.updated_by,updated_at=NOW() '+
+            'WHERE patrul_duty_schedule.version=$5 RETURNING version,updated_at',
+            [date,JSON.stringify(assignments),JSON.stringify(substitutions),session.id,expectedVersion]
+          );
+          if(!saved.rowCount){
+            const current=await pool.query('SELECT version FROM patrul_duty_schedule WHERE duty_date=$1::date',[date]);
+            send(res,409,{error:'Назначения на эту дату уже изменились. Обновите график.',currentVersion:current.rowCount?Number(current.rows[0].version):0});return true;
+          }
+          await audit(session.id,'duty_schedule_updated',session.id,{date,assignments:assignments.length,substitutions:substitutions.length});
+          send(res,200,{date,assignments,substitutions,version:Number(saved.rows[0].version),updatedAt:saved.rows[0].updated_at});
+          return true;
+        }
+        send(res,405,{error:'Метод не поддерживается'});return true;
+      }
+
+      if(p==='/api/duty-roster') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)&&session.role!=='starshiy_patrulya'){
+          send(res,403,{error:'Просмотр наряда недоступен для этой роли'});return true;
+        }
+        await purgeExpiredDutyData(pool);
+        if(req.method==='GET') {
+          const all=url.searchParams.get('all')==='1';
+          if(all&&session.role==='starshiy_patrulya'){send(res,403,{error:'Просмотр всех нарядов недоступен для этой роли'});return true;}
+          const date=String(url.searchParams.get('date')||dutyDateAt());
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T00:00:00Z'))||
+            new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date){send(res,400,{error:'Укажите корректную дату'});return true;}
+          if(all){
+            const q=await pool.query(
+              "SELECT to_char(r.duty_date,'YYYY-MM-DD') AS date,r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
+              "FROM patrul_duty_rosters r LEFT JOIN patrul_duty_schedule s ON s.duty_date=r.duty_date " +
+              "WHERE r.duty_date>=$1::date ORDER BY r.duty_date",[dutyDateAt()]);
+            send(res,200,{items:q.rows.map(row=>({
+              date:row.date,data:row.data,version:Number(row.version),updatedAt:row.updated_at,
+              schedule:{assignments:Array.isArray(row.assignments)?row.assignments:[],substitutions:Array.isArray(row.substitutions)?row.substitutions:[]}
+            }))});
+            return true;
+          }
+          const q=await pool.query(
+            "SELECT r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
+            "FROM (SELECT $1::date AS duty_date) selected " +
+            "LEFT JOIN patrul_duty_rosters r ON r.duty_date=selected.duty_date " +
+            "LEFT JOIN patrul_duty_schedule s ON s.duty_date=selected.duty_date",
+            [date]);
+          const row=q.rows[0];
+          send(res,200,{
+            date,data:row.data&&typeof row.data==='object'?row.data:{},
+            version:row.version?Number(row.version):0,updatedAt:row.updated_at||null,
+            schedule:{assignments:Array.isArray(row.assignments)?row.assignments:[],substitutions:Array.isArray(row.substitutions)?row.substitutions:[]}
+          });
+          return true;
+        }
+        if(req.method==='PUT') {
+          if(session.role!=='nachalnik'){send(res,403,{error:'Изменять наряд может только начальник патруля'});return true;}
+          if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const body=await readJson(req);
+          const date=typeof body.date==='string'?body.date.trim():'';
+          const expectedVersion=Number(body.expectedVersion);
+          const data=body.data;
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T00:00:00Z'))||
+            new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||date<dutyDateAt()||
+            !Number.isSafeInteger(expectedVersion)||expectedVersion<0||
+            !data||typeof data!=='object'||Array.isArray(data)||
+            (data.rows!==undefined&&(!data.rows||typeof data.rows!=='object'||Array.isArray(data.rows)))||
+            (data.defects!==undefined&&(!Array.isArray(data.defects)||data.defects.length>1000))||
+            (data.incs!==undefined&&(!Array.isArray(data.incs)||data.incs.length>1000))||
+            (data.rows&&Object.entries(data.rows).some(([post,rows])=>!post||post.length>180||!Array.isArray(rows)||rows.length>300))){
+            send(res,400,{error:'Проверьте дату и содержание наряда'});return true;
+          }
+          const rosterData={...data};
+          // Назначения календаря живут отдельно и никогда не копируются в ежедневный наряд.
+          delete rosterData.departmentAssignments;
+          delete rosterData.seniorSubstitutions;
+          const saved=await pool.query(
+            'INSERT INTO patrul_duty_rosters(duty_date,data,version,updated_by,updated_at) VALUES($1,$2::jsonb,1,$3,NOW()) '+
+            'ON CONFLICT(duty_date) DO UPDATE SET data=EXCLUDED.data,version=patrul_duty_rosters.version+1,updated_by=EXCLUDED.updated_by,updated_at=NOW() '+
+            'WHERE patrul_duty_rosters.version=$4 RETURNING version,updated_at',
+            [date,JSON.stringify(rosterData),session.id,expectedVersion]
+          );
+          if(!saved.rowCount){
+            const current=await pool.query('SELECT version FROM patrul_duty_rosters WHERE duty_date=$1::date',[date]);
+            send(res,409,{error:'Наряд на эту дату уже изменился. Обновите данные.',currentVersion:current.rowCount?Number(current.rows[0].version):0});return true;
+          }
+          await audit(session.id,'duty_roster_updated',session.id,{date,staffRows:Object.values(rosterData.rows||{}).reduce((sum,rows)=>sum+rows.filter(row=>row&&String(row.fio||'').trim()).length,0)});
+          send(res,200,{date,data:rosterData,version:Number(saved.rows[0].version),updatedAt:saved.rows[0].updated_at});
+          return true;
+        }
+        send(res,405,{error:'Метод не поддерживается'});return true;
       }
       if(p==='/api/patrol-senior/eligible'&&req.method==='GET') {
         const session=await sessionFor(req);
