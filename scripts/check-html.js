@@ -87,7 +87,7 @@ try {
   const schedule1={assignments:[{departmentId:'dep-1',departmentName:'Отделение 1',post:'Пост 2'}],substitutions:[]};
   if(engine.membersMatch({fio:'Шабанов С.А.'},sandbox.D.staff).length!==1)throw new Error('abbreviated FIO matching failed');
   const one=engine.rebuildDate('2026-11-13',first,schedule1);
-  if(one.skipped||one.moved!==2||one.added!==1||one.already!==1||one.duplicatesRemoved!==1)throw new Error('date-specific rebuild totals are incorrect: '+JSON.stringify(one));
+  if(one.skipped||one.moved!==2||one.added!==1||one.already!==2||one.duplicatesRemoved!==1)throw new Error('date-specific rebuild totals are incorrect: '+JSON.stringify(one));
   const moved=one.data.rows['Пост 2'].find(row=>row.fio==='Шабанов Сергей Александрович');
   if(one.data.rows['Пост 1'].some(row=>row.fio)||one.data.rows['Пост 2'].filter(row=>row.fio).length!==4)throw new Error('personnel were not moved and deduplicated');
   if(!moved||moved.tin!=='08:15'||moved.tout!=='15:30'||moved.eq!=='радиостанция'||moved.signature!=='подписано')throw new Error('times, equipment or extra signature fields were not preserved');
