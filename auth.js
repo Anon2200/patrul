@@ -317,7 +317,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')) return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule') return false;
     try {
       if(p==='/api/duty-schedule'&&req.method==='GET') {
         const session=await sessionFor(req);
@@ -327,7 +327,7 @@ function createAuth(pool,send,readJson) {
           send(res,403,{error:'Просмотр графика недоступен для этой роли'});return true;
         }
         const month=String(url.searchParams.get('month')||new Date().toISOString().slice(0,7));
-        if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)){send(res,400,{error:'Укажите корректный месяц'});return true;}
+        if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){send(res,400,{error:'Укажите корректный месяц'});return true;}
         const monthStart=month+'-01';
         const nextMonthDate=new Date(monthStart+'T00:00:00.000Z');
         nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth()+1);
@@ -350,7 +350,7 @@ function createAuth(pool,send,readJson) {
         };
         const ownName=ownDepartment?sharedNameKey(ownDepartment.name):'';
         const sourceDuty=head&&head.duty&&typeof head.duty==='object'?head.duty:{};
-        const days=Object.entries(sourceDuty).filter(([date])=>/^\\d{4}-\\d{2}-\\d{2}$/.test(date)&&date>=monthStart&&date<monthEnd).map(([date,duty])=>{
+        const days=Object.entries(sourceDuty).filter(([date])=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=monthStart&&date<monthEnd).map(([date,duty])=>{
           const assignments=(Array.isArray(duty&&duty.departmentAssignments)?duty.departmentAssignments:[]).map(item=>{
             const department=canonicalDepartment(item);
             const substitution=(Array.isArray(duty.seniorSubstitutions)?duty.seniorSubstitutions:[]).find(x=>{
