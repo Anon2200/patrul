@@ -74,6 +74,7 @@ if (!patrolSeniorClient.includes("title:'Передача смены'") || !patr
 const patrolSeniorOfflineMigration=fs.readFileSync('migrations/009_patrol_senior_offline_queue.sql','utf8');
 if (!server.includes('009_patrol_senior_offline_queue.sql') || !patrolSeniorOfflineMigration.includes('client_entry_id UUID') || !patrolSeniorOfflineMigration.includes('patrol_senior_entries_client_id_idx')) fail('Patrol Senior offline queue migration must provide idempotent client entry identifiers');
 if (!patrolSeniorAuth.includes('clientEntryId') || !patrolSeniorAuth.includes('ON CONFLICT (senior_user_id,client_entry_id)')) fail('Patrol Senior API must accept idempotent queued entries');
+if (!patrolSeniorAuth.includes('Идентификатор офлайн-записи уже использован для другого содержимого')) fail('Patrol Senior API must reject conflicting reuse of offline entry identifiers');
 if (!patrolSeniorClient.includes('function flushOfflineQueue') || !patrolSeniorClient.includes('indexedDB.open') || !patrolSeniorClient.includes('AES-GCM') || !patrolSeniorClient.includes('patrul-senior-offline-auth') || !patrolSeniorClient.includes('clientEntryId') || !patrolSeniorClient.includes('OFFLINE_SESSION_MS=8*60*60*1000')) fail('Patrol Senior offline queue must be encrypted, session-bound and replayed after reconnection');
 
 
