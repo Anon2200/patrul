@@ -42,6 +42,47 @@ for (const required of ['Параметры смены','Распределен�
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
+try {
+  const testSource = newDutyRoster.replace(/\\)\\(\\);\\s*$/, 'window.__rosterTest={rebuildAll};\\n})();');
+  if (testSource === newDutyRoster) throw new Error('test hook could not be attached');
+  const sampleData = {
+    departments:[{id:'dep-1',name:'Отделение 1'}],
+    staff:[
+      {name:'Шабанов Сергей Александрович',pos:'Патрульный',departmentId:'dep-1'},
+      {name:'Осипова Ксения Евгеньевна',pos:'Патрульный',departmentId:'dep-1'},
+      {name:'Фурсов Сергей Сергеевич',pos:'Патрульный',departmentId:'dep-1'},
+      {name:'Широков Даниил Владимирович',pos:'Патрульный',departmentId:'dep-1'}
+    ],
+    duty:{
+      '2026-11-13':{t1:'08:00',t2:'20:00',departmentAssignments:[{departmentId:'dep-1',post:'Пост 2'}],rows:{
+        'Пост 1':[{fio:'Шабанов С.А.',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},{fio:'Осипова К.Е.',tin:'08:20',tout:'15:40',eq:'комплект 2'}],
+        'Пост 2':[{fio:'Шабанов Сергей Александрович',tin:'08:15',tout:'15:30',eq:'радиостанция',signature:'подписано'},{fio:'Фурсов Сергей Сергеевич',tin:'08:10',tout:'15:50',eq:'комплект 3'}]
+      }},
+      '2026-11-14':{t1:'09:00',t2:'21:00',departmentAssignments:[{departmentId:'dep-1',post:'Пост 3'}],rows:{'Пост 3':[{fio:'Шабанов Сергей Александрович',tin:'09:15'}]}},
+      '2026-11-15':{rows:{'Старый пост':[{fio:'Иванов И.И.'}]}},
+      '2026-11-16':{departmentAssignments:[{departmentId:'dep-1',post:'Пост Удалённый'}],rows:{}}
+    }
+  };
+  const sandbox = {
+    D:sampleData,TABS:[],EXV:{},A:{},window:{addEventListener(){},PATRUL_READY:true},document:{},
+    posts:()=>['Пост 1','Пост 2','Пост 3'],ddef:()=>({rows:{},defects:[],incs:[],departmentAssignments:[]}),
+    dcount:()=>[0,0,0],isSeniorPatrolRow:()=>false,postKitText:()=>'',e:value=>String(value),fl:value=>value,
+    save(){},draw(){},tab:'ov',dsel:'2026-11-15'
+  };
+  vm.runInNewContext(testSource,sandbox);
+  const totals=sandbox.window.__rosterTest.rebuildAll();
+  const first=sampleData.duty['2026-11-13'],second=sampleData.duty['2026-11-14'];
+  const moved=first.rows['Пост 2'].find(row=>row.fio==='Шабанов Сергей Александрович');
+  if (totals.datesChanged!==2 || totals.moved!==2 || totals.duplicatesRemoved!==1) throw new Error('date-specific rebuild totals are incorrect');
+  if (first.rows['Пост 1'].some(row=>row.fio) || first.rows['Пост 2'].filter(row=>row.fio).length!==4) throw new Error('personnel were not moved and deduplicated');
+  if (!moved || moved.tin!=='08:15' || moved.tout!=='15:30' || moved.eq!=='радиостанция' || moved.signature!=='подписано') throw new Error('existing times, equipment or signatures were not preserved');
+  if (second.rows['Пост 3'].filter(row=>row.fio).length!==4) throw new Error('second date did not use its own scheduled post');
+  if (sampleData.duty['2026-11-15'].rows['Старый пост'].length!==1 || Object.keys(sampleData.duty['2026-11-16'].rows).length!==0) throw new Error('unassigned or invalid schedule dates were modified');
+  const repeat=sandbox.window.__rosterTest.rebuildAll();
+  if (repeat.added || repeat.moved || repeat.duplicatesRemoved) throw new Error('repeated rebuild is not idempotent');
+} catch (error) {
+  fail('new duty roster regression: ' + error.message);
+}
 const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
