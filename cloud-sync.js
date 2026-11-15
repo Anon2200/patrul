@@ -47,7 +47,9 @@
   document.head.appendChild(menuControlsStyle);
   function status(s,color) { statusLabel.textContent='Система: '+s; statusLabel.style.color=color||'inherit'; }
   function localSnapshot() {
-    return JSON.stringify(D);
+    const copy=JSON.parse(JSON.stringify(D));
+    if(role==='nachalnik')delete copy.duty;
+    return JSON.stringify(copy);
   }
   function loadCloudData(data) {
     const localExchange=D&&D.sx&&typeof D.sx.pw==='string'?D.sx.pw:'';
@@ -61,6 +63,7 @@
     try {
       const copy=JSON.parse(snapshot);
       if(copy.sx&&typeof copy.sx==='object')delete copy.sx.pw;
+      if(role==='nachalnik')delete copy.duty;
       const blob=new Blob([JSON.stringify(copy)],{type:'application/json'}), url=URL.createObjectURL(blob);
       const a=document.createElement('a'), stamp=new Date().toISOString().replace(/[:.]/g,'-');
       a.href=url;a.download='patrul-'+role+'-backup-'+stamp+'.json';document.body.appendChild(a);a.click();a.remove();
@@ -69,7 +72,7 @@
   }
   const metaKey='patrul_session_meta_'+role;
   function meta(){try{return JSON.parse(localStorage.getItem(metaKey)||'null');}catch(_){return null;}}
-  async function fingerprint(snapshot){const copy=JSON.parse(snapshot);if(copy.sx&&typeof copy.sx==='object')delete copy.sx.pw;const material=JSON.stringify(copy);const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(material));return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+  async function fingerprint(snapshot){const copy=JSON.parse(snapshot);if(copy.sx&&typeof copy.sx==='object')delete copy.sx.pw;if(role==='nachalnik')delete copy.duty;const material=JSON.stringify(copy);const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(material));return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function saveMeta(snapshot){try{localStorage.setItem(metaKey,JSON.stringify({version,fingerprint:await fingerprint(snapshot)}));}catch(_){}}
   async function request(url,method='GET',body=null) {
     const headers={};
@@ -81,6 +84,7 @@
     let result={};try{result=await response.json();}catch(_){}
     return {response,result};
   }
+  window.PATRUL_API_REQUEST=request;
   function panel(html) {
     const overlay=document.createElement('div');
     overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#08101cdd;display:grid;place-items:center;padding:16px;overflow:auto;visibility:visible';
