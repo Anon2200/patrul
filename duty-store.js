@@ -48,15 +48,14 @@ async function purgeExpiredDutyData(pool) {
   try {
     await client.query('BEGIN');
     const rosters = await client.query('DELETE FROM patrul_duty_rosters WHERE duty_date < $1::date',[today]);
-    const schedules = await client.query('DELETE FROM patrul_duty_schedule WHERE duty_date < $1::date',[today]);
     const seniorEntries = await client.query('DELETE FROM patrul_patrol_senior_entries WHERE entry_date < $1::date',[today]);
     await client.query('COMMIT');
-    const removed = rosters.rowCount + schedules.rowCount + seniorEntries.rowCount;
+    const removed = rosters.rowCount + seniorEntries.rowCount;
     if (removed) {
       console.info('Daily duty cleanup (' + today + ' ' + DUTY_TIME_ZONE + '): rosters=' +
-        rosters.rowCount + ', schedules=' + schedules.rowCount + ', seniorEntries=' + seniorEntries.rowCount);
+        rosters.rowCount + ', seniorEntries=' + seniorEntries.rowCount);
     }
-    return {today,rosters:rosters.rowCount,schedules:schedules.rowCount,seniorEntries:seniorEntries.rowCount};
+    return {today,rosters:rosters.rowCount,seniorEntries:seniorEntries.rowCount};
   } catch (error) {
     await client.query('ROLLBACK').catch(()=>{});
     throw error;
