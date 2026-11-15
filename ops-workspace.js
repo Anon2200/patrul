@@ -778,7 +778,7 @@
     shell('<div class="ops-panel"><h2>Последовательный реестр</h2><p>Нумерация ведётся отдельно в новом реестре рабочего центра и не меняет номера существующих документов.</p><button class="ops-primary" data-ops="new">＋ Зарегистрировать документ</button><table class="ops-table"><thead><tr><th>Номер</th><th>Дата</th><th>Название</th><th>Статус</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.number||'—')+'</td><td>'+dateText(r.date)+'</td><td>'+esc(r.title)+'</td><td>'+esc(r.status)+'</td></tr>').join('')+'</tbody></table></div>');
   }
   function archive(){
-    const all=data().records.filter(r=>r.archived||r.module==='incoming'||r.module==='numbering'||r.module==='movement');
+    const all=data().records.filter(r=>r.archived||r.module==='incoming'||r.module==='numbering'||r.module==='movement'||r.module==='approvals');
     shell('<div class="ops-panel"><h2>Поиск по архиву и реестрам</h2><input id="ops-archive-search" placeholder="Введите номер, дату, ФИО или ключевое слово"><div id="ops-archive-results">'+archiveRows(all,'')+'</div></div>');
   }
   function archiveRows(all,q){
