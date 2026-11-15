@@ -43,7 +43,7 @@ for (const required of ['Параметры смены','Назначения о
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
 const bulkLoadStart = newDutyRoster.indexOf('async function loadAll()');
-const bulkLoadEnd = newDutyRoster.indexOf('\\n  function queuePersist', bulkLoadStart);
+const bulkLoadEnd = newDutyRoster.indexOf('function queuePersist', bulkLoadStart);
 const bulkLoadCode = bulkLoadStart >= 0 && bulkLoadEnd > bulkLoadStart
   ? newDutyRoster.slice(bulkLoadStart, bulkLoadEnd) : '';
 if (!bulkLoadCode.includes('if(busyAll)return false') ||
@@ -53,7 +53,7 @@ if (!bulkLoadCode.includes('if(busyAll)return false') ||
   fail('bulk roster load must abort safely on pending edits or load errors and replace stale cached dates');
 }
 const bulkRebuildStart = newDutyRoster.indexOf('A.nrRebuildAll=async()=>');
-const bulkRebuildEnd = newDutyRoster.indexOf('\\n  function printDocument', bulkRebuildStart);
+const bulkRebuildEnd = newDutyRoster.indexOf('function printDocument', bulkRebuildStart);
 const bulkRebuildCode = bulkRebuildStart >= 0 && bulkRebuildEnd > bulkRebuildStart
   ? newDutyRoster.slice(bulkRebuildStart, bulkRebuildEnd) : '';
 const bulkSaveIndex = bulkRebuildCode.indexOf("const saved=await api('/api/duty-roster','PUT'");
