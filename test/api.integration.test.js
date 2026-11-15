@@ -1383,23 +1383,24 @@ function createFakeIndexedDB() {
       this.stores.set(name, { keyPath: options.keyPath || null, rows: new Map() });
       return this.objectStore(name);
     }
-    objectStore(name) {
+    objectStore(name, tx = null) {
       const data = this.stores.get(name);
       if (!data) throw new Error('Unknown object store: ' + name);
       return {
-        get: key => request(null, () => data.rows.get(key)),
-        getAll: () => request(null, () => Array.from(data.rows.values())),
-        put: (value, explicitKey) => request(null, () => {
+        get: key => request(tx, () => data.rows.get(key)),
+        getAll: () => request(tx, () => Array.from(data.rows.values())),
+        put: (value, explicitKey) => request(tx, () => {
           const key = data.keyPath ? value[data.keyPath] : explicitKey;
           if (key === undefined) throw new Error('Missing IndexedDB key');
           data.rows.set(key, value);
           return key;
         }),
-        delete: key => request(null, () => { data.rows.delete(key); return undefined; })
+        delete: key => request(tx, () => { data.rows.delete(key); return undefined; })
       };
     }
     transaction(name) {
-      const tx = { error: null, oncomplete: null, onerror: null, onabort: null, objectStore: storeName => this.objectStore(storeName) };
+      const tx = { error: null, oncomplete: null, onerror: null, onabort: null };
+      tx.objectStore = storeName => this.objectStore(storeName, tx);
       return tx;
     }
     close() {}
