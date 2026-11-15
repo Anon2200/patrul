@@ -25,8 +25,16 @@
       : { id:String(item.id || item.key || index + 1), name:String(item.name || item.title || ('Отделение ' + (index + 1))) }
     ).filter(item => item.name);
     if (list.length) return list;
-    const names = [...new Set((D.staff || []).map(person => clean(person.departmentName || person.department || person.depName || person.otdelenie)).filter(Boolean))];
-    return (names.length ? names : Array.from({length:9}, (_, index) => 'Отделение ' + (index + 1))).map((name,index) => ({id:'legacy-' + (index + 1),name}));
+    const grouped = new Map();
+    (D.staff || []).forEach(person => {
+      const name = clean(person && (person.departmentName || person.department || person.depName || person.otdelenie));
+      if (!name) return;
+      const number = Number(person.sq);
+      const id = Number.isInteger(number) && number > 0 ? 'legacy-' + number : 'legacy-' + (grouped.size + 1);
+      if (!grouped.has(id)) grouped.set(id,name);
+    });
+    if (grouped.size) return [...grouped].map(([id,name]) => ({id,name}));
+    return Array.from({length:9}, (_, index) => ({id:'legacy-' + (index + 1),name:'Отделение ' + (index + 1)}));
   };
   const personDepartment = person => {
     const id = person && (person.departmentId != null ? person.departmentId : person.depId);
@@ -226,7 +234,7 @@
   }
   A.newDutySaveAssignment = target => {
     const dept = deptList().find(item => String(item.id) === String(target.dataset.dep));
-    const select = document.querySelector('[data-duty-assignment-post="' + CSS.escape(String(target.dataset.dep)) + '"]');
+    const select = Array.from(document.querySelectorAll('[data-duty-assignment-post]')).find(item => String(item.dataset.dutyAssignmentPost) === String(target.dataset.dep));
     const post = select && select.value;
     if (!dept || !post) return toast('Выберите пост для отделения.');
     const record = dateRecord(dsel);
