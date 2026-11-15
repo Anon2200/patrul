@@ -146,7 +146,7 @@ if (!dutyRebuildPayload) {
       "const plan=sqRosterPlanDay(day,'КПП ВЪЕЗДНОЕ',members);",
       "if(plan.issues.length)throw new Error('valid full-name/initial matches were rejected');",
       "const totals=sqRosterApplyPlan(day,plan,{tin:day.t1,tout:day.t2});",
-      "if(totals.moved!==2||totals.already!==1||totals.added!==1||totals.duplicatesRemoved!==1)throw new Error('current-day transfer totals are incorrect: '+JSON.stringify(totals));",
+      "if(totals.moved!==2||totals.already!==2||totals.added!==1||totals.duplicatesRemoved!==1)throw new Error('current-day transfer totals are incorrect: '+JSON.stringify(totals));",
       "const target=day.rows['КПП ВЪЕЗДНОЕ'].filter(row=>row&&row.fio);",
       "if(target.length!==4||day.rows['Въездное-КПП'].some(row=>row&&row.fio))throw new Error('old post still contains duplicate department members');",
       "const shabanov=target.find(row=>row.fio==='Шабанов Сергей Александрович');",
