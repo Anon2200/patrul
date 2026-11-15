@@ -1429,18 +1429,21 @@ function createFakeIndexedDB() {
 
 test('Patrol Senior offline queue encrypts local records and replays them after reauthentication', async () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
-  const hook = "window.__offlineTest = {\\n" +
-    "  setWorkspace(value) { workspace = value; },\\n" +
-    "  getWorkspace() { return workspace; },\\n" +
-    "  setRender(fn) { render = fn; },\\n" +
-    "  setLoadWorkspace(fn) { loadWorkspace = fn; },\\n" +
-    "  setRequest(fn) { request = fn; },\\n" +
-    "  setActiveTab(value) { activeTab = value; },\\n" +
-    "  getState() { return { offlineMode, pendingOfflineCount, flushingOffline, offlineWarning }; },\\n" +
-    "  queueOfflineEntry, readOfflineEncrypted, saveOfflineEncrypted, listOfflineRecords,\\n" +
-    "  removeOfflineRecord, restoreOfflineWorkspace, flushOfflineQueue\\n" +
-    "};\\n";
-  const instrumented = source.replace('init();\\n})();', hook + '})();');
+  const nl = String.fromCharCode(10);
+  const hook = [
+    'window.__offlineTest = {',
+    '  setWorkspace(value) { workspace = value; },',
+    '  getWorkspace() { return workspace; },',
+    '  setRender(fn) { render = fn; },',
+    '  setLoadWorkspace(fn) { loadWorkspace = fn; },',
+    '  setRequest(fn) { request = fn; },',
+    '  setActiveTab(value) { activeTab = value; },',
+    '  getState() { return { offlineMode, pendingOfflineCount, flushingOffline, offlineWarning }; },',
+    '  queueOfflineEntry, readOfflineEncrypted, saveOfflineEncrypted, listOfflineRecords,',
+    '  removeOfflineRecord, restoreOfflineWorkspace, flushOfflineQueue',
+    '};'
+  ].join(nl) + nl;
+  const instrumented = source.replace('init();' + nl + '})();', hook + '})();');
   assert.notEqual(instrumented, source, 'test instrumentation point must exist');
   const fakeIndexedDB = createFakeIndexedDB();
   const sessionValues = new Map();
