@@ -87,6 +87,7 @@ if (!dutyRebuildPayload) {
   try {
     const dutyRebuildCode = JSON.parse(dutyRebuildPayload[1]);
     new vm.Script(dutyRebuildCode, { filename: 'duty-roster-rebuild.injected.js' });
+    if (!dutyRebuildCode.includes('Пересобрать наряд на все дни') || !dutyRebuildCode.includes('data-act="sqrebuild"') || !dutyRebuildCode.includes('data-act="sqrebuild2"')) throw new Error('all-days rebuild controls are missing');
     const planStart = dutyRebuildCode.indexOf('function sqRebuildPlanForDays(');
     const planEnd = dutyRebuildCode.indexOf('\nlet sqRebuildPending', planStart);
     if (planStart < 0 || planEnd < 0) throw new Error('all-days planning helper is missing');
@@ -120,11 +121,6 @@ if (!dutyRebuildPayload) {
   } catch (error) {
     fail('all-days roster rebuild: ' + error.message);
   }
-}
-if (!staffWorkspaceLoader.includes('Пересобрать наряд на все дни') ||
-    !staffWorkspaceLoader.includes("data-act=\\"sqrebuild\\"") ||
-    !staffWorkspaceLoader.includes("data-act=\\"sqrebuild2\\"")) {
-  fail('commander duty page must expose the all-days roster rebuild and confirmation actions');
 }
 
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
