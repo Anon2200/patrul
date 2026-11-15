@@ -302,10 +302,36 @@
       '<p class="ops-count">Найдено записей: '+rows.length+'</p><div id="ops-search-results">'+(rows.length?rows.slice(0,100).map(searchCard).join(''):'<div class="ops-empty">'+(q?'Совпадений не найдено.':'Введите слово, номер или фамилию для поиска.')+'</div>')+'</div>'+
       (rows.length>100?'<p class="ops-muted">Показаны первые 100 результатов. Уточните запрос для более точного поиска.</p>':'')+'</div>');
   }
+  function showAssetQr(recordId){
+    if(role!=='uchet')return;
+    const record=data().records.find(item=>item.id===recordId&&item.module==='equipment');
+    if(!record)return;
+    const inventory=String(record.fields&&record.fields.inventory||'').trim();
+    if(!inventory){alert('Сначала укажите инвентарный номер имущества.');return;}
+    if(typeof window.QRM!=='function'){alert('Генератор QR-кодов недоступен на этой странице.');return;}
+    const payload='PATRUL-ASSET|1|'+encodeURIComponent(inventory),matrix=window.QRM(payload,1),n=matrix.length,scale=7,quiet=4,size=(n+quiet*2)*scale;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=size;canvas.setAttribute('aria-label','QR-код имущества '+inventory);
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);ctx.fillStyle='#000';
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(matrix[y][x])ctx.fillRect((x+quiet)*scale,(y+quiet)*scale,scale,scale);
+    const surface=document.createElement('section');surface.id='ops-asset-qr-print';surface.style.cssText='position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:#102030aa';
+    const panel=document.createElement('div');panel.className='ops-qr-panel';panel.style.cssText='width:min(390px,100%);padding:22px;border-radius:16px;background:#fff;color:#172536;text-align:center;box-shadow:0 20px 60px #0005';
+    const heading=document.createElement('h2');heading.textContent='Маркировка имущества';heading.style.cssText='margin:0 0 6px;font-size:20px';
+    const name=document.createElement('p');name.textContent=record.title;name.style.cssText='margin:0 0 4px;font-weight:650';
+    const number=document.createElement('p');number.textContent='Инвентарный № '+inventory;number.style.cssText='margin:0 0 12px;color:#526274;font-size:13px';
+    canvas.style.cssText='display:block;width:240px;height:240px;max-width:100%;image-rendering:pixelated;margin:0 auto 12px';
+    const note=document.createElement('p');note.textContent='При сканировании отображается инвентарный номер. Персональные данные в QR не включены.';note.style.cssText='margin:0;color:#64748b;font-size:11px';
+    const actions=document.createElement('div');actions.className='ops-qr-actions';actions.style.cssText='display:flex;gap:8px;margin-top:16px';
+    const print=document.createElement('button');print.type='button';print.className='ops-primary';print.textContent='Печать этикетки';print.style.cssText='flex:1;border:0;border-radius:9px;padding:10px;background:#176b65;color:#fff;font:600 14px system-ui';print.addEventListener('click',()=>window.print());
+    const close=document.createElement('button');close.type='button';close.className='ops-secondary';close.textContent='Закрыть';close.style.cssText='border:1px solid #ccd5e0;border-radius:9px;padding:10px;background:#fff;color:#172536;font:600 14px system-ui';
+    const printStyle=document.createElement('style');printStyle.id='ops-asset-qr-print-style';printStyle.textContent='@media print{body>*:not(#ops-asset-qr-print){display:none!important}#ops-asset-qr-print{position:static!important;display:block!important;inset:auto!important;padding:0!important;background:#fff!important}#ops-asset-qr-print .ops-qr-panel{width:100%!important;max-width:340px!important;margin:0 auto!important;padding:8px!important;box-shadow:none!important;border:0!important}#ops-asset-qr-print .ops-qr-actions{display:none!important}}';
+    close.addEventListener('click',()=>{surface.remove();printStyle.remove();});
+    actions.append(print,close);panel.append(heading,name,number,canvas,note,actions);surface.appendChild(panel);document.head.appendChild(printStyle);document.body.appendChild(surface);
+  }
   function card(r,m){
     const details=(m.fields||[]).filter(f=>f[2]!=='file').map(f=>{const v=r.fields[f[0]];return v?'<div><span>'+esc(f[1])+':</span> '+esc(v)+'</div>':'';}).join('');
     const photo=r.fields.photo?'<img class="ops-photo" src="'+r.fields.photo+'" alt="Прикреплённая фотография">':'';
-    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+(documentVersionModules.includes(m.id)?'<button type="button" data-ops="versions" data-id="'+r.id+'">История редакций</button>':'')+'<button type="button" data-ops="task-from-record" data-id="'+r.id+'">Поставить поручение</button><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
+    const qrButton=m.id==='equipment'&&role==='uchet'?'<button type="button" data-ops="qr" data-id="'+r.id+'">QR-код имущества</button>':'';
+    return '<article class="ops-record"><div class="ops-record-head"><div><small>'+dateText(r.date)+(r.number?' · № '+esc(r.number):'')+'</small><h3>'+esc(r.title)+'</h3></div><span class="ops-status">'+esc(r.status)+'</span></div>'+details+photo+(r.fields.note?'<p>'+esc(r.fields.note)+'</p>':'')+'<div class="ops-actions">'+qrButton+(m.id==='personalTasks'?'<button type="button" data-ops="complete" data-id="'+r.id+'">Отметить выполненной</button>':'')+(documentVersionModules.includes(m.id)?'<button type="button" data-ops="versions" data-id="'+r.id+'">История редакций</button>':'')+'<button type="button" data-ops="task-from-record" data-id="'+r.id+'">Поставить поручение</button><button type="button" data-ops="edit" data-id="'+r.id+'">Изменить</button><button type="button" data-ops="status" data-id="'+r.id+'">Изменить статус</button><button type="button" data-ops="archive" data-id="'+r.id+'">В архив</button></div></article>';
   }
   async function seniorActivation(){
     currentModule='seniorActivation';
@@ -787,6 +813,7 @@
        if(action==='restore-version'){restoreDocumentVersion(id,b.dataset.versionId);return;}
        if(action==='task-from-record'){startTaskFromRecord(id);return;}
        if(action==='chief-refresh'){loadChiefOperationalOverview();return;}
+      if(action==='qr'){showAssetQr(id);return;}
       if(action==='edit'){const r=data().records.find(x=>x.id===id);if(r)form(r.module,r);return;}
       if(action==='cancel'){list(currentModule);return;}
       if(action==='complete'){const r=data().records.find(x=>x.id===id);if(r){r.status='Выполнено';r.updatedAt=new Date().toISOString();log('Задача отмечена выполненной',r);persist();if(active)home();}return;}
