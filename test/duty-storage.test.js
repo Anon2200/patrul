@@ -55,7 +55,7 @@ test('daily cleanup rolls back if one of the independent stores cannot be cleare
   const client={
     async query(sql,params) {
       calls.push(String(sql).replace(/\s+/g,' ').trim());
-      if(String(sql).includes('patrul_duty_schedule'))throw new Error('simulated delete failure');
+      if(String(sql).includes('patrul_patrol_senior_entries'))throw new Error('simulated delete failure');
       return {rowCount:1,rows:[]};
     },
     release(){released=true;}
