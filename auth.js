@@ -504,9 +504,12 @@ function createAuth(pool,send,readJson) {
             new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date){send(res,400,{error:'Укажите корректную дату'});return true;}
           if(all){
             const q=await pool.query(
-              "SELECT to_char(r.duty_date,'YYYY-MM-DD') AS date,r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
-              "FROM patrul_duty_rosters r LEFT JOIN patrul_duty_schedule s ON s.duty_date=r.duty_date " +
-              "WHERE r.duty_date>=$1::date ORDER BY r.duty_date",[dutyDateAt()]);
+              "SELECT to_char(d.duty_date,'YYYY-MM-DD') AS date,r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
+              "FROM (SELECT duty_date FROM patrul_duty_rosters WHERE duty_date>=$1::date " +
+              "UNION SELECT duty_date FROM patrul_duty_schedule WHERE duty_date>=$1::date) d " +
+              "LEFT JOIN patrul_duty_rosters r ON r.duty_date=d.duty_date " +
+              "LEFT JOIN patrul_duty_schedule s ON s.duty_date=d.duty_date " +
+              "ORDER BY d.duty_date",[dutyDateAt()]);
             send(res,200,{items:q.rows.map(row=>({
               date:row.date,data:row.data,version:Number(row.version),updatedAt:row.updated_at,
               schedule:{assignments:Array.isArray(row.assignments)?row.assignments:[],substitutions:Array.isArray(row.substitutions)?row.substitutions:[]}
