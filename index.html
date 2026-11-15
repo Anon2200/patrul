@@ -1,7 +1,28 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Патрульная служба</title><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8">
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Патрульная служба</title><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#1f5ea8">
 <style>body{margin:0;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;background:#eef1f6;color:#1a2433;padding:20px}main{max-width:520px;margin:0 auto}h1{font-size:24px}p{color:#5b6a80}a{display:block;background:#fff;border:1px solid #dbe2ec;border-radius:14px;padding:16px;margin:10px 0;text-decoration:none;color:inherit;box-shadow:0 2px 10px rgba(16,32,56,.06)}a b{display:block;font-size:17px}a span{color:#5b6a80;font-size:13px}</style></head><body><main>
-<h1>Патрульная служба</h1><p>Выберите свою роль. Данные хранятся только на вашем устройстве. Чтобы программа была под рукой, нажмите «Поделиться» → «На экран „Домой“».</p>
+<h1>Патрульная служба</h1><p>Выберите свой рабочий раздел и войдите под личной учётной записью. Рабочие данные сохраняются на сервере и синхронизируются между устройствами. Для передачи материалов другим сотрудникам используйте раздел «Обмен». Ссылку на сайт передавайте только сотрудникам, которым выдали учётную запись.</p>
 <a href="zam.html"><b>Заместитель начальника патруля</b><span>развод, обход постов, доклады (для телефона)</span></a>
 <a href="dokumentoved.html"><b>Документовед</b><span>журналы, исходящие документы, бланки</span></a>
 <a href="nachalnik.html"><b>Начальник патруля</b><span>планер, наряд, поручения</span></a>
-<a href="uchet.html"><b>Старший мастер</b><span>учёт имущества</span></a></main></body></html>
+<a href="uchet.html"><b>Старший мастер</b><span>учёт имущества</span></a>
+<a href="patrol-senior.html"><b>Старший патруля</b><span>пост, явка, оборудование, доклады (только назначенный старший)</span></a><p id="session-status" role="status" aria-live="polite" hidden></p>
+</main>
+<script>
+(async()=>{
+  const status=document.getElementById('session-status');
+  const pages={nachalnik:'/nachalnik.html',zam:'/zam.html',uchet:'/uchet.html',dokumentoved:'/dokumentoved.html',starshiy_patrulya:'/patrol-senior.html'};
+  try{
+    const response=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)return;
+    const result=await response.json();
+    const page=pages[result&&result.user&&result.user.role];
+    if(!page)return;
+    status.hidden=false;
+    status.textContent='Вход уже сохранён. Открываем ваш рабочий кабинет…';
+    document.querySelectorAll('main > a').forEach(link=>link.hidden=true);
+    location.replace(page);
+  }catch(_){
+    // При отсутствии сети оставляем выбор раздела доступным.
+  }
+})();
+</script></body></html>

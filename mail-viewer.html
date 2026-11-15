@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob: data:; frame-src blob:; object-src blob:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#16304f">
+<title>Просмотр файла — Патрульная служба</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172334;background:#eef2f6}
+*{box-sizing:border-box}body{margin:0}.top{background:#16304f;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}.top a{color:#fff;text-decoration:none}.wrap{max-width:1100px;margin:22px auto;padding:0 14px}.panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:16px}.muted{color:#64748b;font-size:13px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.btn{display:inline-block;border:0;border-radius:8px;background:#168477;color:#fff;padding:9px 13px;text-decoration:none;font-weight:650;cursor:pointer}.btn.secondary{background:#eaf0f5;color:#1c2a3b}.preview{margin-top:14px;min-height:240px;border:1px solid #dce3eb;border-radius:8px;overflow:auto;background:#fff}.preview iframe,.preview embed{display:block;width:100%;height:min(78vh,900px);border:0}.preview img{display:block;max-width:100%;max-height:78vh;margin:auto;object-fit:contain}.preview pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;margin:0;font:13px/1.5 ui-monospace,monospace}.message{padding:16px;color:#526174}.hidden{display:none!important}h1{font-size:19px;margin:0 0 4px;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header class="top"><strong>Патрульная служба · Просмотр файла</strong><a href="/mail.html">← Вернуться в почту</a></header>
+<main class="wrap"><section class="panel">
+<h1 id="fileName">Загрузка файла…</h1><div id="fileInfo" class="muted"></div>
+<div class="actions"><a class="btn secondary" href="/mail.html">← К переписке</a><a class="btn" id="download" href="#" download>Скачать для другого приложения</a></div>
+<div id="status" class="message">Проверяем доступ к вложению…</div>
+<div id="preview" class="preview hidden"></div>
+</section></main>
+<script src="/mail-viewer.js" defer></script>
+</body></html>

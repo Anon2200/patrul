@@ -1,0 +1,17 @@
+{
+  "name": "patrul-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API for the Patrul service",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check auth.js && node --check data-crypto.js && node --check cloud-sync.js && node --check ops-workspace.js && node --check personal-workspace.js && node --check staff-workspace.js && node --check mail.js && node --check patrol-senior.js && node --check scripts/check-html.js && node --check test/api.integration.test.js && node scripts/check-html.js",
+    "test:integration": "node --test test/api.integration.test.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
