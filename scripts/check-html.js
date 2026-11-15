@@ -42,8 +42,31 @@ try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } ca
 for (const required of ['Параметры смены','Назначения отделений на дату','Состав наряда по постам','Пересобрать все дни','function rebuildDate','function makePlan','function applyPlan','Сбросить состав наряда','/api/duty-roster']) {
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
 }
+const bulkLoadStart = newDutyRoster.indexOf('async function loadAll()');
+const bulkLoadEnd = newDutyRoster.indexOf('function queuePersist', bulkLoadStart);
+const bulkLoadCode = bulkLoadStart >= 0 && bulkLoadEnd > bulkLoadStart
+  ? newDutyRoster.slice(bulkLoadStart, bulkLoadEnd) : '';
+if (!bulkLoadCode.includes('if(busyAll)return false') ||
+    !bulkLoadCode.includes('if(saveTimers.size||saving.size||pendingConflicts.size)') ||
+    !bulkLoadCode.includes('if(!result.result||!Array.isArray(result.result.items))') ||
+    !bulkLoadCode.includes('rosters.clear();versions.clear();schedules.clear();') ||
+    !bulkLoadCode.includes('return true;') || !bulkLoadCode.includes('return false;') ||
+    newDutyRoster.includes('if(date<today())continue;')) {
+  fail('bulk roster load must abort safely on pending edits or load errors and replace stale cached dates');
+}
+const bulkRebuildStart = newDutyRoster.indexOf('A.nrRebuildAll=async()=>');
+const bulkRebuildEnd = newDutyRoster.indexOf('function printDocument', bulkRebuildStart);
+const bulkRebuildCode = bulkRebuildStart >= 0 && bulkRebuildEnd > bulkRebuildStart
+  ? newDutyRoster.slice(bulkRebuildStart, bulkRebuildEnd) : '';
+const bulkSaveIndex = bulkRebuildCode.indexOf("const saved=await api('/api/duty-roster','PUT'");
+const bulkSaveCheckIndex = bulkRebuildCode.indexOf('if(!saved.response.ok)', bulkSaveIndex);
+const bulkCacheWriteIndex = bulkRebuildCode.indexOf('rosters.set(date,{...defaultRecord()', bulkSaveCheckIndex);
+if (!bulkRebuildCode.includes('if(!(await loadAll()))return;') ||
+    bulkSaveIndex < 0 || bulkSaveCheckIndex <= bulkSaveIndex || bulkCacheWriteIndex <= bulkSaveCheckIndex) {
+  fail('bulk roster rebuild must stop on failed load and update local data only after the server confirms each date');
+}
 if (newDutyRoster.includes('save();') || !newDutyRoster.includes("api('/api/duty-roster'") || !cloudSync.includes("if(role==='nachalnik')delete copy.duty")) fail('daily duty roster must persist only through its independent API, while commander role snapshots omit duty');
-if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule')) fail('duty APIs must use the independent PostgreSQL tables');
+if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule') || !patrolSeniorAuth.includes('UNION SELECT duty_date FROM patrul_duty_schedule WHERE duty_date>=$1::date')) fail('duty APIs must use independent PostgreSQL tables and include scheduled-only dates in bulk reads');
 if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
 if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');

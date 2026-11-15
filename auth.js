@@ -11,7 +11,16 @@ const sha = v => crypto.createHash('sha256').update(v).digest();
 const token = () => crypto.randomBytes(32).toString('base64url');
 const equal = (a,b) => { const x=Buffer.from(a||''), y=Buffer.from(b||''); return x.length>0 && x.length===y.length && crypto.timingSafeEqual(x,y); };
 function readCookie(req) {
-  const out={}; for (const p of (req.headers.cookie||'').split(';')) { const i=p.indexOf('='); if(i>0) out[p.slice(0,i).trim()]=decodeURIComponent(p.slice(i+1).trim()); } return out;
+  const out={};
+  for (const part of (req.headers.cookie||'').split(';')) {
+    const separator=part.indexOf('=');
+    if(separator<=0) continue;
+    const name=part.slice(0,separator).trim();
+    const value=part.slice(separator+1).trim();
+    try { out[name]=decodeURIComponent(value); }
+    catch { continue; }
+  }
+  return out;
 }
 function sameOrigin(req) {
   if (!req.headers.origin) return false;
@@ -495,9 +504,12 @@ function createAuth(pool,send,readJson) {
             new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date){send(res,400,{error:'Укажите корректную дату'});return true;}
           if(all){
             const q=await pool.query(
-              "SELECT to_char(r.duty_date,'YYYY-MM-DD') AS date,r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
-              "FROM patrul_duty_rosters r LEFT JOIN patrul_duty_schedule s ON s.duty_date=r.duty_date " +
-              "WHERE r.duty_date>=$1::date ORDER BY r.duty_date",[dutyDateAt()]);
+              "SELECT to_char(d.duty_date,'YYYY-MM-DD') AS date,r.data,r.version,r.updated_at,s.assignments,s.substitutions " +
+              "FROM (SELECT duty_date FROM patrul_duty_rosters WHERE duty_date>=$1::date " +
+              "UNION SELECT duty_date FROM patrul_duty_schedule WHERE duty_date>=$1::date) d " +
+              "LEFT JOIN patrul_duty_rosters r ON r.duty_date=d.duty_date " +
+              "LEFT JOIN patrul_duty_schedule s ON s.duty_date=d.duty_date " +
+              "ORDER BY d.duty_date",[dutyDateAt()]);
             send(res,200,{items:q.rows.map(row=>({
               date:row.date,data:row.data,version:Number(row.version),updatedAt:row.updated_at,
               schedule:{assignments:Array.isArray(row.assignments)?row.assignments:[],substitutions:Array.isArray(row.substitutions)?row.substitutions:[]}

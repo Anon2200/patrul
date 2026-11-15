@@ -192,20 +192,32 @@
     }
   }
   async function loadAll() {
-    if(busyAll)return;
+    if(busyAll)return false;
+    if(saveTimers.size||saving.size||pendingConflicts.size){
+      toast('Сначала дождитесь сохранения текущих изменений и разрешите конфликты наряда.');
+      return false;
+    }
     busyAll=true;
+    loadedAll=false;
     try{
       const result=await api('/api/duty-roster?all=1');
       if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить сохранённые наряды');
-      (result.result.items||[]).forEach(item=>{
+      if(!result.result||!Array.isArray(result.result.items))throw new Error('Сервер вернул некорректный список дат наряда');
+
+      // The server response is the source of truth for all scheduled and saved active dates.
+      rosters.clear();versions.clear();schedules.clear();
+      result.result.items.forEach(item=>{
         rosters.set(item.date,{...defaultRecord(),...(item.data||{}),rows:item.data&&item.data.rows||{},defects:item.data&&item.data.defects||[],incs:item.data&&item.data.incs||[]});
         versions.set(item.date,Number(item.version)||0);
         schedules.set(item.date,item.schedule||{assignments:[],substitutions:[]});
         mirrorLegacy(item.date);
       });
       loadedAll=true;
-    }catch(error){toast(error.message);}
-    finally{busyAll=false;}
+      return true;
+    }catch(error){
+      toast(error.message||'Не удалось загрузить сохранённые наряды. Пересборка отменена.');
+      return false;
+    }finally{busyAll=false;}
   }
   function queuePersist(date) {
     if(saveTimers.has(date))clearTimeout(saveTimers.get(date));
@@ -436,25 +448,27 @@
   };
   A.nrRebuildAll=async()=>{
     const overlay=document.createElement('div');overlay.className='ov';
-    overlay.innerHTML='<div class="mod"><h3>Пересобрать наряды на все будущие и текущие даты?</h3><p>Обрабатываются только уже созданные дневные наряды, для которых есть назначения в календаре. Прошлые записи удаляются автоматически. При конфликте ФИО конкретная дата останется без изменений.</p><div class="bar"><button class="btn" data-nr-all-confirm>Пересобрать</button><button class="btn g" data-nr-all-cancel>Отмена</button></div></div>';
+    overlay.innerHTML='<div class="mod"><h3>Пересобрать все дни по графику?</h3><p>Будут обработаны все текущие и будущие даты с назначениями в календаре, даже если ежедневный наряд за эту дату ещё не создан. Существующие наряды без назначений не изменяются. Данные прошедших суток удаляются ежедневной очисткой. При конфликте ФИО конкретная дата останется без изменений.</p><div class="bar"><button class="btn" data-nr-all-confirm>Пересобрать</button><button class="btn g" data-nr-all-cancel>Отмена</button></div></div>';
     overlay.addEventListener('click',async event=>{
       if(event.target.hasAttribute('data-nr-all-cancel')||event.target===overlay){overlay.remove();return;}
       if(!event.target.hasAttribute('data-nr-all-confirm'))return;
-      overlay.remove();await loadAll();
+      overlay.remove();
+      if(!(await loadAll()))return;
       const totals={dates:0,changed:0,moved:0,added:0,already:0,duplicates:0,skipped:0,errors:[]};
       for(const [date,record] of rosters.entries()){
-        if(date<today())continue;
         const result=rebuildDate(date,record,scheduleFor(date));
         if(result.skipped){totals.skipped++;if(result.errors.length)totals.errors.push(date+': '+result.errors.join(' '));continue;}
-        totals.dates++;totals.changed++;totals.moved+=result.moved;totals.added+=result.added;totals.already+=result.already;totals.duplicates+=result.duplicatesRemoved;
-        rosters.set(date,result.data);
+        const expectedVersion=versions.get(date)||0;
         try{
-          const expectedVersion=versions.get(date)||0;
           const saved=await api('/api/duty-roster','PUT',{date,expectedVersion,data:clone(result.data)});
           if(!saved.response.ok)throw new Error(saved.result.error||'Не удалось сохранить');
           versions.set(date,Number(saved.result.version)||expectedVersion+1);
           rosters.set(date,{...defaultRecord(),...(saved.result.data||{})});
-        }catch(error){totals.errors.push(date+': '+error.message);}
+          saveErrors.delete(date);
+          totals.dates++;totals.changed++;totals.moved+=result.moved;totals.added+=result.added;totals.already+=result.already;totals.duplicates+=result.duplicatesRemoved;
+        }catch(error){
+          totals.errors.push(date+': '+error.message);
+        }
       }
       draw(1);
       toast('Проверено дат: '+totals.dates+'; пересобрано: '+totals.changed+'; перенесено: '+totals.moved+'; добавлено: '+totals.added+'; уже на месте: '+totals.already+'; удалено дублей: '+totals.duplicates+'; без изменений: '+totals.skipped+'.');
