@@ -103,6 +103,7 @@ function start(){
   const mountSenior=new MutationObserver(()=>viewerButton());mountSenior.observe(document.body,{childList:true,subtree:true});
   const poll=setInterval(async()=>{if(!viewerButton())return;try{snapshot=await getData();viewerButton();if(retryPoll){clearInterval(poll);retryPoll=null;}}catch(_){}},5000);
   let retryPoll=true;
+  setInterval(()=>{if(overlay)load(false);},30000);
  }else{
   const mount=()=>viewerButton();window.addEventListener('patrul:ready',()=>{mount();load(false);});if(window.PATRUL_READY){mount();load(false);}
   const menu=document.querySelector(role==='zam'?'#bn':'#nv');if(menu)new MutationObserver(mount).observe(menu,{childList:true});
