@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 const { createAuth } = require('./auth');
+const { startDutyCleanup } = require('./duty-store');
 const { validateDataEncryptionKey, encryptData, readRoleData, migratePlaintextRows } = require('./data-crypto');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -223,7 +224,25 @@ async function initDatabase() {
   await pool.query(documentNumberingSchema);
   const patrolSeniorOfflineSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '009_patrol_senior_offline_queue.sql'), 'utf8');
   await pool.query(patrolSeniorOfflineSchema);
+  const independentDutySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '010_independent_duty_storage.sql'), 'utf8');
+  await pool.query(independentDutySchema);
   await migratePlaintextRows(pool);
+  await purgeLegacyCommanderDuty();
+}
+
+async function purgeLegacyCommanderDuty() {
+  const q = await pool.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
+  if (!q.rowCount) return;
+  const row = q.rows[0];
+  const data = await readRoleData(pool,'nachalnik',row);
+  if (!data || typeof data !== 'object' || Array.isArray(data) || !Object.prototype.hasOwnProperty.call(data,'duty')) return;
+  delete data.duty;
+  const saved = await pool.query(
+    "UPDATE patrul_role_data SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE role='nachalnik' AND version=$2 RETURNING version",
+    [JSON.stringify(encryptData(data,'nachalnik')),row.version]
+  );
+  if (!saved.rowCount) console.warn('Legacy commander duty payload changed during cleanup; it will be removed on the next authenticated load.');
+  else console.info('Legacy embedded duty data removed from commander role storage.');
 }
 
 const handleAuth = createAuth(pool, send, readJson);
@@ -325,7 +344,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+let stopDutyCleanup = null;
 initDatabase().then(() => {
+  stopDutyCleanup = startDutyCleanup(pool);
   server.listen(PORT, '0.0.0.0', () => console.log('Patrul API listening on port ' + PORT));
 }).catch((err) => {
   console.error('Startup failed:', err.message);
@@ -333,6 +354,7 @@ initDatabase().then(() => {
 });
 
 async function shutdown() {
+  if (stopDutyCleanup) stopDutyCleanup();
   server.close();
   await pool.end();
   process.exit(0);
