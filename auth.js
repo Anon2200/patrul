@@ -723,7 +723,7 @@ function createAuth(pool,send,readJson) {
         if(session.must_change_password){send(res,403,{error:'Завершите настройку учётной записи'});return true;}
         const profile=await currentSeniorProfile(session);
         if(!profile){send(res,403,{error:'Доступ к кабинету старшего патруля отсутствует'});return true;}
-        const today=String(url.searchParams.get('date')||new Date().toISOString().slice(0,10));
+        const today=String(url.searchParams.get('date')||dutyDateAt());
         const parsedDutyDate=new Date(today+'T00:00:00.000Z');
         if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||Number.isNaN(parsedDutyDate.getTime())||parsedDutyDate.toISOString().slice(0,10)!==today){send(res,400,{error:'Некорректная дата'});return true;}
         await purgeExpiredDutyData(pool);
@@ -758,7 +758,7 @@ function createAuth(pool,send,readJson) {
         if(!(await csrfOk(req,session))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
         const profile=await currentSeniorProfile(session);
         if(!profile){send(res,403,{error:'Старший больше не закреплён за отделением'});return true;}
-        const b=await readJson(req),date=String(b.date||new Date().toISOString().slice(0,10)),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000),clientEntryId=b.clientEntryId==null?null:String(b.clientEntryId);
+        const b=await readJson(req),date=String(b.date||dutyDateAt()),type=String(b.type||''),staffKey=b.staffKey==null?'':String(b.staffKey),status=String(b.status||''),title=String(b.title||'').trim().slice(0,160),body=String(b.body||'').trim().slice(0,4000),clientEntryId=b.clientEntryId==null?null:String(b.clientEntryId);
         if(clientEntryId!==null&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientEntryId)){send(res,400,{error:'Некорректный идентификатор офлайн-записи'});return true;}
         const parsedEntryDate=new Date(date+'T00:00:00.000Z');
         if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsedEntryDate.getTime())||parsedEntryDate.toISOString().slice(0,10)!==date||Math.abs(parsedEntryDate.getTime()-Date.now())>31*86400000){send(res,400,{error:'Дата должна быть корректной и находиться в пределах 31 дня от текущей'});return true;}
