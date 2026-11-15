@@ -907,10 +907,16 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'late', title: 'Повторная отметка явки' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorAttendanceUpdate.status, 201);
+  const seniorHandover = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'shift_end', date: seniorWorkspaceBody.date, title: 'Передача смены', body: 'Принимает смену: Иванов\\nНезакрытые вопросы: проверка поста\\nСостояние имущества: без замечаний' })
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorHandover.status, 201);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
   assert.equal(supervisorReports.status, 200);
   const supervisorReportsBody = await supervisorReports.json();
   assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
+  assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'shift_end' && entry.title === 'Передача смены' && entry.body.includes('Незакрытые вопросы')));
   assert.ok(Array.isArray(supervisorReportsBody.latestAttendance));
   assert.ok(supervisorReportsBody.latestAttendance.some(entry => entry.staffKey === 'head-ivanov' && entry.status === 'late'));
   assert.equal(supervisorReportsBody.latestAttendance.filter(entry => entry.staffKey === 'head-ivanov').length, 1);
