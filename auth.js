@@ -319,6 +319,68 @@ function createAuth(pool,send,readJson) {
     const p=url.pathname;
     if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')) return false;
     try {
+      if(p==='/api/duty-schedule'&&req.method==='GET') {
+        const session=await sessionFor(req);
+        if(!session){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(session.must_change_password){send(res,403,{error:'Сначала завершите настройку учётной записи'});return true;}
+        if(!SHARED_STAFF_ROLES.includes(session.role)&&session.role!=='starshiy_patrulya'){
+          send(res,403,{error:'Просмотр графика недоступен для этой роли'});return true;
+        }
+        const month=String(url.searchParams.get('month')||new Date().toISOString().slice(0,7));
+        if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)){send(res,400,{error:'Укажите корректный месяц'});return true;}
+        const monthStart=month+'-01';
+        const nextMonthDate=new Date(monthStart+'T00:00:00.000Z');
+        nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth()+1);
+        const monthEnd=nextMonthDate.toISOString().slice(0,10);
+        const shared=await readSharedStaffForSenior();
+        let ownDepartment=null;
+        if(session.role==='starshiy_patrulya'){
+          const profile=await currentSeniorProfile(session);
+          if(!profile){send(res,403,{error:'Доступ к графику отделения отсутствует'});return true;}
+          ownDepartment={id:String(profile.department.id),name:String(profile.department.name||profile.department.id)};
+        }
+        const q=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
+        const head=q.rowCount?await readRoleData(pool,'nachalnik',q.rows[0]):null;
+        const departmentList=(shared.departments||[]).map(item=>({id:String(item.id),name:String(item.name||item.id)}));
+        const departmentById=new Map(departmentList.map(item=>[item.id,item]));
+        const departmentByName=new Map(departmentList.map(item=>[sharedNameKey(item.name),item]));
+        const canonicalDepartment=item=>{
+          const direct=departmentById.get(String(item.departmentId||''));
+          return direct||departmentByName.get(sharedNameKey(item.departmentName||''))||null;
+        };
+        const ownName=ownDepartment?sharedNameKey(ownDepartment.name):'';
+        const sourceDuty=head&&head.duty&&typeof head.duty==='object'?head.duty:{};
+        const days=Object.entries(sourceDuty).filter(([date])=>/^\\d{4}-\\d{2}-\\d{2}$/.test(date)&&date>=monthStart&&date<monthEnd).map(([date,duty])=>{
+          const assignments=(Array.isArray(duty&&duty.departmentAssignments)?duty.departmentAssignments:[]).map(item=>{
+            const department=canonicalDepartment(item);
+            const substitution=(Array.isArray(duty.seniorSubstitutions)?duty.seniorSubstitutions:[]).find(x=>{
+              const subDepartment=canonicalDepartment(x);
+              return subDepartment&&department&&subDepartment.id===department.id;
+            });
+            return {
+              departmentId:department?department.id:String(item.departmentId||''),
+              departmentName:department?department.name:String(item.departmentName||'Отделение'),
+              post:String(item.post||''),
+              seniorId:String(item.seniorId||''),
+              seniorName:String(item.seniorName||''),
+              effectiveSenior:String(substitution&&substitution.substituteSenior||item.seniorName||''),
+              isSubstitute:!!substitution,
+              substituteSenior:String(substitution&&substitution.substituteSenior||''),
+              substituteReason:String(substitution&&substitution.reason||'')
+            };
+          }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName);
+          return {date,assignments};
+        }).filter(day=>day.assignments.length);
+        const posts=String(head&&head.set&&head.set.posts||'').split(',').map(item=>item.trim()).filter(Boolean);
+        send(res,200,{
+          month,days,departments:ownDepartment?[ownDepartment]:departmentList,posts,
+          version:q.rowCount?Number(q.rows[0].version):0,
+          updatedAt:q.rowCount?q.rows[0].updated_at:null,
+          readOnly:true,actorRole:session.role,
+          scope:ownDepartment?'own_department':'all_departments'
+        });
+        return true;
+      }
       if(p==='/api/patrol-senior/eligible'&&req.method==='GET') {
         const session=await sessionFor(req);
         if(!session){send(res,401,{error:'Требуется вход'});return true;}
