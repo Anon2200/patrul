@@ -526,9 +526,16 @@ function createAuth(pool,send,readJson) {
         if(type==='report'&&!title) {send(res,400,{error:'Укажите тему доклада'});return true;}
         const saved=await pool.query('INSERT INTO patrul_patrol_senior_entries(senior_user_id,department_id,staff_key,entry_date,entry_type,status,title,body,client_entry_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::uuid) ON CONFLICT (senior_user_id,client_entry_id) WHERE client_entry_id IS NOT NULL DO NOTHING RETURNING id,created_at',[session.id,String(profile.department.id),staffKey||null,date,type,status||null,title||null,body||null,clientEntryId]);
         if(!saved.rowCount){
-          const existing=await pool.query('SELECT id,created_at FROM patrul_patrol_senior_entries WHERE senior_user_id=$1 AND client_entry_id=$2',[session.id,clientEntryId]);
+          const existing=await pool.query('SELECT id,created_at,department_id,staff_key,entry_date,entry_type,status,title,body FROM patrul_patrol_senior_entries WHERE senior_user_id=$1 AND client_entry_id=$2',[session.id,clientEntryId]);
           if(!existing.rowCount){send(res,409,{error:'Не удалось подтвердить сохранение офлайн-записи'});return true;}
-          send(res,200,{id:existing.rows[0].id,createdAt:existing.rows[0].created_at,duplicate:true});return true;
+          const row=existing.rows[0];
+          const samePayload=String(row.department_id)===String(profile.department.id)&&
+            String(row.staff_key||'')===String(staffKey)&&
+            String(row.entry_date).slice(0,10)===date&&
+            row.entry_type===type&&String(row.status||'')===String(status||'')&&
+            String(row.title||'')===String(title||'')&&String(row.body||'')===String(body||'');
+          if(!samePayload){send(res,409,{error:'Идентификатор офлайн-записи уже использован для другого содержимого'});return true;}
+          send(res,200,{id:row.id,createdAt:row.created_at,duplicate:true});return true;
         }
         await audit(session.id,'patrol_senior_entry_created',session.id,{departmentId:profile.department.id,type,staffKey:staffKey||null,offlineReplay:!!clientEntryId});
         send(res,201,{id:saved.rows[0].id,createdAt:saved.rows[0].created_at,duplicate:false});return true;
