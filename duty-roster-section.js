@@ -62,9 +62,12 @@
   const assignment = (record, id) => record.departmentAssignments.find(item => String(item.departmentId) === String(id));
   const fullNameKey = value => norm(value).replace(/[.,]/g,'').replace(/\s+/g,' ');
   const initialsKey = value => {
-    const parts = fullNameKey(value).split(' ').filter(Boolean);
+    const raw = norm(value), parts = raw.split(' ').filter(Boolean);
     if (parts.length < 2) return '';
-    return parts[0] + ' ' + parts.slice(1).map(part => part[0]).join('');
+    const surname = parts[0].replace(/[.,]/g,'');
+    const tail = parts.slice(1);
+    const initials = raw.includes('.') ? tail.join('').replace(/[^a-zа-я]/g,'') : tail.map(part => part[0]).join('');
+    return initials ? surname + ' ' + initials : '';
   };
   const rowName = row => clean(row && (row.fio || row.name));
   const nonEmpty = value => value !== undefined && value !== null && clean(value) !== '';
@@ -73,6 +76,9 @@
     if (!key) return [];
     const exact = members.filter(member => fullNameKey(member.name) === key);
     if (exact.length) return exact;
+    const initials = initialsKey(rowName(row));
+    const initialMatches = initials ? members.filter(member => initialsKey(member.name) === initials) : [];
+    if (initialMatches.length) return initialMatches;
     const rowParts = key.split(' ').filter(Boolean);
     if (rowParts.length < 2) return [];
     const abbreviated = members.filter(member => {
@@ -83,8 +89,7 @@
       return given.every((part,index) => parts[index + 1] && (parts[index + 1] === part || (part.length === 1 && parts[index + 1][0] === part)));
     });
     if (abbreviated.length) return abbreviated;
-    const initials = initialsKey(rowName(row));
-    return initials ? members.filter(member => initialsKey(member.name) === initials) : [];
+    return [];
   };
   const makePlan = (record, post, members) => {
     const allRows = [];
