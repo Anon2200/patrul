@@ -24,7 +24,7 @@ const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@12
 
 function currentDutyDate() {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone:process.env.PATRUL_TIME_ZONE || 'Europe/Berlin',
+    timeZone:process.env.PATRUL_TIME_ZONE || 'Europe/Moscow',
     year:'numeric',month:'2-digit',day:'2-digit'
   }).formatToParts(new Date());
   const values={};

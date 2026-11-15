@@ -4,21 +4,21 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {dutyDateAt,nextDutyMidnight,purgeExpiredDutyData,DUTY_TIME_ZONE} = require('../duty-store');
 
-test('duty day uses the configured Berlin local calendar date', () => {
-  assert.equal(DUTY_TIME_ZONE,'Europe/Berlin');
-  assert.equal(dutyDateAt(Date.parse('2026-01-01T22:59:59.000Z')),'2026-01-01');
-  assert.equal(dutyDateAt(Date.parse('2026-01-01T23:00:00.000Z')),'2026-01-02');
+test('duty day uses the configured Moscow local calendar date', () => {
+  assert.equal(DUTY_TIME_ZONE,'Europe/Moscow');
+  assert.equal(dutyDateAt(Date.parse('2026-01-01T20:59:59.000Z')),'2026-01-01');
+  assert.equal(dutyDateAt(Date.parse('2026-01-01T21:00:00.000Z')),'2026-01-02');
 });
 
-test('duty midnight remains correct across the spring daylight-saving transition', () => {
-  assert.equal(dutyDateAt(Date.parse('2026-03-29T21:59:59.000Z')),'2026-03-29');
-  assert.equal(dutyDateAt(Date.parse('2026-03-29T22:00:00.000Z')),'2026-03-30');
+test('duty midnight remains correct across the dates where Europe/Berlin would change its offset', () => {
+  assert.equal(dutyDateAt(Date.parse('2026-03-29T20:59:59.000Z')),'2026-03-29');
+  assert.equal(dutyDateAt(Date.parse('2026-03-29T21:00:00.000Z')),'2026-03-30');
 });
 
 test('next cleanup timer targets the next local midnight through DST changes', () => {
-  assert.equal(nextDutyMidnight(Date.parse('2026-01-01T12:00:00.000Z')),Date.parse('2026-01-01T23:00:00.000Z'));
-  assert.equal(nextDutyMidnight(Date.parse('2026-03-29T21:59:59.000Z')),Date.parse('2026-03-29T22:00:00.000Z'));
-  assert.equal(nextDutyMidnight(Date.parse('2026-10-25T22:59:59.000Z')),Date.parse('2026-10-25T23:00:00.000Z'));
+  assert.equal(nextDutyMidnight(Date.parse('2026-01-01T12:00:00.000Z')),Date.parse('2026-01-01T21:00:00.000Z'));
+  assert.equal(nextDutyMidnight(Date.parse('2026-03-29T20:59:59.000Z')),Date.parse('2026-03-29T21:00:00.000Z'));
+  assert.equal(nextDutyMidnight(Date.parse('2026-10-25T20:59:59.000Z')),Date.parse('2026-10-25T21:00:00.000Z'));
 });
 
 test('daily cleanup atomically removes expired rosters and senior daily logs but preserves calendar schedule history', async () => {

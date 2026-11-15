@@ -1,6 +1,6 @@
 'use strict';
 
-const DUTY_TIME_ZONE = process.env.PATRUL_TIME_ZONE || 'Europe/Berlin';
+const DUTY_TIME_ZONE = process.env.PATRUL_TIME_ZONE || 'Europe/Moscow';
 const DATE_PARTS = new Intl.DateTimeFormat('en-GB', {
   timeZone:DUTY_TIME_ZONE,
   year:'numeric',

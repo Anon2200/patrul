@@ -68,10 +68,10 @@ if (!bulkRebuildCode.includes('if(!(await loadAll()))return;') ||
 if (newDutyRoster.includes('save();') || !newDutyRoster.includes("api('/api/duty-roster'") || !cloudSync.includes("if(role==='nachalnik')delete copy.duty")) fail('daily duty roster must persist only through its independent API, while commander role snapshots omit duty');
 if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule') || !patrolSeniorAuth.includes('UNION SELECT duty_date FROM patrul_duty_schedule WHERE duty_date>=$1::date')) fail('duty APIs must use independent PostgreSQL tables and include scheduled-only dates in bulk reads');
 if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
-if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'")) fail('daily duty cleanup must use the configured local timezone');
+if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Moscow'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
 const dutyStore = fs.readFileSync('duty-store.js','utf8');
-if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Berlin'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
+if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Moscow'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
 if (!fs.readFileSync('cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
 
 try {
@@ -247,14 +247,13 @@ if (dutyRulesStart < 0 || dutyRulesEnd < 0) {
     fail('duty roster senior role classification: ' + error.message);
   }
 }
-if (!commanderDutyPage.includes('Снаряжение (только Старшему патруля)') ||
-    !commanderDutyPage.includes('Не выдаётся') ||
-    !commanderDutyPage.includes('Подпись за получение снаряжения') ||
-    !commanderDutyPage.includes('ЗАСТУПЛЕНИЕ НА СЛУЖБУ') ||
-    !commanderDutyPage.includes("equipment=senior?(postKitText(p)||r.eq||''):'—'") ||
-    !commanderDutyPage.includes("senior?'':'—'") ||
+const rosterModule = fs.readFileSync('duty-roster-section.js', 'utf8');
+if (commanderDutyPage.includes('Снаряжение (только Старшему патруля)') ||
+    commanderDutyPage.includes('Подпись за получение снаряжения') ||
+    /Снаряжение/.test(rosterModule) ||
+    !commanderDutyPage.includes('СДАЧА ДЕЖУРСТВА') ||
     !commanderDutyPage.includes('e(dutyRowPosition(r))')) {
-  fail('printed duty roster must issue equipment and request its signature only from Senior Patrol while all personnel sign for taking duty');
+  fail('duty roster must not contain an equipment column: equipment is signed for in the senior master statement; personnel only sign for taking duty');
 }
 
 if (!seniorMasterPage.includes('data-act="itqr"') || !seniorMasterPage.includes('EXA.itqr=t=>') || !seniorMasterPage.includes('EXA.itqrp=()=>')) fail('main equipment inventory must support QR label preview and printing');
@@ -335,7 +334,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (!html.includes("navigator.serviceWorker.register('/sw.js?v=20261115-14',{updateViaCache:'none'})") || !html.includes('.then(reg=>reg.update())')) fail(file + ' must register and immediately update the versioned service worker');
   if (!html.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load the shared duty calendar');
   if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
-  if (file === 'nachalnik.html' && (!html.includes('postKitText') || !html.includes('kit-display'))) fail(file + ' must show shared post equipment in the duty roster');
+  if (file === 'nachalnik.html' && (!html.includes('postKitText'))) fail(file + ' must show shared post equipment in the duty roster');
   if (html.indexOf('src="staff-workspace.js?v=' + ASSET_VERSION + '"') < html.indexOf('src="personal-workspace.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);

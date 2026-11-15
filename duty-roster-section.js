@@ -17,6 +17,7 @@
   const saveErrors=new Map();
   const revisions=new Map();
   const pendingConflicts=new Map();
+  let pendingRedraw=false;
   const defaultRecord=()=>({t1:'',t2:'',boss:'',dep:'',dut:'',brief:false,briefT:'',rows:{},defects:[],incs:[],summary:'',rep:false,repT:''});
   const clone=value=>JSON.parse(JSON.stringify(value==null?{}:value));
   const clean=value=>String(value==null?'':value).trim();
@@ -36,7 +37,6 @@
   }
   const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value);
   const allPosts=()=>typeof posts==='function'?posts().map(String).filter(Boolean):[];
-  const postKit=post=>typeof postKitText==='function'?postKitText(post):'';
   const staffPerson=name=>(D.staff||[]).find(person=>nameKey(person.name||person.fio)===nameKey(name));
   const positionOf=row=>clean(row&&row.pos)||(staffPerson(rowName(row))&&clean(staffPerson(rowName(row)).pos))||'';
   const isSenior=row=>/старш.*патрул/i.test(positionOf(row))||scheduleFor(selectedDate()).assignments.some(item=>nameKey(item.effectiveSenior||item.seniorName)===nameKey(rowName(row)));
@@ -172,6 +172,14 @@
     return {...totals,skipped:false,data:working};
   }
 
+  // Перерисовка страницы сбрасывает фокус и стирает недописанный текст, поэтому пока
+  // пользователь вводит данные в поле наряда, откладываем её до выхода из поля.
+  function redraw() {
+    const a=document.activeElement,m=document.getElementById('m');
+    if(a&&a.dataset&&a.dataset.nrField&&m&&m.contains(a)){pendingRedraw=true;return;}
+    pendingRedraw=false;draw(1);
+  }
+  document.addEventListener('focusout',()=>{if(pendingRedraw)setTimeout(redraw,0);});
   async function loadOne(date,force=false) {
     if(!validDate(date))return;
     if(!force&&rosters.has(date))return;
@@ -185,10 +193,10 @@
       schedules.set(date,result.result.schedule||{assignments:[],substitutions:[]});
       mirrorLegacy(date);
       saveErrors.delete(date);
-      draw(1);
+      redraw();
     }catch(error){
       saveErrors.set(date,error.message);
-      draw(1);
+      redraw();
     }
   }
   async function loadAll() {
@@ -267,7 +275,7 @@
     }finally{
       saving.delete(date);
       if((revisions.get(date)||0)!==revision&&!pendingConflicts.has(date))queuePersist(date);
-      draw(1);
+      redraw();
     }
   }
   function getPath(object,path){return path.split('|').reduce((value,key)=>value==null?undefined:value[key],object);}
@@ -276,12 +284,21 @@
     const date=target.dataset.nrDate||selectedDate(),record=recordFor(date),path=target.dataset.nrField;
     if(!path)return;
     const value=target.type==='checkbox'?target.checked:target.value;
-    setPath(record,path,value);
     const parts=path.split('|');
+    if(parts[0]==='rows'&&parts.length===4){
+      if(!record.rows||typeof record.rows!=='object')record.rows={};
+      const list=Array.isArray(record.rows[parts[1]])?record.rows[parts[1]]:(record.rows[parts[1]]=[]);
+      for(let i=0;i<=Number(parts[2]);i++)if(!list[i]||typeof list[i]!=='object')list[i]={};
+    }
+    setPath(record,path,value);
     if(parts[0]==='rows'&&parts[parts.length-1]==='fio'){
       const row=getPath(record,parts.slice(0,-1).join('|'));
       const person=staffPerson(value);
-      if(person&&!clean(row.pos))row.pos=person.pos||person.position||'';
+      if(person&&!clean(row.pos)){
+        row.pos=person.pos||person.position||'';
+        const posInput=document.querySelector('[data-nr-field="'+parts.slice(0,-1).join('|')+'|pos"]');
+        if(posInput&&!posInput.value)posInput.value=row.pos;
+      }
     }
     syncSave(date);
   }
@@ -309,27 +326,16 @@
     return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав наряда по постам</h3><p>Сотрудники, время заступления и сдачи службы</p></div><button class="btn s g" data-act="nrResetRoster">Сбросить состав за дату</button></div></section>'+
       postsList.map(post=>{
         const rows=rowsOf(record,post),filled=rows.filter(row=>rowName(row)).length;
-        return '<section class="nr-post"><div class="nr-post-head"><div><h3>'+escape(post)+'</h3><span>'+filled+' сотрудников</span></div><button class="btn s g" data-act="nrAddRow" data-post="'+escape(post)+'">+ строка</button></div><div class="nr-table-wrap"><table class="nr-table nr-roster"><thead><tr><th>ФИО</th><th>Должность</th><th>Снаряжение</th><th>Заступление</th><th>Сдача</th></tr></thead><tbody>'+
+        return '<section class="nr-post"><div class="nr-post-head"><div><h3>'+escape(post)+'</h3><span>'+filled+' сотрудников</span></div><button class="btn s g" data-act="nrAddRow" data-post="'+escape(post)+'">+ строка</button></div><div class="nr-table-wrap"><table class="nr-table nr-roster"><thead><tr><th>ФИО</th><th>Должность</th><th>Заступление</th><th>Сдача</th></tr></thead><tbody>'+
           rows.map((row,index)=>{
-            const prefix='rows|'+post+'|'+index+'|',senior=isSeniorForDate(date,row,post),kit=postKit(post);
-            const equipment=senior?(kit&&row.fio?'<div class="nr-kit">'+escape(kit)+'</div>':'<input '+field(prefix+'eq',row.eq,'text','Выданное снаряжение')+'>'):'<span class="nr-muted">Не выдаётся</span>';
-            return '<tr><td><input list="dl_staff" '+field(prefix+'fio',row.fio,'text','Фамилия Имя Отчество')+'></td><td><input '+field(prefix+'pos',row.pos,'text','Должность')+'></td><td>'+equipment+'</td><td><input '+field(prefix+'tin',row.tin,'time')+'></td><td><input '+field(prefix+'tout',row.tout,'time')+'></td></tr>';
+            const prefix='rows|'+post+'|'+index+'|';
+            return '<tr><td><input list="dl_staff" '+field(prefix+'fio',row.fio,'text','Фамилия Имя Отчество')+'></td><td><input '+field(prefix+'pos',row.pos,'text','Должность')+'></td><td><input '+field(prefix+'tin',row.tin,'time')+'></td><td><input '+field(prefix+'tout',row.tout,'time')+'></td></tr>';
           }).join('')+'</tbody></table></div></section>';
       }).join('');
   }
   function isSeniorForDate(date,row,post) {
     if(/старш.*патрул/i.test(clean(row.pos||staffPerson(rowName(row))?.pos)))return true;
     return (scheduleFor(date).assignments||[]).some(item=>{const sub=(scheduleFor(date).substitutions||[]).find(entry=>String(entry.departmentId)===String(item.departmentId));const effective=sub&&sub.substituteSenior||item.seniorName;return item.post===post&&nameKey(effective)===nameKey(rowName(row));});
-  }
-  function equipmentPanel(record,date) {
-    const entries=[];
-    allPosts().forEach(post=>(record.rows[post]||[]).forEach((row,index)=>{
-      if(rowName(row)&&isSeniorForDate(date,row,post))entries.push({post,row,index});
-    }));
-    if(!entries.length)return '<section class="nr-panel"><h3>Получение снаряжения</h3><p class="nr-empty">Старший патруля пока не внесён в состав наряда.</p></section>';
-    return '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Получение снаряжения</h3><p>Снаряжение выдаётся только Старшему патруля каждого назначенного поста</p></div></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Пост</th><th>Старший патруля</th><th>Комплект по посту</th><th>Примечание о выдаче</th></tr></thead><tbody>'+
-      entries.map(item=>'<tr><td>'+escape(item.post)+'</td><td><b>'+escape(rowName(item.row))+'</b></td><td>'+escape(postKit(item.post)||'Не задан в настройках')+'</td><td><input '+field('rows|'+item.post+'|'+item.index+'|eq',item.row.eq,'text','Выдано / замечание')+'></td></tr>').join('')+
-      '</tbody></table></div></section>';
   }
   function eventsPanel(record) {
     const defects=record.defects.length?record.defects.map((item,index)=>{
@@ -367,7 +373,7 @@
     const assignments=scheduleFor(date).assignments||[];
     return shiftPanel(record)+
       '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Назначения отделений на дату</h3><p>Посты берутся из отдельного календаря дежурств</p></div><button class="btn s g" data-act="nrRefresh">Обновить</button></div>'+assignmentPanel(date)+'</section>'+
-      '<section class="nr-panel nr-rebuild"><div><h3>Сформировать состав наряда</h3><p>Сотрудники перемещаются на посты из графика; дубли удаляются. Время, снаряжение, подписи и дополнительные поля сохраняются. При конфликте ФИО конкретная дата не изменяется.</p></div><div class="nr-actions"><button class="btn" data-act="nrRebuildDay">Пересобрать эту дату</button><button class="btn g" data-act="nrRebuildAll">Пересобрать все дни</button></div></section>'+
+      '<section class="nr-panel nr-rebuild"><div><h3>Сформировать состав наряда</h3><p>Сотрудники перемещаются на посты из графика; дубли удаляются. Время, подписи и дополнительные поля сохраняются. При конфликте ФИО конкретная дата не изменяется.</p></div><div class="nr-actions"><button class="btn" data-act="nrRebuildDay">Пересобрать эту дату</button><button class="btn g" data-act="nrRebuildAll">Пересобрать все дни</button></div></section>'+
       '<section class="nr-panel"><div class="nr-panel-head"><div><h3>Состав по постам</h3><p>Сотрудники, назначенные на дату</p></div><button class="btn s g" data-act="nrPane" data-pane="roster">Открыть состав</button></div><div class="nr-post-summary">'+
       allPosts().map(post=>'<div><b>'+escape(post)+'</b><span>'+((record.rows[post]||[]).filter(row=>rowName(row)).map(row=>escape(rowName(row))).join(', ')||'Пока никого нет')+'</span></div>').join('')+
       '</div></section>';
@@ -379,7 +385,6 @@
     let content='';
     if(pane==='overview')content=overview(record,date);
     else if(pane==='roster')content=rosterPanel(record,date);
-    else if(pane==='equipment')content=equipmentPanel(record,date);
     else if(pane==='events')content=eventsPanel(record);
     else if(pane==='report')content=reportPanel(record);
     const issue=saveErrors.get(date);
@@ -390,7 +395,6 @@
       stats(record,date)+'<nav class="nr-tabs">'+
       '<button class="nr-tab '+(pane==='overview'?'active':'')+'" data-act="nrPane" data-pane="overview">Обзор смены</button>'+
       '<button class="nr-tab '+(pane==='roster'?'active':'')+'" data-act="nrPane" data-pane="roster">Состав наряда</button>'+
-      '<button class="nr-tab '+(pane==='equipment'?'active':'')+'" data-act="nrPane" data-pane="equipment">Снаряжение</button>'+
       '<button class="nr-tab '+(pane==='events'?'active':'')+'" data-act="nrPane" data-pane="events">Недочёты и происшествия</button>'+
       '<button class="nr-tab '+(pane==='report'?'active':'')+'" data-act="nrPane" data-pane="report">Итоги службы</button></nav>'+content+'</div>';
   }
@@ -481,12 +485,11 @@
     const date=selectedDate(),record=recordFor(date),dateLabel=typeof fl==='function'?fl(date):date;
     const lines=[];
     allPosts().forEach(post=>(record.rows[post]||[]).filter(row=>rowName(row)).forEach(row=>{
-      const senior=isSeniorForDate(date,row,post),equipment=senior?(postKit(post)||row.eq||''):'—';
-      lines.push('<tr><td>'+escape(post)+'</td><td>'+escape(rowName(row))+'</td><td>'+escape(row.pos||positionOf(row))+'</td><td>'+escape(equipment)+'</td><td>'+escape(row.tin||'')+'</td><td>'+escape(row.tout||'')+'</td><td>________________</td></tr>');
+            lines.push('<tr><td>'+escape(post)+'</td><td>'+escape(rowName(row))+'</td><td>'+escape(row.pos||positionOf(row))+'</td><td>'+escape(row.tin||'')+'</td><td>________________</td><td>'+escape(row.tout||'')+'</td><td>________________</td></tr>');
     }));
     const html=kind==='report'
       ? '<h1>РАПОРТ ОБ ИТОГАХ НЕСЕНИЯ СЛУЖБЫ</h1><p>Дата: '+escape(dateLabel)+'. Смена: '+escape(record.t1||'—')+' — '+escape(record.t2||'—')+'.</p><p>Личного состава в наряде: '+lines.length+'. Недочётов: '+record.defects.length+'. Происшествий: '+record.incs.length+'.</p><p><b>Итоги:</b> '+escape(record.summary||'—')+'</p><p>Доложено: '+(record.rep?'да':'нет')+(record.repT?' в '+escape(record.repT):'')+'.</p><p style="margin-top:50px">Начальник патруля __________________ / '+escape(record.boss||'')+'</p>'
-      : '<h1>КНИГА СЛУЖБЫ. НАРЯД НА '+escape(dateLabel)+'</h1><p>Смена: '+escape(record.t1||'—')+' — '+escape(record.t2||'—')+'. Начальник патруля: '+escape(record.boss||'—')+'. Заместитель: '+escape(record.dep||'—')+'. Дежурный по помещению: '+escape(record.dut||'—')+'.</p><p>Инструктаж: '+(record.brief?'проведён':'не отмечен')+(record.briefT?' в '+escape(record.briefT):'')+'.</p><table><thead><tr><th>Пост</th><th>ФИО</th><th>Должность</th><th>Снаряжение (Старший патруля)</th><th>Заступление</th><th>Сдача</th><th>Подпись</th></tr></thead><tbody>'+(lines.join('')||'<tr><td colspan="7">Состав не заполнен</td></tr>')+'</tbody></table><h2>Недочёты</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Кто допустил</th><th>Меры</th><th>Устранено</th></tr>'+record.defects.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.who)+'</td><td>'+escape(item.meas)+'</td><td>'+(item.fixed?'да':'нет')+'</td></tr>').join('')+'</table><h2>Происшествия и замечания</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Меры</th></tr>'+record.incs.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.meas)+'</td></tr>').join('')+'</table>';
+      : '<h1>КНИГА СЛУЖБЫ. НАРЯД НА '+escape(dateLabel)+'</h1><p>Смена: '+escape(record.t1||'—')+' — '+escape(record.t2||'—')+'. Начальник патруля: '+escape(record.boss||'—')+'. Заместитель: '+escape(record.dep||'—')+'. Дежурный по помещению: '+escape(record.dut||'—')+'.</p><p>Инструктаж: '+(record.brief?'проведён':'не отмечен')+(record.briefT?' в '+escape(record.briefT):'')+'.</p><table><thead><tr><th>Пост</th><th>ФИО</th><th>Должность</th><th>Время заступления</th><th>Подпись за принятие дежурства</th><th>Время сдачи</th><th>Подпись за сдачу дежурства</th></tr></thead><tbody>'+(lines.join('')||'<tr><td colspan="7">Состав не заполнен</td></tr>')+'</tbody></table><h2>Недочёты</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Кто допустил</th><th>Меры</th><th>Устранено</th></tr>'+record.defects.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.who)+'</td><td>'+escape(item.meas)+'</td><td>'+(item.fixed?'да':'нет')+'</td></tr>').join('')+'</table><h2>Происшествия и замечания</h2><table><tr><th>Время</th><th>Пост</th><th>Описание</th><th>Меры</th></tr>'+record.incs.map(item=>'<tr><td>'+escape(item.t)+'</td><td>'+escape(item.post)+'</td><td>'+escape(item.text)+'</td><td>'+escape(item.meas)+'</td></tr>').join('')+'</table>';
     const win=window.open('','_blank');
     if(!win){toast('Разрешите всплывающее окно для печати документа.');return;}
     win.document.open();
