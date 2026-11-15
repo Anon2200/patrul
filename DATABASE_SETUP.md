@@ -6,7 +6,7 @@
 
 - `patrul_role_data` — рабочие данные четырёх основных кабинетов; перед записью они шифруются AES-256-GCM.
 - `patrul_shared_staff` — единый зашифрованный список личного состава и отделений.
-- `patrul_patrol_senior_credentials`, `patrul_patrol_senior_invites`, `patrul_patrol_senior_entries` — привязка старших патрулей к отделениям, одноразовые коды активации, PIN-хэши и журнал смен.
+- `patrul_patrol_senior_credentials`, `patrul_patrol_senior_invites`, `patrul_patrol_senior_entries` — привязка старших патрулей к отделениям, одноразовые коды активации, PIN-хэши и журнал смен; миграция `009_patrol_senior_offline_queue.sql` добавляет идентификатор клиента и уникальный индекс для безопасного повтора офлайн-записей.
 - `patrul_tasks`, `patrul_task_events`, `patrul_task_notifications` — общие поручения, история статусов и уведомления.
 - `patrul_mail_threads`, `patrul_mail_participants`, `patrul_mail_messages`, `patrul_mail_attachments` — внутренняя почта и вложения.
 - `patrul_users` — персональные учётные записи и хэши паролей.
