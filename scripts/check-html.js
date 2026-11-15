@@ -229,6 +229,8 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-02'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+
 if (!serviceWorker.includes('cloud-sync.js')) {
   // The sync script is loaded by the HTML and cached through normal network fetches.
   console.log('sw.js: cloud-sync.js is fetched dynamically and cached by the fetch handler');
