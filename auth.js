@@ -493,18 +493,24 @@ function createAuth(pool,send,readJson) {
         const parsedDutyDate=new Date(today+'T00:00:00.000Z');
         if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||Number.isNaN(parsedDutyDate.getTime())||parsedDutyDate.toISOString().slice(0,10)!==today){send(res,400,{error:'Некорректная дата'});return true;}
         const head=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
-        let assignedPost='',postConflict=false;
+        let assignedPost='',postConflict=false,schedule=null;
         if(head.rowCount){
           const headData=await readRoleData(pool,'nachalnik',head.rows[0]),duty=headData&&headData.duty&&headData.duty[today],rows=duty&&duty.rows&&typeof duty.rows==='object'?duty.rows:{};
           const departmentNames=new Set(profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>sharedNameKey(person.name)).filter(Boolean));
           const assignedPosts=Object.entries(rows).filter(([post,list])=>Array.isArray(list)&&list.some(row=>departmentNames.has(sharedNameKey(row&&row.fio)))).map(([post])=>String(post));
           postConflict=assignedPosts.length>1;
           if(assignedPosts.length===1)assignedPost=assignedPosts[0];
+          const assignment=Array.isArray(duty&&duty.departmentAssignments)?duty.departmentAssignments.find(item=>String(item.departmentId)===String(profile.department.id)):null;
+          const substitution=Array.isArray(duty&&duty.seniorSubstitutions)?duty.seniorSubstitutions.find(item=>String(item.departmentId)===String(profile.department.id)):null;
+          if(assignment){
+            assignedPost=String(assignment.post||assignedPost||'');
+            schedule={departmentName:String(assignment.departmentName||profile.department.name),post:assignedPost||null,assignedSenior:String(assignment.seniorName||''),effectiveSenior:String(substitution&&substitution.substituteSenior||assignment.seniorName||''),isSubstitute:!!substitution,substituteReason:String(substitution&&substitution.reason||'')};
+          }
         }
         const equipment=(profile.data.postEquipment||[]).find(item=>sharedNameKey(item.name)===sharedNameKey(assignedPost));
         const entries=await pool.query('SELECT id,staff_key,entry_date,entry_type,status,title,body,created_at FROM patrul_patrol_senior_entries WHERE department_id=$1 AND entry_date=$2 ORDER BY created_at DESC,id DESC',[String(profile.department.id),today]);
         const roster=profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>({key:String(person.k),name:String(person.name||''),position:String(person.pos||''),phone:String(person.tel||''),status:String(person.st||'')}));
-        send(res,200,{date:today,user:publicUser(session),department:{id:profile.department.id,name:profile.department.name},senior:{key:String(profile.person.k),name:profile.person.name},roster,post:assignedPost||null,postConflict,equipment:equipment&&Array.isArray(equipment.items)?equipment.items:[],entries:entries.rows});return true;
+        send(res,200,{date:today,user:publicUser(session),department:{id:profile.department.id,name:profile.department.name},senior:{key:String(profile.person.k),name:profile.person.name},roster,post:assignedPost||null,postConflict,schedule,equipment:equipment&&Array.isArray(equipment.items)?equipment.items:[],entries:entries.rows});return true;
       }
       if(p==='/api/patrol-senior/entries'&&req.method==='POST') {
         const session=await sessionFor(req);
