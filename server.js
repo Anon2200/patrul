@@ -292,9 +292,11 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { role, data: null, version: 0, updatedAt: null });
       }
       const row = result.rows[0];
+      const data = await readRoleData(pool, role, row);
+      if (role === 'nachalnik' && data && typeof data === 'object' && !Array.isArray(data)) delete data.duty;
       return send(res, 200, {
         role,
-        data: await readRoleData(pool, role, row),
+        data,
         version: Number(row.version),
         updatedAt: row.updated_at
       });
@@ -316,7 +318,7 @@ const server = http.createServer(async (req, res) => {
       'version = patrul_role_data.version + 1, updated_at = NOW() ' +
       'WHERE patrul_role_data.version = $3 ' +
       'RETURNING data, version, updated_at',
-      [role, JSON.stringify(encryptData(body.data, role)), body.expectedVersion]
+      [role, JSON.stringify(encryptData(role === 'nachalnik' && body.data && typeof body.data === 'object' ? Object.fromEntries(Object.entries(body.data).filter(([key]) => key !== 'duty')) : body.data, role)), body.expectedVersion]
     );
 
     if (result.rowCount === 0) {
