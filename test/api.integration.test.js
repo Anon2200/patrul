@@ -907,16 +907,24 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
     body: JSON.stringify({ type: 'attendance', date: seniorWorkspaceBody.date, staffKey: 'head-ivanov', status: 'late', title: 'Повторная отметка явки' })
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorAttendanceUpdate.status, 201);
+  const queuedHandoverPayload = { type: 'shift_end', date: seniorWorkspaceBody.date, title: 'Передача смены', body: 'Принимает смену: Иванов\nНезакрытые вопросы: проверка поста\nСостояние имущества: без замечаний', clientEntryId: '9d2a59a1-1a7b-4a61-8f49-3b4c3a24e5c6' };
   const seniorHandover = await sessionApi('/api/patrol-senior/entries', {
     method: 'POST',
-    body: JSON.stringify({ type: 'shift_end', date: seniorWorkspaceBody.date, title: 'Передача смены', body: 'Принимает смену: Иванов\nНезакрытые вопросы: проверка поста\nСостояние имущества: без замечаний' })
+    body: JSON.stringify(queuedHandoverPayload)
   }, seniorCookie, seniorBody.csrfToken);
   assert.equal(seniorHandover.status, 201);
+  const seniorHandoverRetry = await sessionApi('/api/patrol-senior/entries', {
+    method: 'POST',
+    body: JSON.stringify(queuedHandoverPayload)
+  }, seniorCookie, seniorBody.csrfToken);
+  assert.equal(seniorHandoverRetry.status, 200);
+  assert.equal((await seniorHandoverRetry.json()).duplicate, true);
   const supervisorReports = await sessionApi('/api/patrol-senior/reports', {}, adminCookie);
   assert.equal(supervisorReports.status, 200);
   const supervisorReportsBody = await supervisorReports.json();
   assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'attendance' && entry.staffKey === 'head-ivanov'));
   assert.ok(supervisorReportsBody.entries.some(entry => entry.type === 'shift_end' && entry.title === 'Передача смены' && entry.body.includes('Незакрытые вопросы')));
+  assert.equal(supervisorReportsBody.entries.filter(entry => entry.type === 'shift_end' && entry.title === 'Передача смены').length, 1);
   assert.ok(Array.isArray(supervisorReportsBody.latestAttendance));
   assert.ok(supervisorReportsBody.latestAttendance.some(entry => entry.staffKey === 'head-ivanov' && entry.status === 'late'));
   assert.equal(supervisorReportsBody.latestAttendance.filter(entry => entry.staffKey === 'head-ivanov').length, 1);
