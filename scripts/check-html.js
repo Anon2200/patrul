@@ -30,6 +30,9 @@ const mailPage = fs.readFileSync('mail.html', 'utf8');
 const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
 const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
+const dutyScriptIndex = commanderDutyPage.indexOf('src="duty-schedule.js');
+const staffScriptIndex = commanderDutyPage.indexOf('src="staff-workspace.js');
+if (dutyScriptIndex < 0 || staffScriptIndex < 0 || dutyScriptIndex > staffScriptIndex) fail('commander duty schedule must load before staff workspace so the roster assignment block can bind to nr');
 const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
