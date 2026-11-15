@@ -905,7 +905,7 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
   const cleanHeadBody=await cleanHeadData.json();
   assert.equal(Object.prototype.hasOwnProperty.call(cleanHeadBody.data,'duty'),false);
 
-  const scheduleWrite=await sessionApi('/api/duty-schedule','PUT'===null?{}:{
+  const scheduleWrite=await sessionApi('/api/duty-schedule',{
     method:'PUT',
     body:JSON.stringify({
       date:testDutyDate,expectedVersion:0,
