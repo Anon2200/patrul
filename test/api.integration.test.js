@@ -379,6 +379,9 @@ test('bootstrap creates the first Senior Master admin and establishes a session'
 });
 
 test('personal login session, CSRF protection, and role authorization work', async () => {
+  const malformedCookie = await sessionApi('/api/auth/me', {}, '__Host-patrul_session=%');
+  assert.equal(malformedCookie.status, 401);
+
   const me = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(me.status, 200);
   const meBody = await me.json();
