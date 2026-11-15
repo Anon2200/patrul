@@ -337,7 +337,7 @@ const dutyStaffPerson=r=>{
  return (D.staff||[]).find(x=>pc(String(x.name||'')).trim().replace(/\s+/g,' ')===name)||null;
 };
 const dutyRowPosition=r=>String(r&&r.pos||dutyStaffPerson(r)?.pos||'');
-const isSeniorPatrolRow=r=>/старший\s+патруля/.test(pc(dutyRowPosition(r)).trim());; const dv=(d,k)=>`value="${e(d[k]||'')}" data-chg="duty" data-p="${k}"`;
+const isSeniorPatrolRow=r=>/старший\s+патруля/.test(pc(dutyRowPosition(r)).trim()); const dv=(d,k)=>`value="${e(d[k]||'')}" data-chg="duty" data-p="${k}"`;
 function dcount(d){const n=posts().reduce((s,p)=>s+rowsOf(d,p).filter(r=>r.fio).length,0);return[n,d.defects.length,d.defects.filter(x=>x.fixed).length]}
 function nr(){const s=dsel,d=gd(s),[n,nd,nf]=dcount(d);const ph=posts();
  return`<h1>Наряд на службу</h1><p class="sub">Книга службы патруля: приём и сдача дежурства, недочёты, происшествия, итоги дня.</p>
