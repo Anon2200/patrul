@@ -66,6 +66,8 @@ if (!patrolSeniorAuth.includes("session.role!=='starshiy_patrulya'") || !patrolS
 if (!opsWorkspace.includes('seniorActivation') || !opsWorkspace.includes('/api/patrol-senior/activation-code') || !cloudSync.includes('window.PATRUL_CSRF=csrfToken')) fail('higher roles must issue one-time activation codes from the workspace with the authenticated CSRF token');
 if (!opsWorkspace.includes('function showAssetQr') || !opsWorkspace.includes('data-ops="qr"') || !opsWorkspace.includes('window.QRM(payload,1)')) fail('equipment records must provide printable QR labels using inventory identifiers only');
 if (!fs.readFileSync('uchet.html','utf8').includes('window.QRM=function')) fail('the senior master page must load the local QR encoder before the equipment workspace');
+const seniorMasterPage = fs.readFileSync('uchet.html','utf8');
+if (!seniorMasterPage.includes('data-act="itqr"') || !seniorMasterPage.includes('EXA.itqr=t=>') || !seniorMasterPage.includes('EXA.itqrp=()=>')) fail('main equipment inventory must support QR label preview and printing');
 if (!patrolSeniorClient.includes('data-date') || !patrolSeniorClient.includes('data-attendance') || !patrolSeniorClient.includes('data-equipment-status') || !patrolSeniorClient.includes('data-report')) fail('patrol senior dashboard must provide date selection, attendance, equipment and reports');
 
 
