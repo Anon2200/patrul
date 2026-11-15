@@ -28,6 +28,10 @@
   const selectedDate=()=>typeof dsel==='string'&&dsel?dsel:today();
   const scheduleFor=date=>schedules.get(date)||{assignments:[],substitutions:[]};
   const recordFor=date=>rosters.get(date)||defaultRecord();
+  function mirrorLegacy(date) {
+    if(!D.duty||typeof D.duty!=='object')D.duty={};
+    D.duty[date]={...clone(recordFor(date)),departmentAssignments:clone(scheduleFor(date).assignments||[]),seniorSubstitutions:clone(scheduleFor(date).substitutions||[])};
+  }
   const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value);
   const allPosts=()=>typeof posts==='function'?posts().map(String).filter(Boolean):[];
   const postKit=post=>typeof postKitText==='function'?postKitText(post):'';
@@ -41,7 +45,7 @@
     (D.staff||[]).filter(person=>{
       if(!person||!clean(person.name||person.fio))return false;
       const status=normalize(person.st||person.status);
-      if(['уволен','исключен','исключён','не в штате'].includes(status))return false;
+      if(['уволен','исключен','исключён','не в штате','отстранён','отстранен'].includes(status))return false;
       const id=person.departmentId!=null?String(person.departmentId):person.depId!=null?String(person.depId):'';
       const name=clean(person.departmentName||person.department||person.depName||person.otdelenie);
       return id? id===String(department.id) : normalize(name)===normalize(department.name);
@@ -74,8 +78,15 @@
     if(parts.length<2)return [];
     return members.filter(person=>{
       const candidate=nameKey(person.name).split(' ').filter(Boolean);
-      if(candidate[0]!==parts[0]||candidate.length<2||parts.length>candidate.length)return false;
-      return parts.slice(1).every((part,index)=>part.length===1?candidate[index+1]&&candidate[index+1][0]===part:candidate[index+1]===part);
+      if(candidate[0]!==parts[0]||candidate.length<2)return false;
+      const given=parts.slice(1);
+      if(given.length===1&&given[0].length<=3){
+        const initials=candidate.slice(1).map(part=>part[0]).join('');
+        const token=given[0];
+        return token===initials||(token.length===1&&candidate[1][0]===token);
+      }
+      if(given.length>candidate.length-1)return false;
+      return given.every((part,index)=>part.length===1?candidate[index+1]&&candidate[index+1][0]===part:candidate[index+1]===part);
     });
   }
   function makePlan(record,post,members) {
@@ -170,6 +181,7 @@
       rosters.set(date,{...defaultRecord(),...(result.result.data||{}),rows:result.result.data&&result.result.data.rows||{},defects:result.result.data&&result.result.data.defects||[],incs:result.result.data&&result.result.data.incs||[]});
       versions.set(date,Number(result.result.version)||0);
       schedules.set(date,result.result.schedule||{assignments:[],substitutions:[]});
+      mirrorLegacy(date);
       saveErrors.delete(date);
       draw(1);
     }catch(error){
@@ -187,6 +199,7 @@
         rosters.set(item.date,{...defaultRecord(),...(item.data||{}),rows:item.data&&item.data.rows||{},defects:item.data&&item.data.defects||[],incs:item.data&&item.data.incs||[]});
         versions.set(item.date,Number(item.version)||0);
         schedules.set(item.date,item.schedule||{assignments:[],substitutions:[]});
+        mirrorLegacy(item.date);
       });
       loadedAll=true;
     }catch(error){toast(error.message);}
@@ -212,12 +225,14 @@
           rosters.set(date,{...defaultRecord(),...(reload.result.data||{})});
           versions.set(date,Number(reload.result.version)||0);
           schedules.set(date,reload.result.schedule||{assignments:[],substitutions:[]});
+          mirrorLegacy(date);
         }
         throw new Error('Наряд изменился на другом устройстве. Загружена последняя версия — проверьте изменения ещё раз.');
       }
       if(!result.response.ok)throw new Error(result.result.error||'Не удалось сохранить наряд');
       versions.set(date,Number(result.result.version)||expectedVersion+1);
       rosters.set(date,{...defaultRecord(),...(result.result.data||{})});
+      mirrorLegacy(date);
       saveErrors.delete(date);
       // Acknowledged save updates the server version; avoid noisy toast for every field.
     }catch(error){
@@ -428,6 +443,7 @@
     const detail=event.detail||{};
     if(!detail.date||!detail.data)return;
     schedules.set(detail.date,detail.data);
+    if(rosters.has(detail.date))mirrorLegacy(detail.date);
     if(detail.date===selectedDate())draw(1);
   });
   document.addEventListener('change',event=>{
