@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const zlib = require('node:zlib');
 
-const ASSET_VERSION = '20261115-07';
+const ASSET_VERSION = '20261115-08';
 
 const rolePages = {
   'nachalnik.html': 'nachalnik',
@@ -48,6 +48,37 @@ if (!staffPayload) {
     fail('staff workspace bundle: ' + error.message);
   }
 }
+
+const moveHelperStart = staffWorkspace.indexOf('function sqMoveDutyRow(d,post,member,defaults){');
+const moveHelperEnd = staffWorkspace.indexOf('\n}', moveHelperStart);
+if (moveHelperStart < 0 || moveHelperEnd < 0) {
+  fail('staff workspace must include the department duty-row transfer helper');
+} else {
+  try {
+    const helper = staffWorkspace.slice(moveHelperStart, moveHelperEnd + 2);
+    const exercise = [
+      '(function(){',
+      "const names=['Иванов И.И.','Петров П.П.','Сидоров С.С.','Кузнецов К.К.'];",
+      "const source='Въездное-КПП',target='КПП ВЪЕЗДНОЕ';",
+      "const rows={[source]:names.map((name,i)=>({fio:name,pos:'Патрульный',tin:'08:0'+i,tout:'20:0'+i,eq:'комплект '+i})),[target]:[{}]};",
+      'const d={rows};',
+      "const moved=names.map(name=>sqMoveDutyRow(d,target,{name,pos:'Патрульный'},{tin:'07:00',tout:'19:00'}));",
+      "if(moved.some(x=>x.status!=='moved'))throw new Error('existing members were not moved');",
+      'const destination=d.rows[target].filter(x=>x&&x.fio);',
+      "if(destination.length!==names.length||d.rows[source].some(x=>x&&x.fio))throw new Error('transfer left duplicates or source-post rows');",
+      "if(destination[0].tin!=='08:00'||destination[0].tout!=='20:00'||destination[0].eq!=='комплект 0')throw new Error('existing duty-row fields were not preserved');",
+      "const repeated=names.map(name=>sqMoveDutyRow(d,target,{name,pos:'Патрульный'},{tin:'07:00',tout:'19:00'}));",
+      "if(repeated.some(x=>x.status!=='already')||d.rows[target].filter(x=>x&&x.fio).length!==names.length)throw new Error('repeat assignment created duplicates');",
+      "const fresh=sqMoveDutyRow(d,target,{name:'Новый Н.Н.',pos:'Патрульный'},{tin:'07:00',tout:'19:00'});",
+      "if(fresh.status!=='added'||!d.rows[target].some(x=>x&&x.fio==='Новый Н.Н.'))throw new Error('new member was not added');",
+      '})()'
+    ].join('\n');
+    vm.runInNewContext(helper + '\n' + exercise);
+  } catch (error) {
+    fail('whole-department duty-row transfer: ' + error.message);
+  }
+}
+
 const cacheManifest = serviceWorker.match(/const ASSETS = \[([\s\S]*?)\];/);
 
 function countMatches(source, pattern) {
