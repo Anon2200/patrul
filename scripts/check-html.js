@@ -69,6 +69,7 @@ if (!fs.readFileSync('uchet.html','utf8').includes('window.QRM=function')) fail(
 const seniorMasterPage = fs.readFileSync('uchet.html','utf8');
 if (!seniorMasterPage.includes('data-act="itqr"') || !seniorMasterPage.includes('EXA.itqr=t=>') || !seniorMasterPage.includes('EXA.itqrp=()=>')) fail('main equipment inventory must support QR label preview and printing');
 if (!patrolSeniorClient.includes('data-date') || !patrolSeniorClient.includes('data-attendance') || !patrolSeniorClient.includes('data-equipment-status') || !patrolSeniorClient.includes('data-report')) fail('patrol senior dashboard must provide date selection, attendance, equipment and reports');
+if (!patrolSeniorClient.includes("title:'Передача смены'") || !patrolSeniorClient.includes('Незакрытые вопросы') || !patrolSeniorClient.includes('Состояние имущества:')) fail('patrol senior must record structured shift handover details');
 
 
 if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
