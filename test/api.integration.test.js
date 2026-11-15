@@ -1356,3 +1356,177 @@ test('expired server sessions are rejected', async () => {
   const response = await sessionApi('/api/auth/me', {}, adminCookie);
   assert.equal(response.status, 401);
 });
+
+
+
+function createFakeIndexedDB() {
+  const databases = new Map();
+  function request(tx, operation) {
+    const item = { result: undefined, error: null, onsuccess: null, onerror: null };
+    queueMicrotask(() => {
+      try {
+        item.result = operation();
+        if (typeof item.onsuccess === 'function') item.onsuccess({ target: item });
+        queueMicrotask(() => { if (tx && typeof tx.oncomplete === 'function') tx.oncomplete({ target: tx }); });
+      } catch (error) {
+        item.error = error;
+        if (tx) tx.error = error;
+        if (typeof item.onerror === 'function') item.onerror({ target: item });
+        if (tx && typeof tx.onabort === 'function') tx.onabort({ target: tx });
+      }
+    });
+    return item;
+  }
+  class FakeDatabase {
+    constructor() { this.stores = new Map(); this.objectStoreNames = { contains: name => this.stores.has(name) }; }
+    createObjectStore(name, options = {}) {
+      this.stores.set(name, { keyPath: options.keyPath || null, rows: new Map() });
+      return this.objectStore(name);
+    }
+    objectStore(name) {
+      const data = this.stores.get(name);
+      if (!data) throw new Error('Unknown object store: ' + name);
+      return {
+        get: key => request(null, () => data.rows.get(key)),
+        getAll: () => request(null, () => Array.from(data.rows.values())),
+        put: (value, explicitKey) => request(null, () => {
+          const key = data.keyPath ? value[data.keyPath] : explicitKey;
+          if (key === undefined) throw new Error('Missing IndexedDB key');
+          data.rows.set(key, value);
+          return key;
+        }),
+        delete: key => request(null, () => { data.rows.delete(key); return undefined; })
+      };
+    }
+    transaction(name) {
+      const tx = { error: null, oncomplete: null, onerror: null, onabort: null, objectStore: storeName => this.objectStore(storeName) };
+      return tx;
+    }
+    close() {}
+  }
+  return {
+    open(name) {
+      const item = { result: null, error: null, onupgradeneeded: null, onsuccess: null, onerror: null };
+      queueMicrotask(() => {
+        let db = databases.get(name);
+        if (!db) {
+          db = new FakeDatabase();
+          databases.set(name, db);
+          item.result = db;
+          if (typeof item.onupgradeneeded === 'function') item.onupgradeneeded({ target: item });
+        } else item.result = db;
+        if (typeof item.onsuccess === 'function') item.onsuccess({ target: item });
+      });
+      return item;
+    },
+    peek(name, storeName, key) {
+      const db = databases.get(name);
+      return db && db.stores.get(storeName) ? db.stores.get(storeName).rows.get(key) : undefined;
+    }
+  };
+}
+
+test('Patrol Senior offline queue encrypts local records and replays them after reauthentication', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  const hook = "window.__offlineTest = {\\n" +
+    "  setWorkspace(value) { workspace = value; },\\n" +
+    "  getWorkspace() { return workspace; },\\n" +
+    "  setRender(fn) { render = fn; },\\n" +
+    "  setLoadWorkspace(fn) { loadWorkspace = fn; },\\n" +
+    "  setRequest(fn) { request = fn; },\\n" +
+    "  setActiveTab(value) { activeTab = value; },\\n" +
+    "  getState() { return { offlineMode, pendingOfflineCount, flushingOffline, offlineWarning }; },\\n" +
+    "  queueOfflineEntry, readOfflineEncrypted, saveOfflineEncrypted, listOfflineRecords,\\n" +
+    "  removeOfflineRecord, restoreOfflineWorkspace, flushOfflineQueue\\n" +
+    "};\\n";
+  const instrumented = source.replace('init();\\n})();', hook + '})();');
+  assert.notEqual(instrumented, source, 'test instrumentation point must exist');
+  const fakeIndexedDB = createFakeIndexedDB();
+  const sessionValues = new Map();
+  const sessionStorageMock = {
+    getItem(key) { return sessionValues.has(key) ? sessionValues.get(key) : null; },
+    setItem(key, value) { sessionValues.set(key, String(value)); },
+    removeItem(key) { sessionValues.delete(key); }
+  };
+  const root = {
+    innerHTML: '',
+    querySelector() { return { addEventListener() {}, querySelector() { return { disabled: false }; } }; },
+    querySelectorAll() { return []; }
+  };
+  const navigatorMock = { onLine: false };
+  const windowMock = { indexedDB: fakeIndexedDB, crypto: webcrypto, addEventListener() {} };
+  const context = {
+    window: windowMock,
+    document: { getElementById: () => root },
+    indexedDB: fakeIndexedDB,
+    crypto: webcrypto,
+    navigator: navigatorMock,
+    sessionStorage: sessionStorageMock,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    Date,
+    Map,
+    Promise,
+    queueMicrotask,
+    alert() {}
+  };
+  vm.runInNewContext(instrumented, context, { filename: 'patrol-senior-offline.test.js' });
+  const api = windowMock.__offlineTest;
+  const userId = 'senior-user-offline-test';
+  const savedAt = Date.now();
+  sessionStorageMock.setItem('patrul-senior-offline-auth', JSON.stringify({ userId, savedAt }));
+  api.setWorkspace({ user: { id: userId, role: 'starshiy_patrulya' }, date: new Date().toISOString().slice(0, 10), entries: [] });
+  api.setRender(() => {});
+  api.setActiveTab('tasks');
+
+  const payload = {
+    type: 'report',
+    date: new Date().toISOString().slice(0, 10),
+    title: 'Контрольная офлайн-запись',
+    body: 'Конфиденциальное содержание, не должно лежать открытым текстом'
+  };
+  await api.queueOfflineEntry(payload);
+  const pending = await api.listOfflineRecords('queue', userId);
+  assert.equal(pending.length, 1);
+  const clientEntryId = pending[0].id;
+  const encrypted = fakeIndexedDB.peek('patrul-senior-secure-v1', 'queue', clientEntryId);
+  assert.ok(encrypted && Array.isArray(encrypted.ciphertext));
+  assert.equal(JSON.stringify(encrypted).includes(payload.body), false);
+  const decrypted = await api.readOfflineEncrypted('queue', clientEntryId);
+  assert.equal(decrypted.body, payload.body);
+  assert.equal(decrypted.clientEntryId, clientEntryId);
+  assert.equal(JSON.parse(sessionStorageMock.getItem('patrul-senior-offline-auth')).savedAt, savedAt,
+    'queueing new offline work must not extend the eight-hour offline session');
+
+  let sent = [];
+  api.setRequest(async (url, method, body) => {
+    if (url === '/api/auth/me') {
+      return { response: { ok: true, status: 200 }, result: { user: { id: userId, role: 'starshiy_patrulya' }, csrfToken: 'csrf-after-reconnect' } };
+    }
+    if (url === '/api/patrol-senior/entries') {
+      sent.push({ method, body });
+      return { response: { ok: true, status: 201 }, result: { duplicate: false } };
+    }
+    throw new Error('Unexpected offline replay request: ' + url);
+  });
+  api.setLoadWorkspace(async () => true);
+  navigatorMock.onLine = true;
+  await api.flushOfflineQueue();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body.clientEntryId, clientEntryId);
+  assert.equal((await api.listOfflineRecords('queue', userId)).length, 0);
+  assert.equal(api.getState().pendingOfflineCount, 0);
+
+  api.setWorkspace({ user: { id: userId, role: 'starshiy_patrulya' }, date: payload.date, entries: [] });
+  await api.queueOfflineEntry({ ...payload, title: 'Вторая офлайн-запись' });
+  const queuedBeforeExpiry = await api.listOfflineRecords('queue', userId);
+  assert.equal(queuedBeforeExpiry.length, 1);
+  api.setRequest(async () => ({ response: { ok: false, status: 401 }, result: { error: 'Сессия истекла' } }));
+  await api.flushOfflineQueue();
+  assert.equal((await api.listOfflineRecords('queue', userId)).length, 1,
+    'an expired online session must not delete queued work');
+  assert.equal(api.getWorkspace(), null);
+  assert.equal(sessionStorageMock.getItem('patrul-senior-offline-auth'), null);
+  assert.match(root.innerHTML, /Войдите снова, чтобы продолжить синхронизацию/);
+});
