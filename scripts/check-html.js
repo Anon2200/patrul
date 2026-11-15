@@ -86,6 +86,7 @@ if (!dutyRebuildPayload) {
 } else {
   try {
     const dutyRebuildCode = JSON.parse(dutyRebuildPayload[1]);
+    new vm.Script(dutyRebuildCode, { filename: 'duty-roster-rebuild.injected.js' });
     const planStart = dutyRebuildCode.indexOf('function sqRebuildPlanForDays(');
     const planEnd = dutyRebuildCode.indexOf('\nlet sqRebuildPending', planStart);
     if (planStart < 0 || planEnd < 0) throw new Error('all-days planning helper is missing');
