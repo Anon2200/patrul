@@ -35,13 +35,22 @@
     if (Number.isInteger(legacy) && legacy > 0) return { id:'legacy-' + legacy, name:'' };
     return { id:'', name:clean(person && (person.departmentName || person.department || person.depName || person.otdelenie)) };
   };
-  const membersOf = department => (D.staff || []).filter(person => {
-    if (!person || !clean(person.name || person.fio)) return false;
-    const status = norm(person.st || person.status);
-    if (['уволен','исключен','исключён','не в штате'].includes(status)) return false;
-    const ref = personDepartment(person);
-    return ref.id ? ref.id === String(department.id) : !!ref.name && norm(ref.name) === norm(department.name);
-  }).map(person => ({ name:clean(person.name || person.fio), pos:clean(person.pos || person.position || person.dolzhnost), id:String(person.id || person.k || person.key || person.name || person.fio) }));
+  const membersOf = department => {
+    const unique = new Map();
+    (D.staff || []).filter(person => {
+      if (!person || !clean(person.name || person.fio)) return false;
+      const status = norm(person.st || person.status);
+      if (['уволен','исключен','исключён','не в штате'].includes(status)) return false;
+      const ref = personDepartment(person);
+      return ref.id ? ref.id === String(department.id) : !!ref.name && norm(ref.name) === norm(department.name);
+    }).forEach(person => {
+      const name = clean(person.name || person.fio), key = fullNameKey(name);
+      const current = unique.get(key);
+      if (!current) unique.set(key,{ name, pos:clean(person.pos || person.position || person.dolzhnost), id:String(person.id || person.k || person.key || name) });
+      else if (!current.pos) current.pos = clean(person.pos || person.position || person.dolzhnost);
+    });
+    return [...unique.values()];
+  };
   const assignment = (record, id) => record.departmentAssignments.find(item => String(item.departmentId) === String(id));
   const fullNameKey = value => norm(value).replace(/[.,]/g,'').replace(/\s+/g,' ');
   const initialsKey = value => {
