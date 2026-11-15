@@ -29,6 +29,8 @@ const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
 const mailPage = fs.readFileSync('mail.html', 'utf8');
 const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
+const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
+try { new vm.Script(dutySchedule, { filename: 'duty-schedule.js' }); } catch (error) { fail('duty schedule script: ' + error.message); }
 const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
 const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
 const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
@@ -236,7 +238,11 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-03'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-04'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
+if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-04')) fail('commander cabinet must load the versioned duty schedule client');
+if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
+if (!dutySchedule.includes('уже назначен на другое отделение') || !dutySchedule.includes('Постоянное закрепление не меняется')) fail('duty schedule must prevent same-day double booking and keep permanent assignments unchanged');
 if (!serviceWorker.includes('const cacheKey = new Request(url.origin + url.pathname)') || !serviceWorker.includes('cache.match(cacheKey)')) fail('service worker must reload versioned assets while retaining path-keyed offline fallbacks');
 if (!mailPage.includes('src="/mail.js?v=' + ASSET_VERSION + '"')) fail('mail page must load its cache-busted client');
 if (!mailViewerPage.includes('src="/mail-viewer.js?v=' + ASSET_VERSION + '"')) fail('mail viewer must load its cache-busted client');
