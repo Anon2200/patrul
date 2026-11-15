@@ -318,7 +318,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule') return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule'&&p!=='/api/duty-roster') return false;
     try {
       if(p==='/api/duty-schedule') {
         const session=await sessionFor(req);
