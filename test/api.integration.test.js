@@ -1440,7 +1440,7 @@ test('Patrol Senior offline queue encrypts local records and replays them after 
     '  setActiveTab(value) { activeTab = value; },',
     '  getState() { return { offlineMode, pendingOfflineCount, flushingOffline, offlineWarning }; },',
     '  queueOfflineEntry, readOfflineEncrypted, saveOfflineEncrypted, listOfflineRecords,',
-    '  removeOfflineRecord, restoreOfflineWorkspace, flushOfflineQueue',
+    '  removeOfflineRecord, restoreOfflineWorkspace, flushOfflineQueue, offlineKey',
     '};'
   ].join(nl) + nl;
   const instrumented = source.replace('init();' + nl + '})();', hook + '})();');
@@ -1480,7 +1480,7 @@ test('Patrol Senior offline queue encrypts local records and replays them after 
   const userId = 'senior-user-offline-test';
   const savedAt = Date.now();
   sessionStorageMock.setItem('patrul-senior-offline-auth', JSON.stringify({ userId, savedAt }));
-  api.setWorkspace({ user: { id: userId, role: 'starshiy_patrulya' }, date: new Date().toISOString().slice(0, 10), entries: [] });
+  api.setWorkspace({ user: { id: userId, role: 'starshiy_patrulya' }, senior: { name: 'Сидоров Сергей' }, roster: [{ name: 'Иванов Иван' }], date: new Date().toISOString().slice(0, 10), entries: [] });
   api.setRender(() => {});
   api.setActiveTab('tasks');
 
@@ -1497,11 +1497,20 @@ test('Patrol Senior offline queue encrypts local records and replays them after 
   const encrypted = fakeIndexedDB.peek('patrul-senior-secure-v1', 'queue', clientEntryId);
   assert.ok(encrypted && Array.isArray(encrypted.ciphertext));
   assert.equal(JSON.stringify(encrypted).includes(payload.body), false);
+  const localKey = await api.offlineKey();
+  assert.equal(localKey.extractable, false, 'offline AES-GCM key must be non-exportable');
+  const cachedWorkspace = fakeIndexedDB.peek('patrul-senior-secure-v1', 'cache', 'workspace:' + userId);
+  assert.ok(cachedWorkspace && Array.isArray(cachedWorkspace.ciphertext));
+  assert.equal(JSON.stringify(cachedWorkspace).includes('Сидоров Сергей'), false,
+    'cached workspace must not expose employee names in IndexedDB');
   const decrypted = await api.readOfflineEncrypted('queue', clientEntryId);
   assert.equal(decrypted.body, payload.body);
   assert.equal(decrypted.clientEntryId, clientEntryId);
   assert.equal(JSON.parse(sessionStorageMock.getItem('patrul-senior-offline-auth')).savedAt, savedAt,
     'queueing new offline work must not extend the eight-hour offline session');
+  sessionStorageMock.setItem('patrul-senior-offline-auth', JSON.stringify({ userId, savedAt: Date.now() - 8 * 60 * 60 * 1000 - 1000 }));
+  assert.equal(await api.restoreOfflineWorkspace(), false, 'offline restoration must stop after eight hours');
+  sessionStorageMock.setItem('patrul-senior-offline-auth', JSON.stringify({ userId, savedAt }));
 
   let sent = [];
   api.setRequest(async (url, method, body) => {
