@@ -96,12 +96,13 @@
 
   async function ensureVersion(date) {
     if(versions.has(date))return versions.get(date);
-    const r=await api('/api/duty-schedule?date='+encodeURIComponent(date));
+    const r=await api('/api/duty-schedule?month='+encodeURIComponent(date.slice(0,7)));
     if(!r.response.ok)throw new Error(r.result.error||'Не удалось проверить версию графика');
     const v=Number(r.result.version)||0;
-    versions.set(date,v);
-    const data={assignments:r.result.days?.[0]?.assignments||[],substitutions:r.result.days?.[0]?.substitutions||[]};
-    if(data.assignments.length||data.substitutions.length){days.set(date,data);ensureLegacySchedule(date,data);}
+    versions.set(date,day?Number(day.version)||0:v);
+    const day=(r.result.days||[]).find(item=>item.date===date);
+    const data={assignments:day&&day.assignments||[],substitutions:day&&day.substitutions||[]};
+    if(day){days.set(date,data);ensureLegacySchedule(date,data);}
     return v;
   }
 
@@ -146,14 +147,15 @@
     const optionList=(items,selected,label)=>'<option value="">'+label+'</option>'+items.map(item=>
       '<option value="'+safe(item.id)+'" '+(String(item.id)===String(selected||'')?'selected':'')+'>'+safe(item.name)+'</option>'
     ).join('');
-    const postOptions='<option value="">Выбрать пост</option>'+allPosts.map(post=>'<option>'+safe(post)+'</option>').join('');
+    
     return '<div class="scroll" style="max-height:none"><table><thead><tr><th>Отделение</th><th>Пост</th><th>Старший патруля</th><th>Действие</th></tr></thead><tbody>'+
       deptList.map(dept=>{
         const item=current.get(dept.id)||{};
         const seniorId=item.seniorId||allSeniors.find(person=>normalize(person.name)===normalize(item.seniorName))?.id||'';
         const peopleCount=(D.staff||[]).filter(person=>String(person.departmentId||person.depId||'')===dept.id||
           (!person.departmentId&&!person.depId&&normalize(person.departmentName||person.department)===normalize(dept.name))).length;
-        return '<tr><td><b>'+safe(dept.name)+'</b><div class="mu small">'+peopleCount+' сотрудников</div></td><td><select data-ds-post="'+safe(dept.id)+'">'+postOptions.replace('<option>'+safe(item.post||'')+'</option>','<option selected>'+safe(item.post||'')+'</option>')+'</select></td><td><select data-ds-senior="'+safe(dept.id)+'">'+optionList(allSeniors,seniorId,'Не назначен')+'</select></td><td><span class="mu small">'+(item.post?'Назначено':'Не назначено')+'</span></td></tr>';
+        const postOptions='<option value="">Выбрать пост</option>'+allPosts.map(post=>'<option value="'+safe(post)+'" '+(post===String(item.post||'')?'selected':'')+'>'+safe(post)+'</option>').join('');
+        return '<tr><td><b>'+safe(dept.name)+'</b><div class="mu small">'+peopleCount+' сотрудников</div></td><td><select data-ds-post="'+safe(dept.id)+'">'+postOptions+'</select></td><td><select data-ds-senior="'+safe(dept.id)+'">'+optionList(allSeniors,seniorId,'Не назначен')+'</select></td><td><span class="mu small">'+(item.post?'Назначено':'Не назначено')+'</span></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
 
