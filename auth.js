@@ -333,11 +333,12 @@ function createAuth(pool,send,readJson) {
         nextMonthDate.setUTCMonth(nextMonthDate.getUTCMonth()+1);
         const monthEnd=nextMonthDate.toISOString().slice(0,10);
         const shared=await readSharedStaffForSenior();
-        let ownDepartment=null;
+        let ownDepartment=null,ownSeniorKey='';
         if(session.role==='starshiy_patrulya'){
           const profile=await currentSeniorProfile(session);
           if(!profile){send(res,403,{error:'Доступ к графику отделения отсутствует'});return true;}
           ownDepartment={id:String(profile.department.id),name:String(profile.department.name||profile.department.id)};
+          ownSeniorKey=String(profile.person.k);
         }
         const q=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
         const head=q.rowCount?await readRoleData(pool,'nachalnik',q.rows[0]):null;
@@ -365,10 +366,11 @@ function createAuth(pool,send,readJson) {
               seniorName:String(item.seniorName||''),
               effectiveSenior:String(substitution&&substitution.substituteSenior||item.seniorName||''),
               isSubstitute:!!substitution,
+              substituteSeniorId:String(substitution&&substitution.substituteSeniorId||''),
               substituteSenior:String(substitution&&substitution.substituteSenior||''),
               substituteReason:String(substitution&&substitution.reason||'')
             };
-          }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName);
+          }).filter(item=>!ownDepartment||item.departmentId===ownDepartment.id||sharedNameKey(item.departmentName)===ownName||item.substituteSeniorId===ownSeniorKey);
           return {date,assignments};
         }).filter(day=>day.assignments.length);
         const posts=String(head&&head.set&&head.set.posts||'').split(',').map(item=>item.trim()).filter(Boolean);
@@ -377,7 +379,7 @@ function createAuth(pool,send,readJson) {
           version:q.rowCount?Number(q.rows[0].version):0,
           updatedAt:q.rowCount?q.rows[0].updated_at:null,
           readOnly:true,actorRole:session.role,
-          scope:ownDepartment?'own_department':'all_departments'
+          scope:ownDepartment?'own_department_and_substitutions':'all_departments'
         });
         return true;
       }
