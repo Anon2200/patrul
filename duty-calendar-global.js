@@ -94,7 +94,19 @@ function viewerButton(){
  }
  const menu=document.querySelector(role==='zam'?'#bn':'#nv');if(!menu)return false;
  let b=menu.querySelector('#patrul-duty-calendar-button');
- if(!b){b=el('button','n','Календарь дежурств');b.id='patrul-duty-calendar-button';b.type='button';b.addEventListener('click',()=>{month=selected.slice(0,7);buildOverlay();load(true);});menu.append(b);}
+ if(!b){
+  b=el('button','n','Календарь дежурств');
+  b.id='patrul-duty-calendar-button';
+  b.type='button';
+  b.addEventListener('click',()=>{month=selected.slice(0,7);buildOverlay();load(true);});
+  // Вставляем календарь в список пунктов меню перед flex-растяжкой и нижним статусным блоком.
+  // Вставка в конец aside помещает кнопку после .sp/.sv и делает её невидимой на экранах с ограниченной высотой.
+  const spacer=menu.querySelector('.sp');
+  const org=menu.querySelector('.org');
+  if(spacer)menu.insertBefore(b,spacer);
+  else if(org&&org.nextSibling)menu.insertBefore(b,org.nextSibling);
+  else menu.append(b);
+ }
  return true;
 }
 function start(){
