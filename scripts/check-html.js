@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const zlib = require('node:zlib');
 
-const ASSET_VERSION = '20261115-05';
+const ASSET_VERSION = '20261115-06';
 
 const rolePages = {
   'nachalnik.html': 'nachalnik',
@@ -241,9 +241,9 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-05'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-06'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
-if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-05')) fail('commander cabinet must load the versioned duty schedule client');
+if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-06')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
 if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
@@ -251,6 +251,9 @@ if (!dutySchedule.includes('уже назначен на другое отдел
 if (!server.includes("['/duty-calendar-global.js', 'duty-calendar-global.js']") || !serviceWorker.includes("'/duty-calendar-global.js'")) fail('server and service worker must serve/cache the common role calendar');
 if (!patrolSeniorPage.includes('window.PATRUL_ROLE="starshiy_patrulya"') || !patrolSeniorPage.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail('Senior Patrol page must load the shared calendar after setting its role');
 if (!patrolSeniorAuth.includes("p==='/api/duty-schedule'&&req.method==='GET'") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(session.role)") || !patrolSeniorAuth.includes("session.role==='starshiy_patrulya'")) fail('shared duty calendar endpoint must authenticate all role views and scope Senior Patrol');
+const uchetPage = fs.readFileSync('uchet.html', 'utf8');
+if (!uchetPage.includes('<aside id="nv"></aside>') || !uchetPage.includes('class="sp"')) fail('Senior Master sidebar must provide the calendar insertion point before its flex spacer');
+if (!dutyCalendarGlobal.includes("if(spacer)menu.insertBefore(b,spacer)")) fail('shared calendar navigation must be inserted before the sidebar footer spacer so it remains visible');
 if (!dutyCalendarGlobal.includes("fetch('/api/duty-schedule?month='") || !dutyCalendarGlobal.includes('Общий график дежурств') || !dutyCalendarGlobal.includes('Календарь дежурств')) fail('all non-commander roles must use the common server-backed duty calendar');
 if (!dutyCalendarGlobal.includes("setInterval(()=>{if(overlay)load(false);},30000)") || !patrolSeniorAuth.includes("scope:ownDepartment?'own_department_and_substitutions':'all_departments'")) fail('duty calendar viewers must refresh from the shared server source and Senior Patrol must have scoped visibility');
 if (!serviceWorker.includes('const cacheKey = new Request(url.origin + url.pathname)') || !serviceWorker.includes('cache.match(cacheKey)')) fail('service worker must reload versioned assets while retaining path-keyed offline fallbacks');
