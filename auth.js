@@ -709,20 +709,25 @@ function createAuth(pool,send,readJson) {
         const today=String(url.searchParams.get('date')||new Date().toISOString().slice(0,10));
         const parsedDutyDate=new Date(today+'T00:00:00.000Z');
         if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||Number.isNaN(parsedDutyDate.getTime())||parsedDutyDate.toISOString().slice(0,10)!==today){send(res,400,{error:'Некорректная дата'});return true;}
-        const head=await pool.query("SELECT data,version,updated_at FROM patrul_role_data WHERE role='nachalnik'");
+        await purgeExpiredDutyData(pool);
+        const [scheduleResult,rosterResult]=await Promise.all([
+          pool.query('SELECT assignments,substitutions FROM patrul_duty_schedule WHERE duty_date=$1::date',[today]),
+          pool.query('SELECT data FROM patrul_duty_rosters WHERE duty_date=$1::date',[today])
+        ]);
         let assignedPost='',postConflict=false,schedule=null;
-        if(head.rowCount){
-          const headData=await readRoleData(pool,'nachalnik',head.rows[0]),duty=headData&&headData.duty&&headData.duty[today],rows=duty&&duty.rows&&typeof duty.rows==='object'?duty.rows:{};
-          const departmentNames=new Set(profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>sharedNameKey(person.name)).filter(Boolean));
-          const assignedPosts=Object.entries(rows).filter(([post,list])=>Array.isArray(list)&&list.some(row=>departmentNames.has(sharedNameKey(row&&row.fio)))).map(([post])=>String(post));
-          postConflict=assignedPosts.length>1;
-          if(assignedPosts.length===1)assignedPost=assignedPosts[0];
-          const assignment=Array.isArray(duty&&duty.departmentAssignments)?duty.departmentAssignments.find(item=>String(item.departmentId)===String(profile.department.id)):null;
-          const substitution=Array.isArray(duty&&duty.seniorSubstitutions)?duty.seniorSubstitutions.find(item=>String(item.departmentId)===String(profile.department.id)):null;
-          if(assignment){
-            assignedPost=String(assignment.post||assignedPost||'');
-            schedule={departmentName:String(assignment.departmentName||profile.department.name),post:assignedPost||null,assignedSenior:String(assignment.seniorName||''),effectiveSenior:String(substitution&&substitution.substituteSenior||assignment.seniorName||''),isSubstitute:!!substitution,substituteReason:String(substitution&&substitution.reason||'')};
-          }
+        const duty=rosterResult.rowCount?rosterResult.rows[0].data:null;
+        const rows=duty&&duty.rows&&typeof duty.rows==='object'?duty.rows:{};
+        const departmentNames=new Set(profile.data.staff.filter(person=>String(person.departmentId)===String(profile.department.id)).map(person=>sharedNameKey(person.name)).filter(Boolean));
+        const assignedPosts=Object.entries(rows).filter(([post,list])=>Array.isArray(list)&&list.some(row=>departmentNames.has(sharedNameKey(row&&row.fio)))).map(([post])=>String(post));
+        postConflict=assignedPosts.length>1;
+        if(assignedPosts.length===1)assignedPost=assignedPosts[0];
+        const assignments=scheduleResult.rowCount&&Array.isArray(scheduleResult.rows[0].assignments)?scheduleResult.rows[0].assignments:[];
+        const substitutions=scheduleResult.rowCount&&Array.isArray(scheduleResult.rows[0].substitutions)?scheduleResult.rows[0].substitutions:[];
+        const assignment=assignments.find(item=>String(item.departmentId)===String(profile.department.id));
+        const substitution=substitutions.find(item=>String(item.departmentId)===String(profile.department.id));
+        if(assignment){
+          assignedPost=String(assignment.post||assignedPost||'');
+          schedule={departmentName:String(assignment.departmentName||profile.department.name),post:assignedPost||null,assignedSenior:String(assignment.seniorName||''),effectiveSenior:String(substitution&&substitution.substituteSenior||assignment.seniorName||''),isSubstitute:!!substitution,substituteReason:String(substitution&&substitution.reason||'')};
         }
         const equipment=(profile.data.postEquipment||[]).find(item=>sharedNameKey(item.name)===sharedNameKey(assignedPost));
         const entries=await pool.query('SELECT id,staff_key,entry_date,entry_type,status,title,body,created_at FROM patrul_patrol_senior_entries WHERE department_id=$1 AND entry_date=$2 ORDER BY created_at DESC,id DESC',[String(profile.department.id),today]);
