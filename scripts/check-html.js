@@ -71,6 +71,12 @@ if (!seniorMasterPage.includes('data-act="itqr"') || !seniorMasterPage.includes(
 if (!patrolSeniorClient.includes('data-date') || !patrolSeniorClient.includes('data-attendance') || !patrolSeniorClient.includes('data-equipment-status') || !patrolSeniorClient.includes('data-report')) fail('patrol senior dashboard must provide date selection, attendance, equipment and reports');
 if (!patrolSeniorClient.includes("title:'Передача смены'") || !patrolSeniorClient.includes('Незакрытые вопросы') || !patrolSeniorClient.includes('Состояние имущества:')) fail('patrol senior must record structured shift handover details');
 
+const patrolSeniorOfflineMigration=fs.readFileSync('migrations/009_patrol_senior_offline_queue.sql','utf8');
+if (!server.includes('009_patrol_senior_offline_queue.sql') || !patrolSeniorOfflineMigration.includes('client_entry_id UUID') || !patrolSeniorOfflineMigration.includes('patrol_senior_entries_client_id_idx')) fail('Patrol Senior offline queue migration must provide idempotent client entry identifiers');
+if (!patrolSeniorAuth.includes('clientEntryId') || !patrolSeniorAuth.includes('ON CONFLICT (senior_user_id,client_entry_id)')) fail('Patrol Senior API must accept idempotent queued entries');
+if (!patrolSeniorClient.includes('function flushOfflineQueue') || !patrolSeniorClient.includes('indexedDB.open') || !patrolSeniorClient.includes('AES-GCM') || !patrolSeniorClient.includes('patrul-senior-offline-auth') || !patrolSeniorClient.includes('clientEntryId') || !patrolSeniorClient.includes('OFFLINE_SESSION_MS=8*60*60*1000')) fail('Patrol Senior offline queue must be encrypted, session-bound and replayed after reconnection');
+
+
 
 if (!server.includes("require('./auth')") || !server.includes('handleAuth(req, res, url)')) {
   fail('server must route requests through the individual authentication module');
