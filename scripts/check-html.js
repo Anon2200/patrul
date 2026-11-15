@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const zlib = require('node:zlib');
 
-const ASSET_VERSION = '20261115-06';
+const ASSET_VERSION = '20261115-07';
 
 const rolePages = {
   'nachalnik.html': 'nachalnik',
@@ -29,6 +29,7 @@ const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
 const mailPage = fs.readFileSync('mail.html', 'utf8');
 const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
 const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
+const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
 const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
 const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
@@ -76,6 +77,36 @@ if (!opsWorkspace.includes('seniorActivation') || !opsWorkspace.includes('/api/p
 if (!opsWorkspace.includes('function showAssetQr') || !opsWorkspace.includes('data-ops="qr"') || !opsWorkspace.includes('window.QRM(payload,1)')) fail('equipment records must provide printable QR labels using inventory identifiers only');
 if (!fs.readFileSync('uchet.html','utf8').includes('window.QRM=function')) fail('the senior master page must load the local QR encoder before the equipment workspace');
 const seniorMasterPage = fs.readFileSync('uchet.html','utf8');
+
+const dutyRulesStart = commanderDutyPage.indexOf('const dutyStaffPerson=');
+const dutyRulesEnd = commanderDutyPage.indexOf('const dv=', dutyRulesStart);
+if (dutyRulesStart < 0 || dutyRulesEnd < 0) {
+  fail('duty roster must resolve staff positions before deciding equipment eligibility');
+} else {
+  const dutyRules = commanderDutyPage.slice(dutyRulesStart, dutyRulesEnd);
+  try {
+    vm.runInNewContext(dutyRules + `
+      if (!isSeniorPatrolRow({fio:'Петров Пётр',pos:'Старший патруля'})) throw new Error('explicit senior position was not recognized');
+      if (!isSeniorPatrolRow({fio:'Сидоров Иван',pos:''})) throw new Error('senior position from shared staff list was not recognized');
+      if (isSeniorPatrolRow({fio:'Иванов Иван',pos:'Патрульный'})) throw new Error('ordinary patrolman was incorrectly treated as senior');
+    `, {
+      D:{staff:[{name:'Сидоров Иван',pos:'Старший патруля'}]},
+      pc:value=>String(value||'').replace(/ё/g,'е').toLowerCase()
+    });
+  } catch (error) {
+    fail('duty roster senior role classification: ' + error.message);
+  }
+}
+if (!commanderDutyPage.includes('Снаряжение (только Старшему патруля)') ||
+    !commanderDutyPage.includes('Не выдаётся') ||
+    !commanderDutyPage.includes('Подпись за получение снаряжения') ||
+    !commanderDutyPage.includes('ЗАСТУПЛЕНИЕ НА СЛУЖБУ') ||
+    !commanderDutyPage.includes("equipment=senior?(postKitText(p)||r.eq||''):'—'") ||
+    !commanderDutyPage.includes("senior?'':'—'") ||
+    !commanderDutyPage.includes('e(dutyRowPosition(r))')) {
+  fail('printed duty roster must issue equipment and request its signature only from Senior Patrol while all personnel sign for taking duty');
+}
+
 if (!seniorMasterPage.includes('data-act="itqr"') || !seniorMasterPage.includes('EXA.itqr=t=>') || !seniorMasterPage.includes('EXA.itqrp=()=>')) fail('main equipment inventory must support QR label preview and printing');
 if (!patrolSeniorClient.includes('data-date') || !patrolSeniorClient.includes('data-attendance') || !patrolSeniorClient.includes('data-equipment-status') || !patrolSeniorClient.includes('data-report')) fail('patrol senior dashboard must provide date selection, attendance, equipment and reports');
 if (!patrolSeniorClient.includes("title:'Передача смены'") || !patrolSeniorClient.includes('Незакрытые вопросы') || !patrolSeniorClient.includes('Состояние имущества:')) fail('patrol senior must record structured shift handover details');
@@ -241,9 +272,9 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
   fail('service worker static cache must include cloud-sync.js');
 }
 
-if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-06'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
+if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-07'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
-if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-06')) fail('commander cabinet must load the versioned duty schedule client');
+if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-07')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
 if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Временная подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
