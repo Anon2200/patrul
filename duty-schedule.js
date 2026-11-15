@@ -165,7 +165,7 @@
     const list=departments(),people=seniors();
     const sub=existing.map((item,index)=>'<tr><td>'+safe(item.departmentName||'Отделение')+'</td><td>'+safe(item.primarySenior||'')+'</td><td><b>'+safe(item.substituteSenior||'')+'</b></td><td>'+safe(item.reason||'')+'</td><td><button class="btn s g r" data-act="dsRemoveSub" data-index="'+index+'">Отменить</button></td></tr>').join('');
     const option=(items)=>'<option value="">Выбрать</option>'+items.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.name)+'</option>').join('');
-    return '<section class="card" style="margin-top:14px"><h3>Временная подмена Старшего патруля</h3><p class="mu">Подмена действует только на выбранную дату. Постоянное закрепление сотрудника не меняется.</p>'+
+    return '<section class="card" style="margin-top:14px"><h3>Временная подмена Старшего патруля</h3><p class="mu">Подмена действует только на выбранную дату. Постоянное закрепление не меняется.</p>'+
       '<div class="fg"><div><label>Отделение</label><select id="ds-sub-dep">'+option(list)+'</select></div><div><label>Основной старший</label><select id="ds-sub-primary">'+option(people)+'</select></div><div><label>Заменяющий</label><select id="ds-substitute">'+option(people)+'</select></div><div><label>Основание</label><input id="ds-sub-reason" maxlength="500" placeholder="Причина / распоряжение"></div></div>'+
       '<div class="bar" style="margin-top:10px"><button class="btn" data-act="dsSaveSub">Сохранить подмену</button></div><div class="scroll" style="max-height:none;margin-top:10px"><table><thead><tr><th>Отделение</th><th>Кого заменяет</th><th>Кто выходит</th><th>Основание</th><th></th></tr></thead><tbody>'+(sub||'<tr><td colspan="5" class="mu">Подмен пока нет</td></tr>')+'</tbody></table></div></section>';
   }
@@ -230,6 +230,8 @@
     const data=dayData(selectedDay),assignment=dep&&(data.assignments||[]).find(item=>String(item.departmentId)===dep.id);
     if(!dep||!primary||!replacement||!reason)return toast('Заполните все поля подмены.');
     if(primary.id===replacement.id)return toast('Нельзя назначить подмену самому себе.');
+    if((data.assignments||[]).some(item=>String(item.departmentId)!==dep.id&&String(item.seniorId||'')===replacement.id))return toast('Этот Старший патруля уже назначен на другое отделение в этот день.');
+    if((data.substitutions||[]).some(item=>String(item.departmentId)!==dep.id&&String(item.substituteSeniorId||'')===replacement.id))return toast('Этот Старший патруля уже назначен на другое отделение в этот день.');
     if(!assignment)return toast('Сначала назначьте отделение на пост.');
     if(assignment.seniorId&&assignment.seniorId!==primary.id)return toast('Основной старший не совпадает с графиком.');
     const item={departmentId:dep.id,departmentName:dep.name,primarySenior:primary.name,primarySeniorId:primary.id,substituteSenior:replacement.name,substituteSeniorId:replacement.id,reason,date:selectedDay};
