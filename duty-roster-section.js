@@ -107,7 +107,7 @@
       const merged = {};
       const sources = found.map(entry => entry.row);
       sources.forEach(source => Object.keys(source).forEach(key => {
-        if (!nonEmpty(source[key])) return;
+        if (!nonEmpty(source[key]) || key === 'fio' || key === 'name') return;
         if (nonEmpty(merged[key]) && String(merged[key]) !== String(source[key])) {
           issues.push('Для «' + member.name + '» конфликтует поле «' + key + '» в разных строках.');
         } else merged[key] = source[key];
