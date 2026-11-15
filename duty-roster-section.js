@@ -489,10 +489,12 @@
     if(current===observedDutyDate)return;
     const previous=observedDutyDate;
     observedDutyDate=current;
+    if(saveTimers.has(previous)){clearTimeout(saveTimers.get(previous));saveTimers.delete(previous);}
     rosters.delete(previous);
     versions.delete(previous);
     schedules.delete(previous);
     saveErrors.delete(previous);
+    revisions.delete(previous);
     pendingConflicts.delete(previous);
     if(D.duty&&typeof D.duty==='object')delete D.duty[previous];
     if(selectedDate()===previous){
