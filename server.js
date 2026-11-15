@@ -218,6 +218,8 @@ async function initDatabase() {
   await pool.query(sharedTasksSchema);
   const documentNumberingSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '008_document_numbering.sql'), 'utf8');
   await pool.query(documentNumberingSchema);
+  const patrolSeniorOfflineSchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '009_patrol_senior_offline_queue.sql'), 'utf8');
+  await pool.query(patrolSeniorOfflineSchema);
   await migratePlaintextRows(pool);
 }
 
