@@ -4,7 +4,7 @@
   if (!['nachalnik','dokumentoved','uchet'].includes(role)) return;
 
   const state = {
-    items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
+    items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое','Нарушение лок. Акта №36','Нарушение лок. Акта №2','Нарушение дисциплины','Отсутствие студ. билета','Курение в неположенном месте'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
     view: 'maintenance', q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
     sort: 'date', direction: 'desc', trash: false, auditView: false, selected: new Set(),
     audit: [], auditBusy: false, auditError: '', maintenance: null, maintenanceBusy: false, importPreview: null
@@ -23,12 +23,28 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4) : '—';
   };
   const formatDateTime = value => value ? new Date(value).toLocaleString('ru-RU') : '—';
-  const types = () => Array.isArray(window.PATRUL_VIOLATION_TYPES) && window.PATRUL_VIOLATION_TYPES.length
-    ? window.PATRUL_VIOLATION_TYPES
-    : (typeof VT !== 'undefined' && Array.isArray(VT) ? VT : [
-      'Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин',
-      'Алкоголь','Пропускной режим','Нарушение порядка','Другое'
-    ]);
+  const BUILTIN_VIOLATION_TYPES = [
+    'Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин',
+    'Алкоголь','Пропускной режим','Нарушение порядка','Другое',
+    'Нарушение лок. Акта №36','Нарушение лок. Акта №2',
+    'Нарушение дисциплины','Отсутствие студ. билета',
+    'Курение в неположенном месте'
+  ];
+  const types = () => {
+    const configured = Array.isArray(state.settings.violationTypes) ? state.settings.violationTypes : [];
+    const legacy = Array.isArray(window.PATRUL_VIOLATION_TYPES) ? window.PATRUL_VIOLATION_TYPES
+      : (typeof VT !== 'undefined' && Array.isArray(VT) ? VT : BUILTIN_VIOLATION_TYPES);
+    return [...new Map([...(configured.length?configured:legacy)]
+      .filter(value=>typeof value==='string'&&value.trim())
+      .map(value=>[keyText(value),value.trim()])).values()];
+  };
+  function normalizeViolationTypes() {
+    const configured=Array.isArray(state.settings.violationTypes)?state.settings.violationTypes:[];
+    state.settings.violationTypes=[...new Map(configured
+      .filter(value=>typeof value==='string'&&value.trim())
+      .map(value=>[keyText(value),value.trim()])).values()];
+    if(!state.settings.violationTypes.length)state.settings.violationTypes=BUILTIN_VIOLATION_TYPES.slice();
+  }
   const actorLabel = role === 'nachalnik' ? 'Начальник' : role === 'dokumentoved' ? 'Документовед' : 'Старший мастер';
   const api = async (path, method='GET', body=null) => {
     if (typeof window.PATRUL_API_REQUEST !== 'function') throw new Error('Служба авторизации ещё не готова');
@@ -58,6 +74,7 @@
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось загрузить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : [];
       if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
+      normalizeViolationTypes();
       state.version = Number(result.result.version || 0);
       state.updatedAt = result.result.updatedAt || null;
       state.loaded = true;
@@ -94,6 +111,7 @@
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось сохранить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : nextItems;
       if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
+      normalizeViolationTypes();
       state.version = Number(result.result.version || state.version);
       state.updatedAt = result.result.updatedAt || state.updatedAt;
       applyChiefCache();
@@ -194,7 +212,7 @@
     return baseStyles()+'<section class="vreg-wrap">'+
       '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">'+(role==='uchet'?'Доступ старшего мастера · просмотр всех записей без изменения данных':role==='nachalnik'?'Права начальника · добавление, просмотр и редактирование без удаления':'Документовед · полный доступ к ведению реестра')+'</p></div>'+
       '<div class="vreg-tools">'+(role==='uchet'
-        ? '<button class="vreg-button secondary" data-vreg-action="view-maintenance">Техническое обслуживание</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Повторные нарушения</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'
+        ? '<button class="vreg-button secondary" data-vreg-action="view-maintenance">Техническое обслуживание</button><button class="vreg-button secondary" data-vreg-action="view-settings">Виды нарушений</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Повторные нарушения</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'
         : '<button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button>'+(role==='dokumentoved'?'<button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button>':'')+'<button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'+(role==='dokumentoved'?'<button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button>':''))+'</div></header>'+
       '<div class="vreg-stats">'+
       '<div class="vreg-stat"><b>'+counts.total+'</b><span>Всего действующих записей</span></div>'+
@@ -306,8 +324,9 @@
   }
   function settingsPage() {
     const config=state.settings,departments=Object.entries(config.departments||{});
-    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>НАСТРОЙКИ РЕЕСТРА</h1><p class="vreg-sub">Параметры классификации нарушений и учёта повторных случаев</p></div><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button></header>'+
-      '<div class="vreg-panel"><h3 style="margin-top:0">Типы нарушений</h3><div class="vreg-tools">'+config.violationTypes.map(type=>'<span class="vreg-tag" style="border:1px solid var(--bd);padding:7px 9px">'+esc(type)+' <button data-vreg-action="type-remove" data-value="'+esc(type)+'" style="border:0;background:none;color:var(--red);cursor:pointer" aria-label="Удалить тип">×</button></span>').join('')+'</div><div class="vreg-tools" style="margin-top:12px"><div class="vreg-field"><label>Новый вид нарушения</label><input id="vreg-type-new" maxlength="120" placeholder="Например: Нарушение формы одежды"></div><button class="vreg-button secondary" data-vreg-action="type-add">Добавить тип</button></div></div>'+
+    const typePanel='<div class="vreg-panel"><h3 style="margin-top:0">Типы нарушений</h3><p class="vreg-muted">Добавляйте, переименовывайте и удаляйте варианты. Старые записи сохранят прежние названия и не будут удалены.</p><div class="vreg-tools">'+config.violationTypes.map(type=>'<span class="vreg-tag" style="border:1px solid var(--bd);padding:7px 9px;display:inline-flex;align-items:center;gap:5px">'+esc(type)+' <button data-vreg-action="type-rename" data-value="'+esc(type)+'" style="border:0;background:none;color:var(--ac);cursor:pointer" aria-label="Переименовать тип">✎</button><button data-vreg-action="type-remove" data-value="'+esc(type)+'" style="border:0;background:none;color:var(--red);cursor:pointer" aria-label="Удалить тип">×</button></span>').join('')+'</div><div class="vreg-tools" style="margin-top:12px"><div class="vreg-field"><label>Новый вид нарушения</label><input id="vreg-type-new" maxlength="120" placeholder="Например: Нарушение формы одежды"></div><button class="vreg-button secondary" data-vreg-action="type-add">Добавить тип</button></div></div>';
+    if(role==='uchet')return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>ВИДЫ НАРУШЕНИЙ</h1><p class="vreg-sub">Управление справочником типов нарушений · без доступа к редактированию записей</p></div><button class="vreg-button secondary" data-vreg-action="view-maintenance">Назад</button></header>'+typePanel+'<div class="vreg-tools"><button class="vreg-button" data-vreg-action="settings-save">Сохранить виды нарушений</button><span id="vreg-settings-notice" class="vreg-notice"></span></div></section>';
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>НАСТРОЙКИ РЕЕСТРА</h1><p class="vreg-sub">Параметры классификации нарушений и учёта повторных случаев</p></div><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button></header>'+typePanel+
       '<div class="vreg-panel"><h3 style="margin-top:0">Повторные нарушения</h3><div class="vreg-tools"><div class="vreg-field"><label>Порог (сколько записей считать повторными)</label><input id="vreg-repeat-threshold" type="number" min="1" max="100" value="'+Number(config.repeatThreshold||2)+'"></div><div class="vreg-field"><label>Начало нового периода учёта (необязательно)</label><input id="vreg-repeat-reset" type="date" value="'+esc(config.deviantsResetAt||'')+'"></div><button class="vreg-button secondary" data-vreg-action="reset-start-today">Начать учёт с сегодня</button><button class="vreg-button secondary" data-vreg-action="reset-clear">Учитывать весь период</button></div></div>'+
       (departments.length?'<div class="vreg-panel"><h3 style="margin-top:0">Префиксы групп и отделений</h3>'+departments.map(item=>'<div class="vreg-muted">'+esc(item[0])+' — '+esc(item[1])+'</div>').join('')+'</div>':'')+
       '<div class="vreg-tools"><button class="vreg-button" data-vreg-action="settings-save">Сохранить настройки</button><span id="vreg-settings-notice" class="vreg-notice"></span></div></section>';
@@ -316,7 +335,7 @@
     if (tab !== 'vl') return;
     const main=$('#m');
     if (!main) return;
-    main.innerHTML = role==='uchet' && state.view==='maintenance' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' && role==='dokumentoved' ? settingsPage() : listPage());
+    main.innerHTML = role==='uchet' && state.view==='maintenance' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' && ['dokumentoved','uchet'].includes(role) ? settingsPage() : listPage());
   }
   function installDrawHook() {
     if (typeof draw !== 'function' || draw.__violationsRegistryHook) return;
@@ -581,10 +600,14 @@
   }
 
   async function saveSettings() {
-    const threshold=Number($('#vreg-repeat-threshold')?.value||state.settings.repeatThreshold);
-    const reset=$('#vreg-repeat-reset')?.value||null;
-    if(!Number.isInteger(threshold)||threshold<1||threshold>100){window.alert('Порог должен быть от 1 до 100');return;}
-    const settings={...state.settings,repeatThreshold:threshold,deviantsResetAt:reset};
+    let settings;
+    if(role==='uchet') settings={violationTypes:state.settings.violationTypes.slice()};
+    else {
+      const threshold=Number($('#vreg-repeat-threshold')?.value||state.settings.repeatThreshold);
+      const reset=$('#vreg-repeat-reset')?.value||null;
+      if(!Number.isInteger(threshold)||threshold<1||threshold>100){window.alert('Порог должен быть от 1 до 100');return;}
+      settings={...state.settings,repeatThreshold:threshold,deviantsResetAt:reset};
+    }
     try{
       const response=await api('/api/violations/settings','PUT',{expectedVersion:state.version,settings});
       if(response.response.status===409){state.version=Number(response.result.version||state.version);await loadRegistry({silent:true});renderPage();window.alert('Настройки изменились в другом окне. Загружена актуальная версия.');return;}
@@ -596,7 +619,7 @@
   }
   function handleAction(action, target) {
     const key=target.dataset.key;
-    if(role==='nachalnik'&&['archive','restore','archive-selected','import-open','import-parse','view-settings','type-add','type-remove','reset-start-today','reset-clear','settings-save','maintenance-purge','maintenance-restore-open','maintenance-backup'].includes(action)) return;
+    if(role==='nachalnik'&&['archive','restore','archive-selected','import-open','import-parse','view-settings','type-add','type-rename','type-remove','reset-start-today','reset-clear','settings-save','maintenance-purge','maintenance-restore-open','maintenance-backup'].includes(action)) return;
     if(action==='new')recordForm();
     else if(action==='edit'){const item=state.items.find(x=>x.k===key);if(item)recordForm(item);}
     else if(action==='archive'){
@@ -642,7 +665,7 @@
       }
     }else if(action==='view-deviants'){state.view='deviants';state.auditView=false;renderPage();}
     else if(action==='view-report'){state.view='report';state.auditView=false;renderPage();}
-    else if(action==='view-settings'&&role==='dokumentoved'){state.view='settings';state.auditView=false;renderPage();}
+    else if(action==='view-settings'&&['dokumentoved','uchet'].includes(role)){state.view='settings';state.auditView=false;renderPage();}
     else if(action==='report-apply'){
       state.reportFrom=$('#vreg-report-from')?.value||'';state.reportTo=$('#vreg-report-to')?.value||'';state.reportGroup=$('#vreg-report-group')?.value||'';
       if(state.reportFrom&&state.reportTo&&state.reportFrom>state.reportTo){window.alert('Начало периода не может быть позже конца');return;}
@@ -654,8 +677,17 @@
     }else if(action==='type-add'){
       const input=$('#vreg-type-new'),value=String(input?.value||'').trim();
       if(!value)return;
+      if(state.settings.violationTypes.length>=100){window.alert('Можно создать не более 100 типов нарушений');return;}
       if(state.settings.violationTypes.some(x=>keyText(x)===keyText(value))){window.alert('Такой тип уже существует');return;}
       state.settings.violationTypes.push(value.slice(0,120));renderPage();
+    }else if(action==='type-rename'){
+      const value=target.dataset.value;
+      const renamed=window.prompt('Новое название типа нарушения',value);
+      if(renamed===null)return;
+      const next=renamed.trim();
+      if(!next||next.length>120){window.alert('Название должно содержать от 1 до 120 символов');return;}
+      if(state.settings.violationTypes.some(x=>x!==value&&keyText(x)===keyText(next))){window.alert('Тип с таким названием уже существует');return;}
+      state.settings.violationTypes=state.settings.violationTypes.map(x=>x===value?next:x);renderPage();
     }else if(action==='type-remove'){
       const value=target.dataset.value;
       if(state.settings.violationTypes.length<=1){window.alert('Должен остаться хотя бы один тип');return;}
