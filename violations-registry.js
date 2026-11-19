@@ -228,7 +228,7 @@
         '<div class="vreg-stat"><b>'+m.missingGroup+'</b><span>Записей без группы</span></div>'+
         '<div class="vreg-stat"><b>'+m.olderThanYear+'</b><span>Записей старше года</span></div>'+
         '<div class="vreg-stat"><b>'+m.repeatNames+'</b><span>Обучающихся с повторениями</span></div></div>'+
-        '<div class="vreg-panel"><h3 style="margin:0 0 8px">Состояние сервиса</h3><p><span class="vreg-tag good">База данных доступна</span> <span class="vreg-tag good">Расшифровка успешно проверена</span></p><p class="vreg-muted">Последнее изменение реестра: '+formatDateTime(m.updatedAt)+'. Сводка содержит только агрегированные технические показатели. ФИО студентов, группы и описания нарушений старшему мастеру не показываются.</p><div class="vreg-tools"><button class="vreg-button danger" data-vreg-action="maintenance-purge" '+(state.maintenanceBusy||!m.inTrash?'disabled':'')+'>Удалить записи из корзины старше 30 дней</button></div></div>'
+        '<div class="vreg-panel"><h3 style="margin:0 0 8px">Состояние сервиса</h3><p><span class="vreg-tag good">База данных доступна</span> <span class="vreg-tag good">Расшифровка успешно проверена</span></p><p class="vreg-muted">Последнее изменение реестра: '+formatDateTime(m.updatedAt)+'. Сводка содержит только агрегированные технические показатели. ФИО студентов, группы и описания нарушений старшему мастеру не показываются.</p><div class="vreg-tools"><button class="vreg-button secondary" data-vreg-action="maintenance-backup" '+(state.maintenanceBusy?'disabled':'')+'>Скачать зашифрованную резервную копию</button><button class="vreg-button secondary" data-vreg-action="maintenance-restore-open" '+(state.maintenanceBusy?'disabled':'')+'>Восстановить из копии</button><button class="vreg-button danger" data-vreg-action="maintenance-purge" '+(state.maintenanceBusy||!m.inTrash?'disabled':'')+'>Удалить записи из корзины старше 30 дней</button></div><input id="vreg-backup-file" type="file" accept=".json,application/json" hidden></div>'
         :'<div class="vreg-panel"><p class="vreg-muted">'+esc(state.error||'Нажмите «Проверить состояние», чтобы получить техническую сводку.')+'</p></div>')+
       '<div id="vreg-notice" class="vreg-notice">'+esc(state.error)+'</div></section>';
   }
@@ -493,6 +493,44 @@
     }catch(error){state.error=error.message||'Ошибка технической проверки';return false;}
     finally{state.maintenanceBusy=false;if(tab==='vl')renderPage();}
   }
+
+  async function downloadEncryptedBackup() {
+    state.maintenanceBusy=true;renderPage();
+    try{
+      const response=await api('/api/violations/maintenance/backup');
+      if(!response.response.ok)throw new Error(response.result.error||'Не удалось сформировать резервную копию');
+      const body=response.result;
+      if(body.format!=='patrul-violations-encrypted-backup-v1'||!body.encryptedData)throw new Error('Сервер вернул неверный формат резервной копии');
+      const blob=new Blob([JSON.stringify(body,null,2)],{type:'application/json;charset=utf-8'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='patrul_violations_encrypted_backup_'+today()+'.json';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showNotice('Зашифрованная резервная копия скачана. Внутри файла персональные записи остаются зашифрованными.');
+    }catch(error){state.error=error.message||'Ошибка резервного копирования';}
+    finally{state.maintenanceBusy=false;renderPage();}
+  }
+  function chooseEncryptedBackup() {
+    const input=$('#vreg-backup-file');
+    if(!input)return;
+    input.value='';
+    input.onchange=async()=>{
+      const file=input.files&&input.files[0];if(!file)return;
+      try{
+        const backup=JSON.parse(await file.text());
+        if(!backup||backup.format!=='patrul-violations-encrypted-backup-v1'||!backup.encryptedData)throw new Error('Выбранный файл не является резервной копией реестра');
+        if(!window.confirm('Восстановить реестр из резервной копии от '+formatDateTime(backup.updatedAt)+'? Текущие записи будут заменены содержимым копии. Перед продолжением рекомендуется скачать актуальную копию.'))return;
+        state.maintenanceBusy=true;renderPage();
+        const response=await api('/api/violations/maintenance/restore','POST',{expectedVersion:Number(state.maintenance&&state.maintenance.version||0),backup});
+        if(response.response.status===409)throw new Error(response.result.error||'Реестр успел измениться. Обновите сводку и повторите операцию.');
+        if(!response.response.ok)throw new Error(response.result.error||'Не удалось восстановить резервную копию');
+        state.maintenance=response.result.summary;
+        state.error='';
+        showNotice('Реестр восстановлен из зашифрованной резервной копии.');
+      }catch(error){state.error=error.message||'Ошибка восстановления резервной копии';}
+      finally{state.maintenanceBusy=false;renderPage();}
+    };
+    input.click();
+  }
   async function purgeOldTrash() {
     if(!state.maintenance)return;
     if(!window.confirm('Удалить записи из корзины, срок хранения которых превышает 30 дней? Это действие необратимо.'))return;
@@ -590,6 +628,8 @@
       state.settings.deviantsResetAt=null;renderPage();
     }else if(action==='settings-save')saveSettings();
     else if(action==='maintenance-refresh')getMaintenance();
+    else if(action==='maintenance-backup')downloadEncryptedBackup();
+    else if(action==='maintenance-restore-open')chooseEncryptedBackup();
     else if(action==='maintenance-purge')purgeOldTrash();
   }
   document.addEventListener('click',event=>{
