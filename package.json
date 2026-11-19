@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "check": "node --check duty-store.js && node --check server.js && node --check auth.js && node --check data-crypto.js && node --check cloud-sync.js && node --check ops-workspace.js && node --check personal-workspace.js && node --check staff-workspace.js && node --check mail.js && node --check patrol-senior.js && node --check duty-schedule.js && node --check duty-calendar-global.js && node --check scripts/check-html.js && node --check test/api.integration.test.js && node --check test/duty-storage.test.js && node scripts/check-html.js",
+    "check": "node --check violations-registry.js && node --check duty-store.js && node --check server.js && node --check auth.js && node --check data-crypto.js && node --check cloud-sync.js && node --check ops-workspace.js && node --check personal-workspace.js && node --check staff-workspace.js && node --check mail.js && node --check patrol-senior.js && node --check duty-schedule.js && node --check duty-calendar-global.js && node --check scripts/check-html.js && node --check test/api.integration.test.js && node --check test/duty-storage.test.js && node scripts/check-html.js",
     "test:integration": "node --test test/api.integration.test.js test/duty-storage.test.js"
   },
   "dependencies": {
