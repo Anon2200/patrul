@@ -496,6 +496,39 @@ function createAuth(pool,send,readJson) {
       throw error;
     } finally { client.release(); }
   }
+  function commanderRegistryWriteAllowed(raw, currentItems) {
+    if(!Array.isArray(raw)) return false;
+    const incoming = new Map();
+    for(const item of raw) {
+      if(!item || typeof item !== 'object' || Array.isArray(item)) return false;
+      const key = String(item.k || '').trim();
+      if(key) {
+        if(incoming.has(key)) return false;
+        incoming.set(key,item);
+      }
+    }
+    const currentKeys = new Set();
+    for(const prior of currentItems) {
+      const key=String(prior.k);
+      currentKeys.add(key);
+      const candidate=incoming.get(key);
+      // A commander cannot remove, archive, restore, or alter already archived rows.
+      if(!candidate || registryTimestamp(candidate.deletedAt)!==registryTimestamp(prior.deletedAt)) return false;
+      if(prior.deletedAt) {
+        const fields=['fio','grp','type','d','t','post','by','meas','note'];
+        if(fields.some(field=>String(candidate[field]??'')!==String(prior[field]??'')) ||
+          !!candidate.rep!==!!prior.rep) return false;
+      }
+    }
+    // New records may be added only as active records.
+    for(const item of raw) {
+      const key=String(item.k||'').trim();
+      if(!key || !currentKeys.has(key)) {
+        if(registryTimestamp(item.deletedAt)) return false;
+      }
+    }
+    return true;
+  }
   async function saveViolationRegistry(items, expectedVersion, session) {
     const client=await pool.connect();
     try {
@@ -504,6 +537,10 @@ function createAuth(pool,send,readJson) {
       if(current.version!==expectedVersion) {
         await client.query('ROLLBACK');
         return {conflict:true,current};
+      }
+      if(session.role==='nachalnik'&&!commanderRegistryWriteAllowed(items,current.items)) {
+        await client.query('ROLLBACK');
+        return {forbidden:true};
       }
       const next=normalizeRegistryItems(items,current.items,session);
       const q=await client.query(
@@ -1499,6 +1536,7 @@ function createAuth(pool,send,readJson) {
               send(res,400,{error:'Передайте список записей и актуальную версию реестра'});return true;
             }
             const saved=await saveViolationRegistry(body.items,body.expectedVersion,s);
+            if(saved.forbidden){send(res,403,{error:'Начальник может добавлять и редактировать записи, но не может удалять, архивировать или восстанавливать их'});return true;}
             if(saved.conflict){send(res,409,{error:'Реестр был изменён другим сотрудником. Обновите записи и повторите операцию.',items:saved.current.items,version:saved.current.version,updatedAt:saved.current.updatedAt});return true;}
             await audit(s.id,'violation_registry_updated',null,{role:s.role,recordCount:saved.items.length});
             send(res,200,{items:saved.items,settings:saved.settings||undefined,version:saved.version,updatedAt:saved.updatedAt});
@@ -1507,7 +1545,7 @@ function createAuth(pool,send,readJson) {
           send(res,405,{error:'Метод не поддерживается'});return true;
         }
         if(p==='/api/violations/settings') {
-          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Настройки реестра доступны начальнику и документоведу'});return true;}
+          if(s.role!=='dokumentoved'){send(res,403,{error:'Настройки реестра доступны только документоведу'});return true;}
           if(req.method==='GET') {
             const state=await readViolationRegistry();
             send(res,200,{settings:state.settings,version:state.version,updatedAt:state.updatedAt});
