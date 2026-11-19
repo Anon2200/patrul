@@ -265,7 +265,7 @@
       const ch=text[i],next=text[i+1];
       if(quoted){if(ch==='"'&&next==='"'){field+='"';i++;}else if(ch==='"')quoted=false;else field+=ch;}
       else if(ch==='"')quoted=true;
-      else if(ch==='; '||ch===';'||ch==='\t'||ch===','){row.push(field);field='';}
+      else if(ch===';'||ch==='\t'||ch===','){row.push(field);field='';}
       else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&next==='\n')i++;row.push(field);if(row.some(x=>x.trim()))rows.push(row);row=[];field='';}
       else field+=ch;
     }
@@ -366,15 +366,15 @@
       return found>=0?found:defaultIndex;
     };
     const ix={
-      fio:index([/фио/,/фамил/,/студент/,/обуча/,/^name$/],0),
-      grp:index([/груп/],1),
-      d:index([/дат/],2),
-      t:index([/врем/],-1),
-      type:index([/наруш/,/вид/,/тип/,/катег/],3),
-      post:index([/мест/,/пост/,/локац/],4),
-      by:index([/выявил/,/кто/,/патрул/,/дежур/],5),
+      fio:index([/фио/,/фамил/,/студент/,/обуча/,/^name$/,/student[_ ]?name/],0),
+      grp:index([/груп/,/student[_ ]?group/],1),
+      d:index([/дат/,/created[_ ]?at/,/^date$/],2),
+      t:index([/врем/,/^time$/],-1),
+      type:index([/наруш/,/вид/,/тип/,/катег/,/violation[_ ]?type/],3),
+      post:index([/мест/,/пост/,/локац/,/^location$/],4),
+      by:index([/выявил/,/кто/,/патрул/,/дежур/,/patrol[_ ]?name/],5),
       meas:index([/мер/,/результат/,/реш/],6),
-      note:index([/описан/,/суть/,/комментар/,/примеч/],7),
+      note:index([/описан/,/суть/,/комментар/,/примеч/,/^comment$/],7),
       rep:index([/куратор/,/довед/],8)
     };
     const existing=new Set(state.items.filter(x=>!x.deletedAt).map(x=>[keyText(x.fio),keyText(x.grp),x.d,keyText(x.type)].join('|')));
@@ -383,9 +383,12 @@
       const val=key=>ix[key]>=0?String(row[ix[key]]||'').trim():'';
       const fio=val('fio'),grp=val('grp'),dRaw=val('d'),type=val('type');
       if(!fio||!grp||!type||!dRaw){skipped++;continue;}
-      let d=dRaw;
-      const ru=dRaw.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
-      if(ru)d=ru[3]+'-'+ru[2]+'-'+ru[1];
+      let d=dRaw,t=val('t');
+      const iso=dRaw.match(/^(\d{4}-\d{2}-\d{2})/);
+      const ru=dRaw.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
+      if(iso)d=iso[1];
+      else if(ru)d=ru[3]+'-'+ru[2]+'-'+ru[1];
+      if(!t){const timeMatch=dRaw.match(/(?:T|\\s)([0-2]\\d:[0-5]\\d)/);if(timeMatch)t=timeMatch[1];}
       const duplicateKey=[keyText(fio),keyText(grp),d,keyText(type)].join('|');
       if(existing.has(duplicateKey)){skipped++;continue;}
       existing.add(duplicateKey);
@@ -393,7 +396,7 @@
       additions.push({
         k:'vreg-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)),
         fio,grp,d,type,t:val('t'),post:val('post'),by:val('by'),meas:val('meas'),note:val('note'),
-        rep:['да','yes','1','true','доведено'].includes(repRaw),deletedAt:null
+        rep:['да','yes','1','true','доведено'].includes(repRaw),t,deletedAt:null
       });
     }
     return {items:additions,added:additions.length,skipped};
