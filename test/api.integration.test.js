@@ -501,6 +501,7 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   }
 
   const commander = await createRoleSession('ci.commander.registry','CI Registry Commander','nachalnik');
+  const seniorMaster = await createRoleSession('ci.master.registry','CI Registry Senior Master','uchet');
   const documentOfficer = await createRoleSession('ci.document.registry','CI Registry Document Officer','dokumentoved');
 
   const deniedPatrol = await sessionApi('/api/violations', {}, employeeCookie);
@@ -568,6 +569,25 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   const refreshedSnapshot = await refreshedAfterSettings.json();
   assert.equal(refreshedSnapshot.settings.repeatThreshold, 3);
 
+  const masterSettingsRead = await sessionApi('/api/violations/settings', {}, seniorMaster.cookie);
+  assert.equal(masterSettingsRead.status, 200);
+  const masterSettingsBefore = await masterSettingsRead.json();
+  const masterTypesWrite = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({expectedVersion: masterSettingsBefore.version, settings: {
+      violationTypes: [...masterSettingsBefore.settings.violationTypes, 'CI Master Custom Type'],
+      repeatThreshold: 99
+    }})
+  }, seniorMaster.cookie, seniorMaster.csrf);
+  assert.equal(masterTypesWrite.status, 200);
+  const masterTypesSaved = await masterTypesWrite.json();
+  assert.ok(masterTypesSaved.settings.violationTypes.includes('CI Master Custom Type'));
+  assert.equal(masterTypesSaved.settings.repeatThreshold, settingsSaved.settings.repeatThreshold, 'master may only change violation types');
+  const masterInvalidTypes = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({expectedVersion: masterTypesSaved.version, settings: {violationTypes: []}})
+  }, seniorMaster.cookie, seniorMaster.csrf);
+  assert.equal(masterInvalidTypes.status, 400);
   const masterCannotReadSettings = await sessionApi('/api/violations/settings', {}, adminCookie);
   assert.equal(masterCannotReadSettings.status, 403);
 
