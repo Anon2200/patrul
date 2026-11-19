@@ -388,14 +388,14 @@
       const ru=dRaw.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
       if(iso)d=iso[1];
       else if(ru)d=ru[3]+'-'+ru[2]+'-'+ru[1];
-      if(!t){const timeMatch=dRaw.match(/(?:T|\\s)([0-2]\\d:[0-5]\\d)/);if(timeMatch)t=timeMatch[1];}
+      if(!t){const timeMatch=dRaw.match(/(?:T|\s)([0-2]\d:[0-5]\d)/);if(timeMatch)t=timeMatch[1];}
       const duplicateKey=[keyText(fio),keyText(grp),d,keyText(type)].join('|');
       if(existing.has(duplicateKey)){skipped++;continue;}
       existing.add(duplicateKey);
       const repRaw=keyText(val('rep'));
       additions.push({
         k:'vreg-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)),
-        fio,grp,d,type,t:val('t'),post:val('post'),by:val('by'),meas:val('meas'),note:val('note'),
+        fio,grp,d,type,post:val('post'),by:val('by'),meas:val('meas'),note:val('note'),
         rep:['да','yes','1','true','доведено'].includes(repRaw),t,deletedAt:null
       });
     }
