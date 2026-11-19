@@ -619,9 +619,24 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   assert.equal(purgeBody.summary.inTrash, 0);
   assert.equal(purgeBody.summary.total, 1);
 
+  const backupResponse = await sessionApi('/api/violations/maintenance/backup', {}, adminCookie);
+  assert.equal(backupResponse.status, 200);
+  const backup = await backupResponse.json();
+  assert.equal(backup.format, 'patrul-violations-encrypted-backup-v1');
+  assert.equal(backup.encryptedData.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(backup).includes(first.fio), false);
+  const restoreResponse = await sessionApi('/api/violations/maintenance/restore', {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: purgeBody.summary.version, backup })
+  }, adminCookie, adminCsrf);
+  assert.equal(restoreResponse.status, 200);
+  const restoredSummary = await restoreResponse.json();
+  assert.equal(restoredSummary.summary.total, 1);
+  assert.equal(restoredSummary.summary.inTrash, 0);
+
   const documentAudit = await sessionApi('/api/violations/audit', {}, documentOfficer.cookie);
   assert.equal(documentAudit.status, 200);
-  assert.ok((await documentAudit.json()).items.length >= 4);
+  assert.ok((await documentAudit.json()).items.length >= 5);
   const masterAuditDenied = await sessionApi('/api/violations/audit', {}, adminCookie);
   assert.equal(masterAuditDenied.status, 403);
 
