@@ -1548,7 +1548,7 @@ function createAuth(pool,send,readJson) {
           send(res,405,{error:'Метод не поддерживается'});return true;
         }
         if(p==='/api/violations/audit') {
-          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Журнал действий доступен начальнику и документоведу'});return true;}
+          if(!VIOLATION_REGISTRY_ROLES.has(s.role)){send(res,403,{error:'Журнал действий недоступен для этой роли'});return true;}
           if(req.method!=='GET'){send(res,405,{error:'Метод не поддерживается'});return true;}
           const q=await pool.query(
             "SELECT a.id,a.event_type,a.details,a.created_at,u.display_name AS actor FROM patrul_audit_log a LEFT JOIN patrul_users u ON u.id=a.actor_user_id WHERE a.event_type LIKE 'violation_registry_%' ORDER BY a.id DESC LIMIT 200"
