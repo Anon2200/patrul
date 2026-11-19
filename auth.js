@@ -335,6 +335,139 @@ function createAuth(pool,send,readJson) {
     if(!department) return null;
     return {person,department,data};
   }
+
+  const VIOLATION_REGISTRY_ROLES = new Set(['nachalnik','dokumentoved','uchet']);
+  const VIOLATION_EDITOR_ROLES = new Set(['nachalnik','dokumentoved']);
+  const VIOLATION_TRASH_DAYS = 30;
+  function registryDate(value) {
+    const date=String(value||'').trim();
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return '';
+    const parsed=new Date(date+'T00:00:00.000Z');
+    return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===date?date:'';
+  }
+  function registryTimestamp(value) {
+    if(value===null||value===undefined||value==='')return null;
+    const date=new Date(value);
+    return Number.isNaN(date.getTime())?null:date.toISOString();
+  }
+  function registryActor(session) {
+    return String(session.display_name||session.username||session.role||'Сотрудник').trim().slice(0,200);
+  }
+  function registrySummary(items, version, updatedAt) {
+    const active=items.filter(item=>!item.deletedAt);
+    const trashed=items.filter(item=>item.deletedAt);
+    const missing=active.filter(item=>!item.fio||!item.grp||!item.type||!registryDate(item.d));
+    const seen=new Set(),duplicates=new Set();
+    for(const item of active){
+      const key=[item.fio,item.grp,item.d,item.type].map(value=>String(value||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').trim()).join('|');
+      if(seen.has(key))duplicates.add(key);else seen.add(key);
+    }
+    return {version:Number(version)||0,total:active.length,inTrash:trashed.length,missingRequired:missing.length,duplicateGroups:duplicates.size,updatedAt:updatedAt||null,trashRetentionDays:VIOLATION_TRASH_DAYS};
+  }
+  function normalizeRegistryItems(raw, existing, session) {
+    if(!Array.isArray(raw)||raw.length>10000)throw Object.assign(new Error('Реестр должен содержать не более 10 000 записей'),{status:400});
+    const previous=new Map((Array.isArray(existing)?existing:[]).map(item=>[String(item.k),item]));
+    const seen=new Set(),now=new Date().toISOString(),actor=registryActor(session);
+    const text=(value,max)=>String(value==null?'':value).trim().slice(0,max);
+    return raw.map((input,index)=>{
+      if(!input||typeof input!=='object'||Array.isArray(input))throw Object.assign(new Error('Некорректная запись реестра №'+(index+1)),{status:400});
+      const k=text(input.k,120)||crypto.randomUUID();
+      if(!/^[a-zA-Z0-9_-]{1,120}$/.test(k)||seen.has(k))throw Object.assign(new Error('Обнаружен пустой или повторяющийся идентификатор записи'),{status:400});
+      seen.add(k);
+      const fio=text(input.fio,200),grp=text(input.grp,100),type=text(input.type,180),d=registryDate(input.d);
+      const t=text(input.t,5),post=text(input.post,180),by=text(input.by,200),meas=text(input.meas,1500),note=text(input.note,3000);
+      if(!fio||!grp||!type||!d|| (t&&!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(t))) {
+        throw Object.assign(new Error('Проверьте ФИО, группу, вид нарушения, дату и время в записи №'+(index+1)),{status:400});
+      }
+      const prior=previous.get(k);
+      const fields=[fio,grp,type,d,t,post,by,meas,note,!!input.rep];
+      const priorFields=prior?[prior.fio,prior.grp,prior.type,prior.d,prior.t,prior.post,prior.by,prior.meas,prior.note,!!prior.rep]:null;
+      const deletedAt=registryTimestamp(input.deletedAt);
+      const priorDeletedAt=prior?registryTimestamp(prior.deletedAt):null;
+      const changed=!prior||JSON.stringify(fields)!==JSON.stringify(priorFields)||deletedAt!==priorDeletedAt;
+      return {
+        k,fio,grp,type,d,t,post,by,meas,note,rep:!!input.rep,
+        createdAt:prior&&prior.createdAt||now,
+        createdBy:prior&&prior.createdBy||actor,
+        updatedAt:changed?now:(prior&&prior.updatedAt||now),
+        updatedBy:changed?actor:(prior&&prior.updatedBy||actor),
+        deletedAt,
+        deletedBy:deletedAt?(priorDeletedAt===deletedAt?prior.deletedBy||actor:actor):null
+      };
+    });
+  }
+  async function lockViolationRegistry(client) {
+    await client.query('INSERT INTO patrul_violation_registry(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+    let q=await client.query('SELECT data,version,updated_by,updated_at FROM patrul_violation_registry WHERE id=1 FOR UPDATE');
+    let row=q.rows[0];
+    if(!row.data) {
+      let legacyItems=[];
+      const legacy=await client.query("SELECT data,version FROM patrul_role_data WHERE role='nachalnik'");
+      if(legacy.rowCount) {
+        const chief=await readRoleData(pool,'nachalnik',legacy.rows[0]);
+        if(chief&&Array.isArray(chief.viol))legacyItems=chief.viol;
+      }
+      const now=new Date().toISOString();
+      const items=legacyItems.map((item,index)=>{
+        const d=registryDate(item&&item.d)||new Date().toISOString().slice(0,10);
+        return {
+          k:String(item&&item.k||crypto.randomUUID()).slice(0,120),fio:String(item&&item.fio||'').trim().slice(0,200),
+          grp:String(item&&item.grp||'Не указана').trim().slice(0,100),type:String(item&&item.type||'Другое').trim().slice(0,180),
+          d,t:String(item&&item.t||'').slice(0,5),post:String(item&&item.post||'').slice(0,180),by:String(item&&item.by||'').slice(0,200),
+          meas:String(item&&item.meas||'').slice(0,1500),note:String(item&&item.note||'').slice(0,3000),rep:!!(item&&item.rep),
+          createdAt:now,createdBy:'Миграция существующего реестра',updatedAt:now,updatedBy:'Миграция существующего реестра',
+          deletedAt:null,deletedBy:null
+        };
+      }).filter(item=>item.fio&&item.type);
+      const payload={items,legacyBackup:legacyItems};
+      q=await client.query(
+        'UPDATE patrul_violation_registry SET data=$1::jsonb,version=1,updated_at=NOW() WHERE id=1 RETURNING data,version,updated_by,updated_at',
+        [JSON.stringify(encryptData(payload,'violations_registry'))]
+      );
+      row=q.rows[0];
+    }
+    const data=decryptData(row.data,'violations_registry');
+    return {items:Array.isArray(data&&data.items)?data.items:[],legacyBackup:Array.isArray(data&&data.legacyBackup)?data.legacyBackup:[],version:Number(row.version)||0,updatedBy:row.updated_by||null,updatedAt:row.updated_at||null};
+  }
+  async function readViolationRegistry() {
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const state=await lockViolationRegistry(client);
+      await client.query('COMMIT');
+      return state;
+    } catch(error) {
+      await client.query('ROLLBACK').catch(()=>{});
+      throw error;
+    } finally { client.release(); }
+  }
+  async function saveViolationRegistry(items, expectedVersion, session) {
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current=await lockViolationRegistry(client);
+      if(current.version!==expectedVersion) {
+        await client.query('ROLLBACK');
+        return {conflict:true,current};
+      }
+      const next=normalizeRegistryItems(items,current.items,session);
+      const q=await client.query(
+        'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
+        [JSON.stringify(encryptData({items:next,legacyBackup:current.legacyBackup},'violations_registry')),session.id,current.version]
+      );
+      if(!q.rowCount) {
+        const latest=await readViolationRegistry();
+        await client.query('ROLLBACK');
+        return {conflict:true,current:latest};
+      }
+      await client.query('COMMIT');
+      return {conflict:false,items:next,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at};
+    } catch(error) {
+      await client.query('ROLLBACK').catch(()=>{});
+      throw error;
+    } finally { client.release(); }
+  }
+
   async function admin(req,res,needsCsrf) {
     const s=await sessionFor(req);
     if(!s){send(res,401,{error:'Требуется персональный вход'});return null;}
@@ -345,7 +478,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule'&&p!=='/api/duty-roster') return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&(p!=='/api/violations'&&!p.startsWith('/api/violations/'))&&p!=='/api/duty-schedule'&&p!=='/api/duty-roster') return false;
     try {
       if(p==='/api/duty-schedule') {
         const session=await sessionFor(req);
@@ -1288,6 +1421,81 @@ function createAuth(pool,send,readJson) {
         await audit(s.id,'document_number_issued',null,{year,sequence});
         send(res,201,{year,sequence,number:String(sequence).padStart(3,'0')+'/'+year});
         return true;
+      }
+
+
+      if(p==='/api/violations'||p==='/api/violations/maintenance'||p==='/api/violations/maintenance/purge') {
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!VIOLATION_REGISTRY_ROLES.has(s.role)){send(res,403,{error:'Раздел нарушителей недоступен для этой роли'});return true;}
+        if(p==='/api/violations') {
+          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Просмотр записей реестра доступен начальнику и документоведу'});return true;}
+          if(req.method==='GET') {
+            const state=await readViolationRegistry();
+            send(res,200,{items:state.items,version:state.version,updatedAt:state.updatedAt,updatedBy:state.updatedBy});
+            return true;
+          }
+          if(req.method==='PUT') {
+            if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Изменять реестр могут только начальник и документовед'});return true;}
+            if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+            const body=await readJson(req);
+            if(!body||typeof body!=='object'||Array.isArray(body)||!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||!Array.isArray(body.items)) {
+              send(res,400,{error:'Передайте список записей и актуальную версию реестра'});return true;
+            }
+            const saved=await saveViolationRegistry(body.items,body.expectedVersion,s);
+            if(saved.conflict){send(res,409,{error:'Реестр был изменён другим сотрудником. Обновите записи и повторите операцию.',items:saved.current.items,version:saved.current.version,updatedAt:saved.current.updatedAt});return true;}
+            await audit(s.id,'violation_registry_updated',null,{role:s.role,recordCount:saved.items.length});
+            send(res,200,{items:saved.items,version:saved.version,updatedAt:saved.updatedAt});
+            return true;
+          }
+          send(res,405,{error:'Метод не поддерживается'});return true;
+        }
+        if(p==='/api/violations/maintenance') {
+          if(s.role!=='uchet'){send(res,403,{error:'Техническое обслуживание реестра доступно только старшему мастеру'});return true;}
+          if(req.method!=='GET'){send(res,405,{error:'Метод не поддерживается'});return true;}
+          const state=await readViolationRegistry();
+          send(res,200,{status:'ok',...registrySummary(state.items,state.version,state.updatedAt)});
+          return true;
+        }
+        if(p==='/api/violations/maintenance/purge') {
+          if(s.role!=='uchet'){send(res,403,{error:'Очистка корзины доступна только старшему мастеру'});return true;}
+          if(req.method!=='POST'){send(res,405,{error:'Метод не поддерживается'});return true;}
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const body=await readJson(req);
+          if(!body||!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0){send(res,400,{error:'Не указана актуальная версия реестра'});return true;}
+          const client=await pool.connect();
+          let result;
+          try {
+            await client.query('BEGIN');
+            const state=await lockViolationRegistry(client);
+            if(state.version!==body.expectedVersion) {
+              await client.query('ROLLBACK');
+              send(res,409,{error:'Реестр изменился. Обновите техническую сводку.',version:state.version});
+              return true;
+            }
+            const cutoff=Date.now()-VIOLATION_TRASH_DAYS*24*60*60*1000;
+            const kept=state.items.filter(item=>!item.deletedAt||!registryTimestamp(item.deletedAt)||Date.parse(item.deletedAt)>=cutoff);
+            const purged=state.items.length-kept.length;
+            let version=state.version,updatedAt=state.updatedAt;
+            if(purged) {
+              const saved=await client.query(
+                'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
+                [JSON.stringify(encryptData({items:kept,legacyBackup:state.legacyBackup},'violations_registry')),s.id,state.version]
+              );
+              if(!saved.rowCount)throw Object.assign(new Error('Реестр изменился во время очистки'),{status:409});
+              version=Number(saved.rows[0].version);updatedAt=saved.rows[0].updated_at;
+            }
+            await client.query('COMMIT');
+            result={purged,version,updatedAt,summary:registrySummary(kept,version,updatedAt)};
+          } catch(error) {
+            await client.query('ROLLBACK').catch(()=>{});
+            throw error;
+          } finally { client.release(); }
+          if(result.purged)await audit(s.id,'violation_registry_trash_purged',null,{purged:result.purged});
+          send(res,200,result);
+          return true;
+        }
       }
 
       if(p==='/api/shared-staff') {
