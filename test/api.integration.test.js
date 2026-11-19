@@ -505,8 +505,9 @@ test('shared violations registry enforces roles, syncs between editors, and supp
 
   const deniedPatrol = await sessionApi('/api/violations', {}, employeeCookie);
   assert.equal(deniedPatrol.status, 403);
-  const deniedMasterRecords = await sessionApi('/api/violations', {}, adminCookie);
-  assert.equal(deniedMasterRecords.status, 403);
+  const masterReadEmpty = await sessionApi('/api/violations', {}, adminCookie);
+  assert.equal(masterReadEmpty.status, 200);
+  assert.ok(Array.isArray((await masterReadEmpty.json()).items));
 
   const initial = await sessionApi('/api/violations', {}, commander.cookie);
   assert.equal(initial.status, 200);
@@ -529,6 +530,13 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   assert.equal(firstBody.items.length, 1);
   assert.ok(firstBody.items[0].createdAt);
   assert.equal(firstBody.items[0].createdBy, 'CI Registry Commander');
+
+  const masterCanReadRecords = await sessionApi('/api/violations', {}, adminCookie);
+  assert.equal(masterCanReadRecords.status, 200);
+  const masterSnapshot = await masterCanReadRecords.json();
+  assert.equal(masterSnapshot.items.length, 1);
+  assert.equal(masterSnapshot.items[0].fio, first.fio);
+  assert.equal(masterSnapshot.items[0].note, first.note);
 
   const visibleToDocuments = await sessionApi('/api/violations', {}, documentOfficer.cookie);
   assert.equal(visibleToDocuments.status, 200);
@@ -637,8 +645,9 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   const documentAudit = await sessionApi('/api/violations/audit', {}, documentOfficer.cookie);
   assert.equal(documentAudit.status, 200);
   assert.ok((await documentAudit.json()).items.length >= 5);
-  const masterAuditDenied = await sessionApi('/api/violations/audit', {}, adminCookie);
-  assert.equal(masterAuditDenied.status, 403);
+  const masterAuditRead = await sessionApi('/api/violations/audit', {}, adminCookie);
+  assert.equal(masterAuditRead.status, 200);
+  assert.ok((await masterAuditRead.json()).items.length >= 5);
 
   const stored = await pool.query('SELECT data FROM patrul_violation_registry WHERE id=1');
   assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
