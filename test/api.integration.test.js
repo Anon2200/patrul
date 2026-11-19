@@ -592,6 +592,40 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   assert.equal(staleWrite.status, 409);
   assert.equal((await staleWrite.json()).items.length, 2);
 
+  const commanderEditItems = secondBody.items.map(item => item.k === first.k
+    ? { ...item, note: 'Отредактировано начальником' }
+    : item);
+  const commanderEdit = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: secondBody.version, items: commanderEditItems })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderEdit.status, 200);
+  const commanderEdited = await commanderEdit.json();
+  assert.equal(commanderEdited.items.find(item => item.k === first.k).note, 'Отредактировано начальником');
+
+  const commanderCannotRemove = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, items: commanderEdited.items.filter(item => item.k !== second.k) })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotRemove.status, 403);
+
+  const commanderCannotArchive = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: commanderEdited.version,
+      items: commanderEdited.items.map(item => item.k === first.k ? { ...item, deletedAt: new Date().toISOString() } : item)
+    })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotArchive.status, 403);
+
+  const commanderCannotReadSettings = await sessionApi('/api/violations/settings', {}, commander.cookie);
+  assert.equal(commanderCannotReadSettings.status, 403);
+  const commanderCannotChangeSettings = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, settings: { repeatThreshold: 1 } })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotChangeSettings.status, 403);
+
   const masterSummary = await sessionApi('/api/violations/maintenance', {}, adminCookie);
   assert.equal(masterSummary.status, 200);
   const masterBody = await masterSummary.json();
@@ -605,12 +639,12 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   }, adminCookie, adminCsrf);
   assert.equal(masterCannotWriteRecords.status, 403);
 
-  const archivedItems = secondBody.items.map(item => item.k === second.k
+  const archivedItems = commanderEdited.items.map(item => item.k === second.k
     ? { ...item, deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() }
     : item);
   const archive = await sessionApi('/api/violations', {
     method: 'PUT',
-    body: JSON.stringify({ expectedVersion: secondBody.version, items: archivedItems })
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, items: archivedItems })
   }, documentOfficer.cookie, documentOfficer.csrf);
   assert.equal(archive.status, 200);
 
