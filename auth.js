@@ -376,7 +376,7 @@ function createAuth(pool,send,readJson) {
       seen.add(k);
       const fio=text(input.fio,200),grp=text(input.grp,100),type=text(input.type,180),d=registryDate(input.d);
       const t=text(input.t,5),post=text(input.post,180),by=text(input.by,200),meas=text(input.meas,1500),note=text(input.note,3000);
-      if(!fio||!grp||!type||!d|| (t&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))) {
+      if(!fio||!type||!d|| (t&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))) {
         throw Object.assign(new Error('Проверьте ФИО, группу, вид нарушения, дату и время в записи №'+(index+1)),{status:400});
       }
       const prior=previous.get(k);
