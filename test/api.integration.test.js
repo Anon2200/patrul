@@ -534,6 +534,34 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   assert.equal(visibleToDocuments.status, 200);
   const documentSnapshot = await visibleToDocuments.json();
   assert.equal(documentSnapshot.items[0].fio, first.fio);
+  assert.ok(Array.isArray(documentSnapshot.settings.violationTypes));
+
+  const settingsRead = await sessionApi('/api/violations/settings', {}, documentOfficer.cookie);
+  assert.equal(settingsRead.status, 200);
+  const settingsBefore = await settingsRead.json();
+  const settingsWrite = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: settingsBefore.version,
+      settings: {
+        ...settingsBefore.settings,
+        repeatThreshold: 3,
+        violationTypes: [...settingsBefore.settings.violationTypes, 'CI Custom Violation']
+      }
+    })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(settingsWrite.status, 200);
+  const settingsSaved = await settingsWrite.json();
+  assert.equal(settingsSaved.settings.repeatThreshold, 3);
+  assert.ok(settingsSaved.settings.violationTypes.includes('CI Custom Violation'));
+
+  const refreshedAfterSettings = await sessionApi('/api/violations', {}, commander.cookie);
+  assert.equal(refreshedAfterSettings.status, 200);
+  const refreshedSnapshot = await refreshedAfterSettings.json();
+  assert.equal(refreshedSnapshot.settings.repeatThreshold, 3);
+
+  const masterCannotReadSettings = await sessionApi('/api/violations/settings', {}, adminCookie);
+  assert.equal(masterCannotReadSettings.status, 403);
 
   const second = {
     k: 'registry-ci-second', fio: 'Другой Тестовый Студент', grp: 'ИСП-102',
@@ -543,7 +571,7 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   };
   const secondWrite = await sessionApi('/api/violations', {
     method: 'PUT',
-    body: JSON.stringify({ expectedVersion: documentSnapshot.version, items: [...documentSnapshot.items, second] })
+    body: JSON.stringify({ expectedVersion: refreshedSnapshot.version, items: [...refreshedSnapshot.items, second] })
   }, documentOfficer.cookie, documentOfficer.csrf);
   assert.equal(secondWrite.status, 200);
   const secondBody = await secondWrite.json();
@@ -593,7 +621,7 @@ test('shared violations registry enforces roles, syncs between editors, and supp
 
   const documentAudit = await sessionApi('/api/violations/audit', {}, documentOfficer.cookie);
   assert.equal(documentAudit.status, 200);
-  assert.ok((await documentAudit.json()).items.length >= 3);
+  assert.ok((await documentAudit.json()).items.length >= 4);
   const masterAuditDenied = await sessionApi('/api/violations/audit', {}, adminCookie);
   assert.equal(masterAuditDenied.status, 403);
 
