@@ -456,8 +456,8 @@ function createAuth(pool,send,readJson) {
         [JSON.stringify(encryptData({items:next,legacyBackup:current.legacyBackup},'violations_registry')),session.id,current.version]
       );
       if(!q.rowCount) {
-        const latest=await readViolationRegistry();
         await client.query('ROLLBACK');
+        const latest=await readViolationRegistry();
         return {conflict:true,current:latest};
       }
       await client.query('COMMIT');
