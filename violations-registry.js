@@ -6,8 +6,8 @@
   const state = {
     items: [], version: 0, updatedAt: null, busy: false, loaded: false, error: '',
     q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
-    sort: 'date', direction: 'desc', trash: false, selected: new Set(),
-    maintenance: null, maintenanceBusy: false, importPreview: null
+    sort: 'date', direction: 'desc', trash: false, auditView: false, selected: new Set(),
+    audit: [], auditBusy: false, auditError: '', maintenance: null, maintenanceBusy: false, importPreview: null
   };
   const $ = selector => document.querySelector(selector);
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
@@ -195,7 +195,7 @@
       '<div class="vreg-stat"><b>'+counts.repeat+'</b><span>С повторными записями</span></div>'+
       '<div class="vreg-stat"><b>'+counts.unreported+'</b><span>Не доведено до куратора</span></div>'+
       '<div class="vreg-stat"><b>'+counts.trash+'</b><span>В корзине</span></div></div>'+
-      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><span class="vreg-muted">Корзина хранится 30 дней, затем очищается старшим мастером</span></div>'+
+      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><button class="vreg-tab '+(state.auditView?'active':'')+'" data-vreg-action="audit">Журнал изменений</button><span class="vreg-muted">Корзина хранится 30 дней, затем очищается старшим мастером</span></div>'+
       '<div class="vreg-tools" style="margin-top:12px">'+
       '<div class="vreg-field" style="min-width:220px"><label>Поиск по ФИО, группе, описанию</label><input id="vreg-q" value="'+esc(state.q)+'" placeholder="Введите ФИО или ключевые слова"></div>'+
       '<div class="vreg-field"><label>Группа</label><input id="vreg-group" value="'+esc(state.group)+'" list="vreg-groups" placeholder="Все группы"><datalist id="vreg-groups">'+groupOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></div>'+
@@ -225,11 +225,32 @@
         :'<div class="vreg-panel"><p class="vreg-muted">'+esc(state.error||'Нажмите «Проверить состояние», чтобы получить техническую сводку.')+'</p></div>')+
       '<div id="vreg-notice" class="vreg-notice">'+esc(state.error)+'</div></section>';
   }
+
+  async function getAudit() {
+    state.auditBusy=true;state.auditError='';
+    renderPage();
+    try{
+      const result=await api('/api/violations/audit');
+      if(!result.response.ok)throw new Error(result.result.error||'Не удалось загрузить журнал действий');
+      state.audit=Array.isArray(result.result.items)?result.result.items:[];
+    }catch(error){state.auditError=error.message||'Ошибка загрузки журнала';}
+    finally{state.auditBusy=false;if(tab==='vl'&&state.auditView)renderPage();}
+  }
+  function auditPage() {
+    const actionLabel=type=>type==='violation_registry_updated'?'Изменение записей реестра':type==='violation_registry_trash_purged'?'Очистка корзины':type;
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>ЖУРНАЛ ДЕЙСТВИЙ РЕЕСТРА</h1><p class="vreg-sub">Последние 200 операций изменения и технического обслуживания</p></div><div class="vreg-tools"><button class="vreg-button secondary" data-vreg-action="audit-refresh" '+(state.auditBusy?'disabled':'')+'>Обновить журнал</button><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button></div></header>'+
+      '<div class="vreg-panel"><div class="vreg-table-wrap"><table class="vreg-table" style="min-width:650px"><thead><tr><th>Дата и время</th><th>Сотрудник</th><th>Действие</th><th>Сведения</th></tr></thead><tbody>'+
+      (state.auditBusy?'<tr><td colspan="4" class="vreg-empty">Загрузка журнала…</td></tr>':state.auditError?'<tr><td colspan="4" class="vreg-empty">'+esc(state.auditError)+'</td></tr>':state.audit.length?state.audit.map(item=>'<tr><td>'+formatDateTime(item.createdAt)+'</td><td>'+esc(item.actor)+'</td><td>'+esc(actionLabel(item.eventType))+'</td><td>'+(
+        item.eventType==='violation_registry_updated'?'Записей в реестре после изменения: '+Number(item.details&&item.details.recordCount||0):
+        item.eventType==='violation_registry_trash_purged'?'Удалено записей из корзины: '+Number(item.details&&item.details.purged||0):'Операция зарегистрирована'
+      )+'</td></tr>').join(''):'<tr><td colspan="4" class="vreg-empty">Операций пока нет</td></tr>')+
+      '</tbody></table></div><p class="vreg-muted">Содержимое записей студентов в журнале действий не дублируется.</p></div></section>';
+  }
   function renderPage() {
     if (tab !== 'vl') return;
     const main=$('#m');
     if (!main) return;
-    main.innerHTML = role==='uchet' ? maintenancePage() : listPage();
+    main.innerHTML = role==='uchet' ? maintenancePage() : (state.auditView ? auditPage() : listPage());
   }
   function installDrawHook() {
     if (typeof draw !== 'function' || draw.__violationsRegistryHook) return;
@@ -438,8 +459,10 @@
       saveRegistry(next,'Запись восстановлена');
     }else if(action==='dossier')showDossier(key);
     else if(action==='modal-close')closeModal();
-    else if(action==='view-active'){state.trash=false;state.page=1;state.selected.clear();renderPage();}
-    else if(action==='view-trash'){state.trash=true;state.page=1;state.selected.clear();renderPage();}
+    else if(action==='view-active'){state.trash=false;state.auditView=false;state.page=1;state.selected.clear();renderPage();}
+    else if(action==='view-trash'){state.trash=true;state.auditView=false;state.page=1;state.selected.clear();renderPage();}
+    else if(action==='audit'){state.auditView=true;getAudit();}
+    else if(action==='audit-refresh')getAudit();
     else if(action==='clear-filters'){state.q='';state.group='';state.type='';state.from='';state.to='';state.page=1;state.selected.clear();renderPage();}
     else if(action==='sort'){
       const sort=target.dataset.key;
