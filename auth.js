@@ -339,6 +339,28 @@ function createAuth(pool,send,readJson) {
   const VIOLATION_REGISTRY_ROLES = new Set(['nachalnik','dokumentoved','uchet']);
   const VIOLATION_EDITOR_ROLES = new Set(['nachalnik','dokumentoved']);
   const VIOLATION_TRASH_DAYS = 30;
+  const DEFAULT_VIOLATION_TYPES = ['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'];
+  function defaultViolationSettings() {
+    return {violationTypes:DEFAULT_VIOLATION_TYPES.slice(),repeatThreshold:2,deviantsResetAt:null,departments:{}};
+  }
+  function normalizeViolationSettings(raw) {
+    const defaults=defaultViolationSettings(),source=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+    const types=Array.isArray(source.violationTypes)?source.violationTypes:defaults.violationTypes;
+    const cleanTypes=[...new Set(types.map(value=>String(value||'').trim().slice(0,120)).filter(Boolean))].slice(0,100);
+    const repeatThreshold=Number(source.repeatThreshold);
+    const departments=source.departments&&typeof source.departments==='object'&&!Array.isArray(source.departments)?source.departments:{};
+    const cleanDepartments={};
+    for(const [key,value] of Object.entries(departments).slice(0,100)) {
+      const k=String(key||'').trim().toUpperCase().slice(0,30),v=String(value||'').trim().slice(0,120);
+      if(k&&v)cleanDepartments[k]=v;
+    }
+    return {
+      violationTypes:cleanTypes.length?cleanTypes:defaults.violationTypes,
+      repeatThreshold:Number.isInteger(repeatThreshold)?Math.max(1,Math.min(100,repeatThreshold)):defaults.repeatThreshold,
+      deviantsResetAt:registryDate(source.deviantsResetAt)||null,
+      departments:cleanDepartments
+    };
+  }
   function registryDate(value) {
     const date=String(value||'').trim();
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return '';
@@ -353,16 +375,49 @@ function createAuth(pool,send,readJson) {
   function registryActor(session) {
     return String(session.display_name||session.username||session.role||'Сотрудник').trim().slice(0,200);
   }
-  function registrySummary(items, version, updatedAt) {
+  function registrySummary(items, version, updatedAt, settings=defaultViolationSettings()) {
     const active=items.filter(item=>!item.deletedAt);
     const trashed=items.filter(item=>item.deletedAt);
     const missing=active.filter(item=>!item.fio||!item.grp||!item.type||!registryDate(item.d));
-    const seen=new Set(),duplicates=new Set();
+    const seen=new Set(),duplicates=new Set(),names=new Map(),byStudentType=new Map();
+    const yearAgo=Date.now()-365*24*60*60*1000;
+    let olderThanYear=0;
     for(const item of active){
       const key=[item.fio,item.grp,item.d,item.type].map(value=>String(value||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').trim()).join('|');
       if(seen.has(key))duplicates.add(key);else seen.add(key);
+      const folded=String(item.fio||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').trim();
+      if(folded){if(!names.has(folded))names.set(folded,new Set());names.get(folded).add(String(item.fio||'').trim());}
+      const pair=folded+'|'+String(item.type||'').toLocaleLowerCase('ru-RU').trim();
+      if(!byStudentType.has(pair))byStudentType.set(pair,[]);
+      byStudentType.get(pair).push(registryDate(item.d));
+      const stamp=Date.parse(String(item.d||'')+'T00:00:00Z');
+      if(Number.isFinite(stamp)&&stamp<yearAgo)olderThanYear+=1;
     }
-    return {version:Number(version)||0,total:active.length,inTrash:trashed.length,missingRequired:missing.length,duplicateGroups:duplicates.size,updatedAt:updatedAt||null,trashRetentionDays:VIOLATION_TRASH_DAYS};
+    let duplicateCandidates=0;
+    for(const dates of byStudentType.values()){
+      dates.sort();
+      for(let index=1;index<dates.length;index++){
+        const delta=(Date.parse(dates[index]+'T00:00:00Z')-Date.parse(dates[index-1]+'T00:00:00Z'))/86400000;
+        if(delta>=0&&delta<=3){duplicateCandidates+=1;break;}
+      }
+    }
+    const settingsValue=normalizeViolationSettings(settings);
+    const reset=settingsValue.deviantsResetAt;
+    const repeatCounts=new Map();
+    for(const item of active){
+      if(reset&&String(item.d||'')<reset)continue;
+      const name=String(item.fio||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').trim();
+      repeatCounts.set(name,(repeatCounts.get(name)||0)+1);
+    }
+    const repeatNames=[...repeatCounts.values()].filter(count=>count>=settingsValue.repeatThreshold).length;
+    return {
+      version:Number(version)||0,total:active.length,inTrash:trashed.length,
+      missingRequired:missing.length,missingGroup:active.filter(item=>!String(item.grp||'').trim()).length,
+      duplicateGroups:duplicates.size,duplicateCandidates,nameVariants:[...names.values()].filter(value=>value.size>1).length,
+      olderThanYear,repeatNames,repeatThreshold:settingsValue.repeatThreshold,
+      databaseConnected:true,encryptionVerified:true,updatedAt:updatedAt||null,
+      trashRetentionDays:VIOLATION_TRASH_DAYS
+    };
   }
   function normalizeRegistryItems(raw, existing, session) {
     if(!Array.isArray(raw)||raw.length>10000)throw Object.assign(new Error('Реестр должен содержать не более 10 000 записей'),{status:400});
@@ -419,7 +474,7 @@ function createAuth(pool,send,readJson) {
           deletedAt:null,deletedBy:null
         };
       }).filter(item=>item.fio&&item.type);
-      const payload={items,legacyBackup:legacyItems};
+      const payload={items,legacyBackup:legacyItems,settings:defaultViolationSettings()};
       q=await client.query(
         'UPDATE patrul_violation_registry SET data=$1::jsonb,version=1,updated_at=NOW() WHERE id=1 RETURNING data,version,updated_by,updated_at',
         [JSON.stringify(encryptData(payload,'violations_registry'))]
@@ -427,7 +482,7 @@ function createAuth(pool,send,readJson) {
       row=q.rows[0];
     }
     const data=decryptData(row.data,'violations_registry');
-    return {items:Array.isArray(data&&data.items)?data.items:[],legacyBackup:Array.isArray(data&&data.legacyBackup)?data.legacyBackup:[],version:Number(row.version)||0,updatedBy:row.updated_by||null,updatedAt:row.updated_at||null};
+    return {items:Array.isArray(data&&data.items)?data.items:[],legacyBackup:Array.isArray(data&&data.legacyBackup)?data.legacyBackup:[],settings:normalizeViolationSettings(data&&data.settings),version:Number(row.version)||0,updatedBy:row.updated_by||null,updatedAt:row.updated_at||null};
   }
   async function readViolationRegistry() {
     const client=await pool.connect();
@@ -453,7 +508,7 @@ function createAuth(pool,send,readJson) {
       const next=normalizeRegistryItems(items,current.items,session);
       const q=await client.query(
         'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
-        [JSON.stringify(encryptData({items:next,legacyBackup:current.legacyBackup},'violations_registry')),session.id,current.version]
+        [JSON.stringify(encryptData({items:next,legacyBackup:current.legacyBackup,settings:current.settings},'violations_registry')),session.id,current.version]
       );
       if(!q.rowCount) {
         await client.query('ROLLBACK');
@@ -1490,7 +1545,7 @@ function createAuth(pool,send,readJson) {
             if(purged) {
               const saved=await client.query(
                 'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
-                [JSON.stringify(encryptData({items:kept,legacyBackup:state.legacyBackup},'violations_registry')),s.id,state.version]
+                [JSON.stringify(encryptData({items:kept,legacyBackup:state.legacyBackup,settings:state.settings},'violations_registry')),s.id,state.version]
               );
               if(!saved.rowCount)throw Object.assign(new Error('Реестр изменился во время очистки'),{status:409});
               version=Number(saved.rows[0].version);updatedAt=saved.rows[0].updated_at;
