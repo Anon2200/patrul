@@ -166,18 +166,19 @@
     const repeated=(counts.get(keyText(item.fio))||0)>1;
     const disabled=state.busy?'disabled':'';
     const readOnly=role==='uchet';
+    const canManage=role==='dokumentoved';
     return '<tr>'+
-      (readOnly?'<td></td>':'<td><input type="checkbox" data-vreg-select="'+esc(item.k)+'" '+(state.selected.has(item.k)?'checked':'')+' '+disabled+'></td>')+
+      (canManage?'<td><input type="checkbox" data-vreg-select="'+esc(item.k)+'" '+(state.selected.has(item.k)?'checked':'')+' '+disabled+'></td>':'<td></td>')+
       '<td><b>'+dateText(item.d)+'</b><div class="vreg-muted">'+esc(item.t||'Время не указано')+'</div></td>'+
       '<td><button class="vreg-person" type="button" data-vreg-action="dossier" data-key="'+esc(item.k)+'">'+esc(item.fio)+'</button>'+(repeated?' <span class="vreg-tag warn">повторно</span>':'')+'<div class="vreg-muted">'+esc(item.grp)+'</div></td>'+
       '<td>'+esc(item.type)+'<div class="vreg-muted">'+esc(item.post||'Место не указано')+'</div></td>'+
       '<td>'+esc(item.meas||'—')+(item.note?'<div class="vreg-muted">'+esc(item.note)+'</div>':'')+'</td>'+
       '<td>'+esc(item.by||'—')+'<div class="vreg-muted">'+(item.rep?'<span class="vreg-tag good">Доведено</span>':'<span class="vreg-tag warn">Не доложено</span>')+'</div></td>'+
-      '<td class="vreg-actions">'+(readOnly
+      '<td class="vreg-actions">'+(readOnly || (role==='nachalnik'&&state.trash)
         ? '<button class="vreg-button secondary" data-vreg-action="dossier" data-key="'+esc(item.k)+'">Карточка</button>'
         : (state.trash
           ? '<button class="vreg-button secondary" data-vreg-action="restore" data-key="'+esc(item.k)+'" '+disabled+'>Восстановить</button>'
-          : '<button class="vreg-button secondary" data-vreg-action="edit" data-key="'+esc(item.k)+'" '+disabled+'>Изменить</button><button class="vreg-button danger" data-vreg-action="archive" data-key="'+esc(item.k)+'" '+disabled+'>В корзину</button>'))+
+          : '<button class="vreg-button secondary" data-vreg-action="edit" data-key="'+esc(item.k)+'" '+disabled+'>Изменить</button>'+(canManage?'<button class="vreg-button danger" data-vreg-action="archive" data-key="'+esc(item.k)+'" '+disabled+'>В корзину</button>':'')))+
       '</td></tr>';
   }
   function baseStyles() {
@@ -191,10 +192,10 @@
     const opts=types().map(item=>'<option value="'+esc(item)+'" '+(state.type===item?'selected':'')+'>'+esc(item)+'</option>').join('');
     const groupOptions=[...new Set(activeItems().map(item=>item.grp).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
     return baseStyles()+'<section class="vreg-wrap">'+
-      '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">'+(role==='uchet'?'Доступ старшего мастера · просмотр всех записей без изменения данных':'Единый реестр колледжа · общий доступ начальника и документоведа')+'</p></div>'+
+      '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">'+(role==='uchet'?'Доступ старшего мастера · просмотр всех записей без изменения данных':role==='nachalnik'?'Права начальника · добавление, просмотр и редактирование без удаления':'Документовед · полный доступ к ведению реестра')+'</p></div>'+
       '<div class="vreg-tools">'+(role==='uchet'
         ? '<button class="vreg-button secondary" data-vreg-action="view-maintenance">Техническое обслуживание</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Повторные нарушения</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'
-        : '<button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button><button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button>')+'</div></header>'+
+        : '<button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button>'+(role==='dokumentoved'?'<button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button>':'')+'<button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'+(role==='dokumentoved'?'<button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button>':''))+'</div></header>'+
       '<div class="vreg-stats">'+
       '<div class="vreg-stat"><b>'+counts.total+'</b><span>Всего действующих записей</span></div>'+
       '<div class="vreg-stat"><b>'+counts.today+'</b><span>За сегодня</span></div>'+
@@ -202,7 +203,7 @@
       '<div class="vreg-stat"><b>'+counts.repeat+'</b><span>С повторными записями</span></div>'+
       '<div class="vreg-stat"><b>'+counts.unreported+'</b><span>Не доведено до куратора</span></div>'+
       '<div class="vreg-stat"><b>'+counts.trash+'</b><span>В корзине</span></div></div>'+
-      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><button class="vreg-tab '+(state.auditView?'active':'')+'" data-vreg-action="audit">Журнал изменений</button><span class="vreg-muted">'+(role==='uchet'?'Режим чтения · изменение и удаление записей отключены':'Корзина хранится 30 дней, затем очищается старшим мастером')+'</span></div>'+
+      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><button class="vreg-tab '+(state.auditView?'active':'')+'" data-vreg-action="audit">Журнал изменений</button><span class="vreg-muted">'+(role==='uchet'?'Режим чтения · изменение и удаление записей отключены':role==='nachalnik'?'Начальник может добавлять и редактировать действующие записи; корзина доступна только для просмотра':'Документовед управляет записями и корзиной')+'</span></div>'+
       '<div class="vreg-tools" style="margin-top:12px">'+
       '<div class="vreg-field" style="min-width:220px"><label>Поиск по ФИО, группе, описанию</label><input id="vreg-q" value="'+esc(state.q)+'" placeholder="Введите ФИО или ключевые слова"></div>'+
       '<div class="vreg-field"><label>Группа</label><input id="vreg-group" value="'+esc(state.group)+'" list="vreg-groups" placeholder="Все группы"><datalist id="vreg-groups">'+groupOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></div>'+
@@ -210,7 +211,7 @@
       '<div class="vreg-field"><label>Дата с</label><input id="vreg-from" type="date" value="'+esc(state.from)+'"></div>'+
       '<div class="vreg-field"><label>Дата по</label><input id="vreg-to" type="date" value="'+esc(state.to)+'"></div>'+
       '<button class="vreg-button secondary" data-vreg-action="clear-filters">Сбросить</button></div></div>'+
-      '<div class="vreg-panel">'+(role==='uchet'?'':'<div class="vreg-tools" style="justify-content:space-between;margin-bottom:10px"><label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" data-vreg-action="select-page" '+(rows.length&&rows.every(x=>state.selected.has(x.k))?'checked':'')+'> Выбрать страницу</label>'+
+      '<div class="vreg-panel">'+(role!=='dokumentoved'?'':'<div class="vreg-tools" style="justify-content:space-between;margin-bottom:10px"><label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" data-vreg-action="select-page" '+(rows.length&&rows.every(x=>state.selected.has(x.k))?'checked':'')+'> Выбрать страницу</label>'+
       '<div class="vreg-tools"><span class="vreg-muted">Выбрано: '+state.selected.size+'</span>'+(state.selected.size?'<button class="vreg-button secondary" data-vreg-action="export-selected">Экспорт выбранных</button>'+(!state.trash?'<button class="vreg-button danger" data-vreg-action="archive-selected">В корзину выбранные</button>':''):'')+'</div></div>')+
       '<div class="vreg-table-wrap"><table class="vreg-table"><thead><tr><th></th><th>'+sortButton('date','Дата / время')+'</th><th>'+sortButton('fio','Обучающийся / группа')+'</th><th>'+sortButton('type','Нарушение / место')+'</th><th>Меры и примечание</th><th>Выявил / доклад</th><th>Действия</th></tr></thead><tbody>'+
       (rows.length?rows.map(item=>rowHtml(item,repeat)).join(''):'<tr><td colspan="7" class="vreg-empty">'+(state.trash?'Корзина пуста':'По выбранным условиям записей нет')+'</td></tr>')+
@@ -315,7 +316,7 @@
     if (tab !== 'vl') return;
     const main=$('#m');
     if (!main) return;
-    main.innerHTML = role==='uchet' && state.view==='maintenance' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' && role!=='uchet' ? settingsPage() : listPage());
+    main.innerHTML = role==='uchet' && state.view==='maintenance' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' && role==='dokumentoved' ? settingsPage() : listPage());
   }
   function installDrawHook() {
     if (typeof draw !== 'function' || draw.__violationsRegistryHook) return;
@@ -565,6 +566,7 @@
   }
   function handleAction(action, target) {
     const key=target.dataset.key;
+    if(role==='nachalnik'&&['archive','restore','archive-selected','import-open','import-parse','view-settings','type-add','type-remove','reset-start-today','reset-clear','settings-save','maintenance-purge','maintenance-restore-open','maintenance-backup'].includes(action)) return;
     if(action==='new')recordForm();
     else if(action==='edit'){const item=state.items.find(x=>x.k===key);if(item)recordForm(item);}
     else if(action==='archive'){
@@ -610,7 +612,7 @@
       }
     }else if(action==='view-deviants'){state.view='deviants';state.auditView=false;renderPage();}
     else if(action==='view-report'){state.view='report';state.auditView=false;renderPage();}
-    else if(action==='view-settings'){state.view='settings';state.auditView=false;renderPage();}
+    else if(action==='view-settings'&&role==='dokumentoved'){state.view='settings';state.auditView=false;renderPage();}
     else if(action==='report-apply'){
       state.reportFrom=$('#vreg-report-from')?.value||'';state.reportTo=$('#vreg-report-to')?.value||'';state.reportGroup=$('#vreg-report-group')?.value||'';
       if(state.reportFrom&&state.reportTo&&state.reportFrom>state.reportTo){window.alert('Начало периода не может быть позже конца');return;}
