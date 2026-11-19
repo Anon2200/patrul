@@ -1424,7 +1424,7 @@ function createAuth(pool,send,readJson) {
       }
 
 
-      if(p==='/api/violations'||p==='/api/violations/maintenance'||p==='/api/violations/maintenance/purge') {
+      if(p==='/api/violations'||p==='/api/violations/audit'||p==='/api/violations/maintenance'||p==='/api/violations/maintenance/purge') {
         const s=await sessionFor(req);
         if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
@@ -1439,7 +1439,7 @@ function createAuth(pool,send,readJson) {
           if(req.method==='PUT') {
             if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Изменять реестр могут только начальник и документовед'});return true;}
             if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
-            const body=await readJson(req);
+            const body=await readJson(req,8*1024*1024);
             if(!body||typeof body!=='object'||Array.isArray(body)||!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||!Array.isArray(body.items)) {
               send(res,400,{error:'Передайте список записей и актуальную версию реестра'});return true;
             }
@@ -1450,6 +1450,15 @@ function createAuth(pool,send,readJson) {
             return true;
           }
           send(res,405,{error:'Метод не поддерживается'});return true;
+        }
+        if(p==='/api/violations/audit') {
+          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Журнал действий доступен начальнику и документоведу'});return true;}
+          if(req.method!=='GET'){send(res,405,{error:'Метод не поддерживается'});return true;}
+          const q=await pool.query(
+            "SELECT a.id,a.event_type,a.details,a.created_at,u.display_name AS actor FROM patrul_audit_log a LEFT JOIN patrul_users u ON u.id=a.actor_user_id WHERE a.event_type LIKE 'violation_registry_%' ORDER BY a.id DESC LIMIT 200"
+          );
+          send(res,200,{items:q.rows.map(row=>({id:Number(row.id),eventType:row.event_type,details:row.details||{},createdAt:row.created_at,actor:row.actor||'Сотрудник'}))});
+          return true;
         }
         if(p==='/api/violations/maintenance') {
           if(s.role!=='uchet'){send(res,403,{error:'Техническое обслуживание реестра доступно только старшему мастеру'});return true;}
