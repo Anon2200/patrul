@@ -619,7 +619,7 @@
   }
   function handleAction(action, target) {
     const key=target.dataset.key;
-    if(role==='nachalnik'&&['archive','restore','archive-selected','import-open','import-parse','view-settings','type-add','type-remove','reset-start-today','reset-clear','settings-save','maintenance-purge','maintenance-restore-open','maintenance-backup'].includes(action)) return;
+    if(role==='nachalnik'&&['archive','restore','archive-selected','import-open','import-parse','view-settings','type-add','type-rename','type-remove','reset-start-today','reset-clear','settings-save','maintenance-purge','maintenance-restore-open','maintenance-backup'].includes(action)) return;
     if(action==='new')recordForm();
     else if(action==='edit'){const item=state.items.find(x=>x.k===key);if(item)recordForm(item);}
     else if(action==='archive'){
@@ -677,6 +677,7 @@
     }else if(action==='type-add'){
       const input=$('#vreg-type-new'),value=String(input?.value||'').trim();
       if(!value)return;
+      if(state.settings.violationTypes.length>=100){window.alert('Можно создать не более 100 типов нарушений');return;}
       if(state.settings.violationTypes.some(x=>keyText(x)===keyText(value))){window.alert('Такой тип уже существует');return;}
       state.settings.violationTypes.push(value.slice(0,120));renderPage();
     }else if(action==='type-rename'){
