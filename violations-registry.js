@@ -222,8 +222,13 @@
         '<div class="vreg-stat"><b>'+m.missingRequired+'</b><span>Записей с неполными полями</span></div>'+
         '<div class="vreg-stat"><b>'+m.duplicateGroups+'</b><span>Групп возможных дублей</span></div>'+
         '<div class="vreg-stat"><b>'+m.version+'</b><span>Версия реестра</span></div>'+
-        '<div class="vreg-stat"><b>'+m.trashRetentionDays+' дн.</b><span>Срок хранения корзины</span></div></div>'+
-        '<div class="vreg-panel"><h3 style="margin:0 0 8px">Состояние сервиса</h3><p><span class="vreg-tag good">Сервер отвечает</span></p><p class="vreg-muted">Последнее изменение реестра: '+formatDateTime(m.updatedAt)+'. Персональные данные, ФИО студентов и описания нарушений в этом кабинете не отображаются.</p><div class="vreg-tools"><button class="vreg-button danger" data-vreg-action="maintenance-purge" '+(state.maintenanceBusy||!m.inTrash?'disabled':'')+'>Удалить записи из корзины старше 30 дней</button></div></div>'
+        '<div class="vreg-stat"><b>'+m.trashRetentionDays+' дн.</b><span>Срок хранения корзины</span></div>'+
+        '<div class="vreg-stat"><b>'+m.duplicateCandidates+'</b><span>Возможных повторов за 3 дня</span></div>'+
+        '<div class="vreg-stat"><b>'+m.nameVariants+'</b><span>Вариантов написания ФИО</span></div>'+
+        '<div class="vreg-stat"><b>'+m.missingGroup+'</b><span>Записей без группы</span></div>'+
+        '<div class="vreg-stat"><b>'+m.olderThanYear+'</b><span>Записей старше года</span></div>'+
+        '<div class="vreg-stat"><b>'+m.repeatNames+'</b><span>Обучающихся с повторениями</span></div></div>'+
+        '<div class="vreg-panel"><h3 style="margin:0 0 8px">Состояние сервиса</h3><p><span class="vreg-tag good">База данных доступна</span> <span class="vreg-tag good">Расшифровка успешно проверена</span></p><p class="vreg-muted">Последнее изменение реестра: '+formatDateTime(m.updatedAt)+'. Сводка содержит только агрегированные технические показатели. ФИО студентов, группы и описания нарушений старшему мастеру не показываются.</p><div class="vreg-tools"><button class="vreg-button danger" data-vreg-action="maintenance-purge" '+(state.maintenanceBusy||!m.inTrash?'disabled':'')+'>Удалить записи из корзины старше 30 дней</button></div></div>'
         :'<div class="vreg-panel"><p class="vreg-muted">'+esc(state.error||'Нажмите «Проверить состояние», чтобы получить техническую сводку.')+'</p></div>')+
       '<div id="vreg-notice" class="vreg-notice">'+esc(state.error)+'</div></section>';
   }
