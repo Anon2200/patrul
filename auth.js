@@ -339,7 +339,7 @@ function createAuth(pool,send,readJson) {
   const VIOLATION_REGISTRY_ROLES = new Set(['nachalnik','dokumentoved','uchet']);
   const VIOLATION_EDITOR_ROLES = new Set(['nachalnik','dokumentoved']);
   const VIOLATION_TRASH_DAYS = 30;
-  const DEFAULT_VIOLATION_TYPES = ['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'];
+  const DEFAULT_VIOLATION_TYPES = ['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое','Нарушение лок. Акта №36','Нарушение лок. Акта №2','Нарушение дисциплины','Отсутствие студ. билета','Курение в неположенном месте'];
   function defaultViolationSettings() {
     return {violationTypes:DEFAULT_VIOLATION_TYPES.slice(),repeatThreshold:2,deviantsResetAt:null,departments:{}};
   }
@@ -347,6 +347,8 @@ function createAuth(pool,send,readJson) {
     const defaults=defaultViolationSettings(),source=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
     const types=Array.isArray(source.violationTypes)?source.violationTypes:defaults.violationTypes;
     const cleanTypes=[...new Set(types.map(value=>String(value||'').trim().slice(0,120)).filter(Boolean))].slice(0,100);
+    const violationTypesRevision=Number(source.violationTypesRevision)||0;
+    const migratedTypes=violationTypesRevision<1?[...new Set([...defaults.violationTypes,...cleanTypes])].slice(0,100):cleanTypes;
     const repeatThreshold=Number(source.repeatThreshold);
     const departments=source.departments&&typeof source.departments==='object'&&!Array.isArray(source.departments)?source.departments:{};
     const cleanDepartments={};
@@ -355,7 +357,8 @@ function createAuth(pool,send,readJson) {
       if(k&&v)cleanDepartments[k]=v;
     }
     return {
-      violationTypes:cleanTypes.length?cleanTypes:defaults.violationTypes,
+      violationTypes:migratedTypes.length?migratedTypes:defaults.violationTypes,
+      violationTypesRevision:1,
       repeatThreshold:Number.isInteger(repeatThreshold)?Math.max(1,Math.min(100,repeatThreshold)):defaults.repeatThreshold,
       deviantsResetAt:registryDate(source.deviantsResetAt)||null,
       departments:cleanDepartments
@@ -1545,7 +1548,7 @@ function createAuth(pool,send,readJson) {
           send(res,405,{error:'Метод не поддерживается'});return true;
         }
         if(p==='/api/violations/settings') {
-          if(s.role!=='dokumentoved'){send(res,403,{error:'Настройки реестра доступны только документоведу'});return true;}
+          if(!['dokumentoved','uchet'].includes(s.role)){send(res,403,{error:'Настройки типов нарушений доступны только старшему мастеру и документоведу'});return true;}
           if(req.method==='GET') {
             const state=await readViolationRegistry();
             send(res,200,{settings:state.settings,version:state.version,updatedAt:state.updatedAt});
@@ -1567,7 +1570,16 @@ function createAuth(pool,send,readJson) {
                 send(res,409,{error:'Реестр изменился. Обновите настройки.',settings:current.settings,version:current.version});
                 return true;
               }
-              const settings=normalizeViolationSettings(body.settings);
+              let settings;
+              if(s.role==='uchet') {
+                const proposed=body.settings.violationTypes;
+                if(!Array.isArray(proposed)||proposed.length<1||proposed.length>100||proposed.some(value=>typeof value!=='string'||!value.trim()||value.trim().length>120)) {
+                  await client.query('ROLLBACK');
+                  send(res,400,{error:'Нужно указать от 1 до 100 корректных типов нарушений'});return true;
+                }
+                const clean=[...new Map(proposed.map(value=>[value.trim().toLocaleLowerCase('ru-RU'),value.trim()])).values()];
+                settings={...current.settings,violationTypes:clean,violationTypesRevision:1};
+              } else settings=normalizeViolationSettings(body.settings);
               const q=await client.query(
                 'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
                 [JSON.stringify(encryptData({items:current.items,legacyBackup:current.legacyBackup,settings},'violations_registry')),s.id,current.version]
@@ -1579,7 +1591,7 @@ function createAuth(pool,send,readJson) {
               await client.query('ROLLBACK').catch(()=>{});
               throw error;
             } finally { client.release(); }
-            await audit(s.id,'violation_registry_settings_updated',null,{role:s.role,typesCount:result.settings.violationTypes.length,repeatThreshold:result.settings.repeatThreshold});
+            await audit(s.id,'violation_registry_settings_updated',null,{role:s.role,scope:s.role==='uchet'?'violation_types':'full',typesCount:result.settings.violationTypes.length,repeatThreshold:result.settings.repeatThreshold});
             send(res,200,result);
             return true;
           }
