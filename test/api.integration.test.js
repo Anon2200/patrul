@@ -591,6 +591,9 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   const commanderStillCannotReadSettings = await sessionApi('/api/violations/settings', {}, commander.cookie);
   assert.equal(commanderStillCannotReadSettings.status, 403);
 
+  const latestBeforeSecond = await sessionApi('/api/violations', {}, commander.cookie);
+  assert.equal(latestBeforeSecond.status, 200);
+  const latestBeforeSecondBody = await latestBeforeSecond.json();
   const second = {
     k: 'registry-ci-second', fio: 'Другой Тестовый Студент', grp: 'ИСП-102',
     type: 'Нарушение дисциплины', d: testDutyDate, t: '09:25', post: 'Территория',
@@ -599,7 +602,7 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   };
   const secondWrite = await sessionApi('/api/violations', {
     method: 'PUT',
-    body: JSON.stringify({ expectedVersion: refreshedSnapshot.version, items: [...refreshedSnapshot.items, second] })
+    body: JSON.stringify({ expectedVersion: latestBeforeSecondBody.version, items: [...latestBeforeSecondBody.items, second] })
   }, documentOfficer.cookie, documentOfficer.csrf);
   assert.equal(secondWrite.status, 200);
   const secondBody = await secondWrite.json();
