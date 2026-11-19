@@ -392,11 +392,11 @@
       d:index([/дат/,/created[_ ]?at/,/^date$/],2),
       t:index([/врем/,/^time$/],-1),
       type:index([/наруш/,/вид/,/тип/,/катег/,/violation[_ ]?type/],3),
-      post:index([/мест/,/пост/,/локац/,/^location$/],4),
-      by:index([/выявил/,/кто/,/патрул/,/дежур/,/patrol[_ ]?name/],5),
-      meas:index([/мер/,/результат/,/реш/],6),
-      note:index([/описан/,/суть/,/комментар/,/примеч/,/^comment$/],7),
-      rep:index([/куратор/,/довед/],8)
+      post:index([/мест/,/пост/,/локац/,/^location$/],-1),
+      by:index([/выявил/,/кто/,/патрул/,/дежур/,/patrol[_ ]?name/],-1),
+      meas:index([/мер/,/результат/,/реш/],-1),
+      note:index([/описан/,/суть/,/комментар/,/примеч/,/^comment$/],-1),
+      rep:index([/куратор/,/довед/],-1)
     };
     const existing=new Set(state.items.filter(x=>!x.deletedAt).map(x=>[keyText(x.fio),keyText(x.grp),x.d,keyText(x.type)].join('|')));
     const additions=[];let skipped=0;
@@ -409,7 +409,7 @@
       const ru=dRaw.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
       if(iso)d=iso[1];
       else if(ru)d=ru[3]+'-'+ru[2]+'-'+ru[1];
-      if(!t){const timeMatch=dRaw.match(/(?:T|\s)([0-2]\d:[0-5]\d)/);if(timeMatch)t=timeMatch[1];}
+      if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)){const timeMatch=dRaw.match(/(?:T|\s)([0-2]\d:[0-5]\d)/);t=timeMatch?timeMatch[1]:'';}
       const duplicateKey=[keyText(fio),keyText(grp),d,keyText(type)].join('|');
       if(existing.has(duplicateKey)){skipped++;continue;}
       existing.add(duplicateKey);
