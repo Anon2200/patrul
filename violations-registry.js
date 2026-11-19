@@ -306,7 +306,7 @@
     const modal=openModal('<h2 style="margin:0 0 14px">'+(item?'Редактирование нарушения':'Новая запись о нарушении')+'</h2>'+
       '<form id="vreg-form" class="vreg-form">'+
       '<label class="wide">ФИО обучающегося<input name="fio" maxlength="200" required value="'+esc(v.fio)+'" autocomplete="off"></label>'+
-      '<label>Группа<input name="grp" maxlength="100" required value="'+esc(v.grp)+'"></label>'+
+      '<label>Группа<input name="grp" maxlength="100" value="'+esc(v.grp)+'"></label>'+
       '<label>Вид нарушения<select name="type">'+typeOptions+'</select></label>'+
       '<label>Дата<input name="d" type="date" required value="'+esc(v.d||today())+'"></label>'+
       '<label>Время<input name="t" type="time" value="'+esc(v.t||'')+'"></label>'+
@@ -329,7 +329,7 @@
         meas:String(fd.get('meas')||'').trim(),note:String(fd.get('note')||'').trim(),rep:fd.get('rep')==='on',
         deletedAt:null
       };
-      if(!data.fio||!data.grp||!data.type||!data.d){modal.querySelector('#vreg-form-error').textContent='Заполните ФИО, группу, вид нарушения и дату.';return;}
+      if(!data.fio||!data.type||!data.d){modal.querySelector('#vreg-form-error').textContent='Заполните ФИО, группу, вид нарушения и дату.';return;}
       const duplicate=state.items.find(x=>!x.deletedAt&&x.k!==data.k&&keyText(x.fio)===keyText(data.fio)&&keyText(x.grp)===keyText(data.grp)&&x.d===data.d&&x.type===data.type);
       if(duplicate&&!window.confirm('Похоже, такая запись уже существует за эту дату. Всё равно сохранить повторную запись?'))return;
       const next=[...state.items],index=next.findIndex(x=>x.k===data.k);
@@ -382,7 +382,7 @@
     for(const row of raw.slice(1)){
       const val=key=>ix[key]>=0?String(row[ix[key]]||'').trim():'';
       const fio=val('fio'),grp=val('grp'),dRaw=val('d'),type=val('type');
-      if(!fio||!grp||!type||!dRaw){skipped++;continue;}
+      if(!fio||!type||!dRaw){skipped++;continue;}
       let d=dRaw,t=val('t');
       const iso=dRaw.match(/^(\d{4}-\d{2}-\d{2})/);
       const ru=dRaw.match(/^(\d{2})[./](\d{2})[./](\d{4})/);
