@@ -4,7 +4,7 @@
   if (!['nachalnik','dokumentoved','uchet'].includes(role)) return;
 
   const state = {
-    items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
+    items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое','Нарушение лок. Акта №36','Нарушение лок. Акта №2','Нарушение дисциплины','Отсутствие студ. билета','Курение в неположенном месте'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
     view: 'maintenance', q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
     sort: 'date', direction: 'desc', trash: false, auditView: false, selected: new Set(),
     audit: [], auditBusy: false, auditError: '', maintenance: null, maintenanceBusy: false, importPreview: null
@@ -23,12 +23,27 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(8,10)+'.'+s.slice(5,7)+'.'+s.slice(0,4) : '—';
   };
   const formatDateTime = value => value ? new Date(value).toLocaleString('ru-RU') : '—';
-  const types = () => Array.isArray(window.PATRUL_VIOLATION_TYPES) && window.PATRUL_VIOLATION_TYPES.length
-    ? window.PATRUL_VIOLATION_TYPES
-    : (typeof VT !== 'undefined' && Array.isArray(VT) ? VT : [
-      'Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин',
-      'Алкоголь','Пропускной режим','Нарушение порядка','Другое'
-    ]);
+  const BUILTIN_VIOLATION_TYPES = [
+    'Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин',
+    'Алкоголь','Пропускной режим','Нарушение порядка','Другое',
+    'Нарушение лок. Акта №36','Нарушение лок. Акта №2',
+    'Нарушение дисциплины','Отсутствие студ. билета',
+    'Курение в неположенном месте'
+  ];
+  const types = () => {
+    const legacy = Array.isArray(window.PATRUL_VIOLATION_TYPES) ? window.PATRUL_VIOLATION_TYPES
+      : (typeof VT !== 'undefined' && Array.isArray(VT) ? VT : []);
+    const configured = Array.isArray(state.settings.violationTypes) ? state.settings.violationTypes : [];
+    return [...new Map([...BUILTIN_VIOLATION_TYPES,...legacy,...configured]
+      .filter(value=>typeof value==='string'&&value.trim())
+      .map(value=>[keyText(value),value.trim()])).values()];
+  };
+  function normalizeViolationTypes() {
+    const configured=Array.isArray(state.settings.violationTypes)?state.settings.violationTypes:[];
+    state.settings.violationTypes=[...new Map([...BUILTIN_VIOLATION_TYPES,...configured]
+      .filter(value=>typeof value==='string'&&value.trim())
+      .map(value=>[keyText(value),value.trim()])).values()];
+  }
   const actorLabel = role === 'nachalnik' ? 'Начальник' : role === 'dokumentoved' ? 'Документовед' : 'Старший мастер';
   const api = async (path, method='GET', body=null) => {
     if (typeof window.PATRUL_API_REQUEST !== 'function') throw new Error('Служба авторизации ещё не готова');
@@ -58,6 +73,7 @@
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось загрузить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : [];
       if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
+      normalizeViolationTypes();
       state.version = Number(result.result.version || 0);
       state.updatedAt = result.result.updatedAt || null;
       state.loaded = true;
@@ -94,6 +110,7 @@
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось сохранить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : nextItems;
       if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
+      normalizeViolationTypes();
       state.version = Number(result.result.version || state.version);
       state.updatedAt = result.result.updatedAt || state.updatedAt;
       applyChiefCache();
