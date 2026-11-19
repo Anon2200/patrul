@@ -588,8 +588,8 @@ test('shared violations registry enforces roles, syncs between editors, and supp
     body: JSON.stringify({expectedVersion: masterTypesSaved.version, settings: {violationTypes: []}})
   }, seniorMaster.cookie, seniorMaster.csrf);
   assert.equal(masterInvalidTypes.status, 400);
-  const masterCannotReadSettings = await sessionApi('/api/violations/settings', {}, adminCookie);
-  assert.equal(masterCannotReadSettings.status, 403);
+  const commanderStillCannotReadSettings = await sessionApi('/api/violations/settings', {}, commander.cookie);
+  assert.equal(commanderStillCannotReadSettings.status, 403);
 
   const second = {
     k: 'registry-ci-second', fio: 'Другой Тестовый Студент', grp: 'ИСП-102',
