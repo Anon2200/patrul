@@ -591,6 +591,12 @@ test('shared violations registry enforces roles, syncs between editors, and supp
   assert.equal(purgeBody.summary.inTrash, 0);
   assert.equal(purgeBody.summary.total, 1);
 
+  const documentAudit = await sessionApi('/api/violations/audit', {}, documentOfficer.cookie);
+  assert.equal(documentAudit.status, 200);
+  assert.ok((await documentAudit.json()).items.length >= 3);
+  const masterAuditDenied = await sessionApi('/api/violations/audit', {}, adminCookie);
+  assert.equal(masterAuditDenied.status, 403);
+
   const stored = await pool.query('SELECT data FROM patrul_violation_registry WHERE id=1');
   assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
   assert.equal(JSON.stringify(stored.rows[0].data).includes(first.fio), false);
