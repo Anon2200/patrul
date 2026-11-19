@@ -1479,7 +1479,7 @@ function createAuth(pool,send,readJson) {
       }
 
 
-      if(p==='/api/violations'||p==='/api/violations/audit'||p==='/api/violations/maintenance'||p==='/api/violations/maintenance/purge') {
+      if(p==='/api/violations'||p==='/api/violations/settings'||p==='/api/violations/audit'||p==='/api/violations/maintenance'||p==='/api/violations/maintenance/purge') {
         const s=await sessionFor(req);
         if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
@@ -1488,7 +1488,7 @@ function createAuth(pool,send,readJson) {
           if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Просмотр записей реестра доступен начальнику и документоведу'});return true;}
           if(req.method==='GET') {
             const state=await readViolationRegistry();
-            send(res,200,{items:state.items,version:state.version,updatedAt:state.updatedAt,updatedBy:state.updatedBy});
+            send(res,200,{items:state.items,settings:state.settings,version:state.version,updatedAt:state.updatedAt,updatedBy:state.updatedBy});
             return true;
           }
           if(req.method==='PUT') {
@@ -1501,7 +1501,48 @@ function createAuth(pool,send,readJson) {
             const saved=await saveViolationRegistry(body.items,body.expectedVersion,s);
             if(saved.conflict){send(res,409,{error:'Реестр был изменён другим сотрудником. Обновите записи и повторите операцию.',items:saved.current.items,version:saved.current.version,updatedAt:saved.current.updatedAt});return true;}
             await audit(s.id,'violation_registry_updated',null,{role:s.role,recordCount:saved.items.length});
-            send(res,200,{items:saved.items,version:saved.version,updatedAt:saved.updatedAt});
+            send(res,200,{items:saved.items,settings:saved.settings||undefined,version:saved.version,updatedAt:saved.updatedAt});
+            return true;
+          }
+          send(res,405,{error:'Метод не поддерживается'});return true;
+        }
+        if(p==='/api/violations/settings') {
+          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Настройки реестра доступны начальнику и документоведу'});return true;}
+          if(req.method==='GET') {
+            const state=await readViolationRegistry();
+            send(res,200,{settings:state.settings,version:state.version,updatedAt:state.updatedAt});
+            return true;
+          }
+          if(req.method==='PUT') {
+            if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+            const body=await readJson(req);
+            if(!body||typeof body!=='object'||Array.isArray(body)||!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||!body.settings||typeof body.settings!=='object'||Array.isArray(body.settings)) {
+              send(res,400,{error:'Передайте настройки и актуальную версию реестра'});return true;
+            }
+            const client=await pool.connect();
+            let result;
+            try {
+              await client.query('BEGIN');
+              const current=await lockViolationRegistry(client);
+              if(current.version!==body.expectedVersion) {
+                await client.query('ROLLBACK');
+                send(res,409,{error:'Реестр изменился. Обновите настройки.',settings:current.settings,version:current.version});
+                return true;
+              }
+              const settings=normalizeViolationSettings(body.settings);
+              const q=await client.query(
+                'UPDATE patrul_violation_registry SET data=$1::jsonb,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=1 AND version=$3 RETURNING version,updated_at',
+                [JSON.stringify(encryptData({items:current.items,legacyBackup:current.legacyBackup,settings},'violations_registry')),s.id,current.version]
+              );
+              if(!q.rowCount)throw Object.assign(new Error('Не удалось сохранить настройки реестра'),{status:409});
+              result={settings,version:Number(q.rows[0].version),updatedAt:q.rows[0].updated_at};
+              await client.query('COMMIT');
+            } catch(error) {
+              await client.query('ROLLBACK').catch(()=>{});
+              throw error;
+            } finally { client.release(); }
+            await audit(s.id,'violation_registry_settings_updated',null,{role:s.role,typesCount:result.settings.violationTypes.length,repeatThreshold:result.settings.repeatThreshold});
+            send(res,200,result);
             return true;
           }
           send(res,405,{error:'Метод не поддерживается'});return true;
@@ -1519,7 +1560,7 @@ function createAuth(pool,send,readJson) {
           if(s.role!=='uchet'){send(res,403,{error:'Техническое обслуживание реестра доступно только старшему мастеру'});return true;}
           if(req.method!=='GET'){send(res,405,{error:'Метод не поддерживается'});return true;}
           const state=await readViolationRegistry();
-          send(res,200,{status:'ok',...registrySummary(state.items,state.version,state.updatedAt)});
+          send(res,200,{status:'ok',...registrySummary(state.items,state.version,state.updatedAt,state.settings)});
           return true;
         }
         if(p==='/api/violations/maintenance/purge') {
@@ -1551,7 +1592,7 @@ function createAuth(pool,send,readJson) {
               version=Number(saved.rows[0].version);updatedAt=saved.rows[0].updated_at;
             }
             await client.query('COMMIT');
-            result={purged,version,updatedAt,summary:registrySummary(kept,version,updatedAt)};
+            result={purged,version,updatedAt,summary:registrySummary(kept,version,updatedAt,state.settings)};
           } catch(error) {
             await client.query('ROLLBACK').catch(()=>{});
             throw error;
