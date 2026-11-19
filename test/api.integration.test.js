@@ -107,7 +107,7 @@ before(async () => {
   serverProcess.stderr.on('data', chunk => { startupOutput += chunk.toString(); });
   try {
     await waitForServer();
-    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff');
+    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff, patrul_violation_registry');
   } catch (error) {
     throw new Error(`${error.message}\n${startupOutput}`);
   }
@@ -471,6 +471,225 @@ test('personal login session, CSRF protection, and role authorization work', asy
   const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(latest.status, 200);
   assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
+});
+
+
+test('shared violations registry enforces roles, syncs between editors, and supports master maintenance', async () => {
+  async function createRoleSession(username, displayName, role) {
+    const created = await sessionApi('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, displayName, role })
+    }, adminCookie, adminCsrf);
+    assert.equal(created.status, 201, 'account should be created for ' + role);
+    const createdBody = await created.json();
+    const login = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password: createdBody.temporaryPassword })
+    });
+    assert.equal(login.status, 200, 'account should log in for ' + role);
+    const loginBody = await login.json();
+    const cookie = (login.headers.get('set-cookie') || '').split(';')[0];
+    const changed = await sessionApi('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: createdBody.temporaryPassword,
+        newPassword: 'CI-' + role + '-Permanent-Password-2026!'
+      })
+    }, cookie, loginBody.csrfToken);
+    assert.equal(changed.status, 200, 'temporary password should be changed for ' + role);
+    return { cookie, csrf: loginBody.csrfToken };
+  }
+
+  const commander = await createRoleSession('ci.commander.registry','CI Registry Commander','nachalnik');
+  const documentOfficer = await createRoleSession('ci.document.registry','CI Registry Document Officer','dokumentoved');
+
+  const deniedPatrol = await sessionApi('/api/violations', {}, employeeCookie);
+  assert.equal(deniedPatrol.status, 403);
+  const masterReadEmpty = await sessionApi('/api/violations', {}, adminCookie);
+  assert.equal(masterReadEmpty.status, 200);
+  assert.ok(Array.isArray((await masterReadEmpty.json()).items));
+
+  const initial = await sessionApi('/api/violations', {}, commander.cookie);
+  assert.equal(initial.status, 200);
+  const initialBody = await initial.json();
+  assert.ok(Array.isArray(initialBody.items));
+  assert.ok(initialBody.version >= 1);
+
+  const first = {
+    k: 'registry-ci-first', fio: 'Тестовый Студент', grp: 'ИСП-101',
+    type: 'Опоздание', d: testDutyDate, t: '08:10', post: 'КПП',
+    by: 'CI Commander', meas: 'Профилактическая беседа',
+    note: 'Интеграционная запись', rep: false, deletedAt: null
+  };
+  const firstWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: initialBody.version, items: [first] })
+  }, commander.cookie, commander.csrf);
+  assert.equal(firstWrite.status, 200);
+  const firstBody = await firstWrite.json();
+  assert.equal(firstBody.items.length, 1);
+  assert.ok(firstBody.items[0].createdAt);
+  assert.equal(firstBody.items[0].createdBy, 'CI Registry Commander');
+
+  const masterCanReadRecords = await sessionApi('/api/violations', {}, adminCookie);
+  assert.equal(masterCanReadRecords.status, 200);
+  const masterSnapshot = await masterCanReadRecords.json();
+  assert.equal(masterSnapshot.items.length, 1);
+  assert.equal(masterSnapshot.items[0].fio, first.fio);
+  assert.equal(masterSnapshot.items[0].note, first.note);
+
+  const visibleToDocuments = await sessionApi('/api/violations', {}, documentOfficer.cookie);
+  assert.equal(visibleToDocuments.status, 200);
+  const documentSnapshot = await visibleToDocuments.json();
+  assert.equal(documentSnapshot.items[0].fio, first.fio);
+  assert.ok(Array.isArray(documentSnapshot.settings.violationTypes));
+
+  const settingsRead = await sessionApi('/api/violations/settings', {}, documentOfficer.cookie);
+  assert.equal(settingsRead.status, 200);
+  const settingsBefore = await settingsRead.json();
+  const settingsWrite = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: settingsBefore.version,
+      settings: {
+        ...settingsBefore.settings,
+        repeatThreshold: 3,
+        violationTypes: [...settingsBefore.settings.violationTypes, 'CI Custom Violation']
+      }
+    })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(settingsWrite.status, 200);
+  const settingsSaved = await settingsWrite.json();
+  assert.equal(settingsSaved.settings.repeatThreshold, 3);
+  assert.ok(settingsSaved.settings.violationTypes.includes('CI Custom Violation'));
+
+  const refreshedAfterSettings = await sessionApi('/api/violations', {}, commander.cookie);
+  assert.equal(refreshedAfterSettings.status, 200);
+  const refreshedSnapshot = await refreshedAfterSettings.json();
+  assert.equal(refreshedSnapshot.settings.repeatThreshold, 3);
+
+  const masterCannotReadSettings = await sessionApi('/api/violations/settings', {}, adminCookie);
+  assert.equal(masterCannotReadSettings.status, 403);
+
+  const second = {
+    k: 'registry-ci-second', fio: 'Другой Тестовый Студент', grp: 'ИСП-102',
+    type: 'Нарушение дисциплины', d: testDutyDate, t: '09:25', post: 'Территория',
+    by: 'CI Document Officer', meas: 'Разъяснительная беседа',
+    note: 'Создано документоведом', rep: true, deletedAt: null
+  };
+  const secondWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: refreshedSnapshot.version, items: [...refreshedSnapshot.items, second] })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(secondWrite.status, 200);
+  const secondBody = await secondWrite.json();
+  assert.equal(secondBody.items.length, 2);
+
+  const staleWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: initialBody.version, items: [first] })
+  }, commander.cookie, commander.csrf);
+  assert.equal(staleWrite.status, 409);
+  assert.equal((await staleWrite.json()).items.length, 2);
+
+  const commanderEditItems = secondBody.items.map(item => item.k === first.k
+    ? { ...item, note: 'Отредактировано начальником' }
+    : item);
+  const commanderEdit = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: secondBody.version, items: commanderEditItems })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderEdit.status, 200);
+  const commanderEdited = await commanderEdit.json();
+  assert.equal(commanderEdited.items.find(item => item.k === first.k).note, 'Отредактировано начальником');
+
+  const commanderCannotRemove = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, items: commanderEdited.items.filter(item => item.k !== second.k) })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotRemove.status, 403);
+
+  const commanderCannotArchive = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: commanderEdited.version,
+      items: commanderEdited.items.map(item => item.k === first.k ? { ...item, deletedAt: new Date().toISOString() } : item)
+    })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotArchive.status, 403);
+
+  const commanderCannotReadSettings = await sessionApi('/api/violations/settings', {}, commander.cookie);
+  assert.equal(commanderCannotReadSettings.status, 403);
+  const commanderCannotChangeSettings = await sessionApi('/api/violations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, settings: { repeatThreshold: 1 } })
+  }, commander.cookie, commander.csrf);
+  assert.equal(commanderCannotChangeSettings.status, 403);
+
+  const masterSummary = await sessionApi('/api/violations/maintenance', {}, adminCookie);
+  assert.equal(masterSummary.status, 200);
+  const masterBody = await masterSummary.json();
+  assert.equal(masterBody.total, 2);
+  assert.equal(masterBody.inTrash, 0);
+  assert.equal(typeof masterBody.version, 'number');
+
+  const masterCannotWriteRecords = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: masterBody.version, items: [] })
+  }, adminCookie, adminCsrf);
+  assert.equal(masterCannotWriteRecords.status, 403);
+
+  const archivedItems = commanderEdited.items.map(item => item.k === second.k
+    ? { ...item, deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() }
+    : item);
+  const archive = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: commanderEdited.version, items: archivedItems })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(archive.status, 200);
+
+  const archivedSummaryResponse = await sessionApi('/api/violations/maintenance', {}, adminCookie);
+  const archivedSummary = await archivedSummaryResponse.json();
+  assert.equal(archivedSummary.inTrash, 1);
+  const purge = await sessionApi('/api/violations/maintenance/purge', {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: archivedSummary.version })
+  }, adminCookie, adminCsrf);
+  assert.equal(purge.status, 200);
+  const purgeBody = await purge.json();
+  assert.equal(purgeBody.purged, 1);
+  assert.equal(purgeBody.summary.inTrash, 0);
+  assert.equal(purgeBody.summary.total, 1);
+
+  const backupResponse = await sessionApi('/api/violations/maintenance/backup', {}, adminCookie);
+  assert.equal(backupResponse.status, 200);
+  const backup = await backupResponse.json();
+  assert.equal(backup.format, 'patrul-violations-encrypted-backup-v1');
+  assert.equal(backup.encryptedData.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(backup).includes(first.fio), false);
+  const restoreResponse = await sessionApi('/api/violations/maintenance/restore', {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: purgeBody.summary.version, backup })
+  }, adminCookie, adminCsrf);
+  assert.equal(restoreResponse.status, 200);
+  const restoredSummary = await restoreResponse.json();
+  assert.equal(restoredSummary.summary.total, 1);
+  assert.equal(restoredSummary.summary.inTrash, 0);
+
+  const documentAudit = await sessionApi('/api/violations/audit', {}, documentOfficer.cookie);
+  assert.equal(documentAudit.status, 200);
+  assert.ok((await documentAudit.json()).items.length >= 5);
+  const masterAuditRead = await sessionApi('/api/violations/audit', {}, adminCookie);
+  assert.equal(masterAuditRead.status, 200);
+  assert.ok((await masterAuditRead.json()).items.length >= 5);
+
+  const stored = await pool.query('SELECT data FROM patrul_violation_registry WHERE id=1');
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes(first.fio), false);
+  const audit = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM patrul_audit_log WHERE event_type IN ('violation_registry_updated','violation_registry_trash_purged')"
+  );
+  assert.ok(audit.rows[0].count >= 2);
 });
 
 

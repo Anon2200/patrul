@@ -35,6 +35,7 @@ const PUBLIC_FILES = new Map([
   ['/duty-schedule.js', 'duty-schedule.js'],
   ['/duty-calendar-global.js', 'duty-calendar-global.js'],
   ['/duty-roster-section.js', 'duty-roster-section.js'],
+  ['/violations-registry.js', 'violations-registry.js'],
   ['/cloud-sync.js', 'cloud-sync.js'],
   ['/ops-workspace.js', 'ops-workspace.js'],
   ['/personal-workspace.js', 'personal-workspace.js'],
@@ -237,6 +238,8 @@ async function initDatabase() {
   await pool.query(patrolSeniorOfflineSchema);
   const independentDutySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '010_independent_duty_storage.sql'), 'utf8');
   await pool.query(independentDutySchema);
+  const violationsRegistrySchema = await fs.promises.readFile(path.join(__dirname, 'migrations', '011_shared_violations_registry.sql'), 'utf8');
+  await pool.query(violationsRegistrySchema);
   await migratePlaintextRows(pool);
   await purgeLegacyCommanderDuty();
 }
