@@ -183,7 +183,7 @@
   }
   function baseStyles() {
     return '<style id="vreg-styles">'+
-      '.vreg-wrap{display:grid;gap:14px;max-width:1500px}.vreg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.vreg-head h1{margin:0;font-size:24px}.vreg-sub,.vreg-muted{color:var(--mu);font-size:12px}.vreg-sub{margin:4px 0 0}.vreg-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.vreg-stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px;min-width:0}.vreg-stat b{display:block;font-size:23px;line-height:1.2}.vreg-stat span{font-size:12px;color:var(--mu)}.vreg-panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;min-width:0}.vreg-tools{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.vreg-field{display:grid;gap:4px;min-width:135px;flex:1}.vreg-field label{color:var(--mu);font-size:12px;font-weight:650}.vreg-field input,.vreg-field select{width:100%;min-width:0}.vreg-button{border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:8px;padding:9px 12px;font:600 13px system-ui;cursor:pointer;min-height:38px}.vreg-button.secondary{background:transparent;color:var(--tx);border-color:var(--bd)}.vreg-button.danger{background:transparent;color:var(--red);border-color:var(--bd)}.vreg-button:disabled{opacity:.5;cursor:not-allowed}.vreg-notice{font-size:12px;color:var(--gr);min-height:17px}.vreg-notice.is-error{color:var(--red)}.vreg-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.vreg-tab{padding:7px 12px;border-radius:20px;border:1px solid var(--bd);background:transparent;color:var(--tx);font:600 13px system-ui;cursor:pointer}.vreg-tab.active{background:var(--ac);border-color:var(--ac);color:#fff}.vreg-tag{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:650}.vreg-tag.warn{background:var(--yls);color:var(--yl)}.vreg-tag.good{background:var(--grs);color:var(--gr)}.vreg-person{border:0;background:none;color:var(--ac);padding:0;font:650 13px system-ui;cursor:pointer;text-align:left}.vreg-table-wrap{overflow:auto;border:1px solid var(--bd);border-radius:10px}.vreg-table{border-collapse:collapse;width:100%;min-width:1020px;font-size:13px}.vreg-table th{position:sticky;top:0;background:var(--card);color:var(--mu);text-align:left;border-bottom:1px solid var(--bd);padding:10px;white-space:nowrap}.vreg-table td{border-bottom:1px solid var(--bd);padding:9px 10px;vertical-align:top}.vreg-sort{border:0;background:none;color:inherit;font:inherit;font-weight:700;cursor:pointer;padding:0}.vreg-actions{display:flex;gap:6px;flex-wrap:wrap}.vreg-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.vreg-empty{padding:24px;text-align:center;color:var(--mu)}.vreg-modal-backdrop{position:fixed;inset:0;z-index:10020;background:#08101dcc;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:4vh 12px}.vreg-modal{background:var(--card);color:var(--tx);width:min(720px,100%);max-height:92vh;overflow:auto;border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 20px 60px #0005}.vreg-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vreg-form .wide{grid-column:1/-1}.vreg-form label{display:grid;gap:4px;font-size:12px;color:var(--mu);font-weight:650}.vreg-form input,.vreg-form select,.vreg-form textarea{width:100%;font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:9px}.vreg-form .check{display:flex;align-items:center;gap:8px}.vreg-form .check input{width:auto}.vreg-modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.vreg-dossier-row{padding:10px 0;border-bottom:1px solid var(--bd)}.vreg-dossier-row:last-child{border:0}@media(max-width:850px){.vreg-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:560px){.vreg-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vreg-form{grid-template-columns:1fr}.vreg-form .wide{grid-column:auto}.vreg-head h1{font-size:21px}}'+
+      '.vreg-wrap{display:grid;gap:14px;max-width:1500px}.vreg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.vreg-head h1{margin:0;font-size:24px}.vreg-sub,.vreg-muted{color:var(--mu);font-size:12px}.vreg-sub{margin:4px 0 0}.vreg-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.vreg-stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px;min-width:0}.vreg-stat b{display:block;font-size:23px;line-height:1.2}.vreg-stat span{font-size:12px;color:var(--mu)}.vreg-panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;min-width:0}.vreg-tools{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.vreg-field{display:grid;gap:4px;min-width:135px;flex:1}.vreg-field label{color:var(--mu);font-size:12px;font-weight:650}.vreg-field input,.vreg-field select{width:100%;min-width:0}.vreg-button{border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:8px;padding:9px 12px;font:600 13px system-ui;cursor:pointer;min-height:38px}.vreg-button.secondary{background:transparent;color:var(--tx);border-color:var(--bd)}.vreg-button.danger{background:transparent;color:var(--red);border-color:var(--bd)}.vreg-button:disabled{opacity:.5;cursor:not-allowed}.vreg-notice{font-size:12px;color:var(--gr);min-height:17px}.vreg-notice.is-error{color:var(--red)}.vreg-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.vreg-tab{padding:7px 12px;border-radius:20px;border:1px solid var(--bd);background:transparent;color:var(--tx);font:600 13px system-ui;cursor:pointer}.vreg-tab.active{background:var(--ac);border-color:var(--ac);color:#fff}.vreg-tag{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:650}.vreg-tag.warn{background:var(--yls);color:var(--yl)}.vreg-tag.good{background:var(--grs);color:var(--gr)}.vreg-person{border:0;background:none;color:var(--ac);padding:0;font:650 13px system-ui;cursor:pointer;text-align:left}.vreg-table-wrap{overflow:auto;border:1px solid var(--bd);border-radius:10px}.vreg-table{border-collapse:collapse;width:100%;min-width:1020px;font-size:13px}.vreg-table th{position:sticky;top:0;background:var(--card);color:var(--mu);text-align:left;border-bottom:1px solid var(--bd);padding:10px;white-space:nowrap}.vreg-table td{border-bottom:1px solid var(--bd);padding:9px 10px;vertical-align:top}.vreg-sort{border:0;background:none;color:inherit;font:inherit;font-weight:700;cursor:pointer;padding:0}.vreg-actions{display:flex;gap:6px;flex-wrap:wrap}.vreg-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.vreg-empty{padding:24px;text-align:center;color:var(--mu)}.vreg-modal-backdrop{position:fixed;inset:0;z-index:10020;background:#08101dcc;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:4vh 12px}.vreg-modal{background:var(--card);color:var(--tx);width:min(720px,100%);max-height:92vh;overflow:auto;border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 20px 60px #0005}.vreg-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vreg-form .wide{grid-column:1/-1}.vreg-form label{display:grid;gap:4px;font-size:12px;color:var(--mu);font-weight:650}.vreg-form input,.vreg-form select,.vreg-form textarea{width:100%;font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:9px}.vreg-form .check{display:flex;align-items:center;gap:8px}.vreg-form .check input{width:auto}.vreg-suggestions{display:grid;gap:4px;max-height:220px;overflow:auto;border:1px solid var(--bd);border-radius:9px;padding:5px;background:var(--card)}.vreg-suggestions[hidden]{display:none}.vreg-suggestion{display:flex;justify-content:space-between;gap:10px;text-align:left;border:0;border-radius:6px;background:transparent;color:var(--tx);padding:8px;cursor:pointer;font:inherit}.vreg-suggestion:hover,.vreg-suggestion:focus{background:var(--hv);outline:0}.vreg-suggestion small{color:var(--mu);white-space:nowrap}.vreg-modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.vreg-dossier-row{padding:10px 0;border-bottom:1px solid var(--bd)}.vreg-dossier-row:last-child{border:0}@media(max-width:850px){.vreg-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:560px){.vreg-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vreg-form{grid-template-columns:1fr}.vreg-form .wide{grid-column:auto}.vreg-head h1{font-size:21px}}'+
       '</style>';
   }
   function listPage() {
@@ -393,17 +393,47 @@
     const modal=openModal('<h2 style="margin:0 0 14px">'+(item?'Редактирование нарушения':'Новая запись о нарушении')+'</h2>'+
       '<form id="vreg-form" class="vreg-form">'+
       '<label class="wide">ФИО обучающегося<input name="fio" maxlength="200" required value="'+esc(v.fio)+'" autocomplete="off"></label>'+
-      '<label>Группа<input name="grp" maxlength="100" value="'+esc(v.grp)+'"></label>'+
+      '<div id="vreg-person-suggestions" class="vreg-suggestions wide" role="listbox" hidden></div>'+
+      '<label>Группа<input name="grp" maxlength="100" value="'+esc(v.grp)+'" autocomplete="off"></label>'+
       '<label>Вид нарушения<select name="type">'+typeOptions+'</select></label>'+
       '<label>Дата<input name="d" type="date" required value="'+esc(v.d||today())+'"></label>'+
-      '<label>Время<input name="t" type="time" value="'+esc(v.t||'')+'"></label>'+
-      '<label>Пост / место<input name="post" maxlength="180" list="vreg-posts" value="'+esc(v.post||'')+'"><datalist id="vreg-posts">'+posts.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
-      '<label>Кто выявил<input name="by" maxlength="200" list="vreg-staff" value="'+esc(v.by||'')+'"><datalist id="vreg-staff">'+staff.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
-      '<label class="wide">Принятые меры<input name="meas" maxlength="1500" value="'+esc(v.meas||'')+'"></label>'+
       '<label class="wide">Примечание / обстоятельства<textarea name="note" rows="3" maxlength="3000">'+esc(v.note||'')+'</textarea></label>'+
       '<label class="wide check"><input type="checkbox" name="rep" '+(v.rep?'checked':'')+'> Доведено до куратора группы</label>'+
       '<div class="vreg-modal-actions wide"><button class="vreg-button" type="submit">Сохранить запись</button><button class="vreg-button secondary" type="button" data-vreg-action="modal-close">Отмена</button></div>'+
       '<p id="vreg-form-error" class="vreg-notice wide"></p></form>');
+    const fioInput=modal.querySelector('[name="fio"]'),groupInput=modal.querySelector('[name="grp"]'),suggestions=modal.querySelector('#vreg-person-suggestions');
+    let suggestionRows=[];
+    function updatePersonSuggestions(){
+      const fioQuery=keyText(fioInput.value),groupQuery=keyText(groupInput.value);
+      if(!fioQuery&&!groupQuery){suggestions.hidden=true;suggestions.innerHTML='';return;}
+      const unique=new Map();
+      activeItems().forEach(person=>{
+        const name=keyText(person.fio),group=keyText(person.grp);
+        if(!name)return;
+        const nameMatch=!fioQuery||name.includes(fioQuery);
+        const groupMatch=!groupQuery||group.includes(groupQuery);
+        if(!nameMatch||!groupMatch)return;
+        const key=name+'|'+group;
+        let score=0;
+        if(fioQuery)score+=name.startsWith(fioQuery)?100:name.includes(fioQuery)?60:0;
+        if(groupQuery)score+=group.startsWith(groupQuery)?50:group.includes(groupQuery)?25:0;
+        const previous=unique.get(key);
+        if(!previous||score>previous.score)unique.set(key,{fio:person.fio,grp:person.grp,score});
+      });
+      suggestionRows=[...unique.values()].sort((a,b)=>b.score-a.score||a.fio.localeCompare(b.fio,'ru')).slice(0,7);
+      suggestions.innerHTML=suggestionRows.map((person,index)=>'<button type="button" class="vreg-suggestion" role="option" data-person-suggestion="'+index+'"><b>'+esc(person.fio)+'</b><small>'+esc(person.grp||'Группа не указана')+'</small></button>').join('');
+      suggestions.hidden=!suggestionRows.length;
+    }
+    fioInput.addEventListener('input',updatePersonSuggestions);
+    groupInput.addEventListener('input',updatePersonSuggestions);
+    suggestions.addEventListener('click',event=>{
+      const button=event.target.closest('[data-person-suggestion]');
+      if(!button)return;
+      const person=suggestionRows[Number(button.dataset.personSuggestion)];
+      if(!person)return;
+      fioInput.value=person.fio;groupInput.value=person.grp||'';
+      suggestions.hidden=true;suggestions.innerHTML='';fioInput.focus();
+    });
     modal.querySelector('#vreg-form').addEventListener('submit',async event=>{
       event.preventDefault();
       const form=event.currentTarget,fd=new FormData(form);
@@ -411,9 +441,9 @@
         ...v,
         k:v.k||('vreg-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2))),
         fio:String(fd.get('fio')||'').trim(),grp:String(fd.get('grp')||'').trim(),
-        type:String(fd.get('type')||''),d:String(fd.get('d')||''),t:String(fd.get('t')||''),
-        post:String(fd.get('post')||'').trim(),by:String(fd.get('by')||'').trim(),
-        meas:String(fd.get('meas')||'').trim(),note:String(fd.get('note')||'').trim(),rep:fd.get('rep')==='on',
+        type:String(fd.get('type')||''),d:String(fd.get('d')||''),t:String(v.t||''),
+        post:String(v.post||'').trim(),by:String(v.by||'').trim(),
+        meas:String(v.meas||'').trim(),note:String(fd.get('note')||'').trim(),rep:!!v.rep,
         deletedAt:null
       };
       if(!data.fio||!data.type||!data.d){modal.querySelector('#vreg-form-error').textContent='Заполните ФИО, группу, вид нарушения и дату.';return;}
