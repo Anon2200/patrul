@@ -5,7 +5,7 @@
 
   const state = {
     items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
-    view: 'list', q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
+    view: 'maintenance', q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
     sort: 'date', direction: 'desc', trash: false, auditView: false, selected: new Set(),
     audit: [], auditBusy: false, auditError: '', maintenance: null, maintenanceBusy: false, importPreview: null
   };
@@ -165,16 +165,19 @@
   function rowHtml(item, counts) {
     const repeated=(counts.get(keyText(item.fio))||0)>1;
     const disabled=state.busy?'disabled':'';
+    const readOnly=role==='uchet';
     return '<tr>'+
-      '<td><input type="checkbox" data-vreg-select="'+esc(item.k)+'" '+(state.selected.has(item.k)?'checked':'')+' '+disabled+'></td>'+
+      (readOnly?'<td></td>':'<td><input type="checkbox" data-vreg-select="'+esc(item.k)+'" '+(state.selected.has(item.k)?'checked':'')+' '+disabled+'></td>')+
       '<td><b>'+dateText(item.d)+'</b><div class="vreg-muted">'+esc(item.t||'Время не указано')+'</div></td>'+
       '<td><button class="vreg-person" type="button" data-vreg-action="dossier" data-key="'+esc(item.k)+'">'+esc(item.fio)+'</button>'+(repeated?' <span class="vreg-tag warn">повторно</span>':'')+'<div class="vreg-muted">'+esc(item.grp)+'</div></td>'+
       '<td>'+esc(item.type)+'<div class="vreg-muted">'+esc(item.post||'Место не указано')+'</div></td>'+
       '<td>'+esc(item.meas||'—')+(item.note?'<div class="vreg-muted">'+esc(item.note)+'</div>':'')+'</td>'+
       '<td>'+esc(item.by||'—')+'<div class="vreg-muted">'+(item.rep?'<span class="vreg-tag good">Доведено</span>':'<span class="vreg-tag warn">Не доложено</span>')+'</div></td>'+
-      '<td class="vreg-actions">'+(state.trash
-        ? '<button class="vreg-button secondary" data-vreg-action="restore" data-key="'+esc(item.k)+'" '+disabled+'>Восстановить</button>'
-        : '<button class="vreg-button secondary" data-vreg-action="edit" data-key="'+esc(item.k)+'" '+disabled+'>Изменить</button><button class="vreg-button danger" data-vreg-action="archive" data-key="'+esc(item.k)+'" '+disabled+'>В корзину</button>')+
+      '<td class="vreg-actions">'+(readOnly
+        ? '<button class="vreg-button secondary" data-vreg-action="dossier" data-key="'+esc(item.k)+'">Карточка</button>'
+        : (state.trash
+          ? '<button class="vreg-button secondary" data-vreg-action="restore" data-key="'+esc(item.k)+'" '+disabled+'>Восстановить</button>'
+          : '<button class="vreg-button secondary" data-vreg-action="edit" data-key="'+esc(item.k)+'" '+disabled+'>Изменить</button><button class="vreg-button danger" data-vreg-action="archive" data-key="'+esc(item.k)+'" '+disabled+'>В корзину</button>'))+
       '</td></tr>';
   }
   function baseStyles() {
@@ -188,8 +191,10 @@
     const opts=types().map(item=>'<option value="'+esc(item)+'" '+(state.type===item?'selected':'')+'>'+esc(item)+'</option>').join('');
     const groupOptions=[...new Set(activeItems().map(item=>item.grp).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
     return baseStyles()+'<section class="vreg-wrap">'+
-      '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">Единый реестр колледжа · серверное хранение · записи доступны начальнику и документоведу</p></div>'+
-      '<div class="vreg-tools"><button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button><button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button></div></header>'+
+      '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">'+(role==='uchet'?'Доступ старшего мастера · просмотр всех записей без изменения данных':'Единый реестр колледжа · общий доступ начальника и документоведа')+'</p></div>'+
+      '<div class="vreg-tools">'+(role==='uchet'
+        ? '<button class="vreg-button secondary" data-vreg-action="view-maintenance">Техническое обслуживание</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Повторные нарушения</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button>'
+        : '<button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button><button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button>')+'</div></header>'+
       '<div class="vreg-stats">'+
       '<div class="vreg-stat"><b>'+counts.total+'</b><span>Всего действующих записей</span></div>'+
       '<div class="vreg-stat"><b>'+counts.today+'</b><span>За сегодня</span></div>'+
@@ -197,7 +202,7 @@
       '<div class="vreg-stat"><b>'+counts.repeat+'</b><span>С повторными записями</span></div>'+
       '<div class="vreg-stat"><b>'+counts.unreported+'</b><span>Не доведено до куратора</span></div>'+
       '<div class="vreg-stat"><b>'+counts.trash+'</b><span>В корзине</span></div></div>'+
-      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><button class="vreg-tab '+(state.auditView?'active':'')+'" data-vreg-action="audit">Журнал изменений</button><span class="vreg-muted">Корзина хранится 30 дней, затем очищается старшим мастером</span></div>'+
+      '<div class="vreg-panel"><div class="vreg-tabs"><button class="vreg-tab '+(!state.trash?'active':'')+'" data-vreg-action="view-active">Действующие ('+counts.total+')</button><button class="vreg-tab '+(state.trash?'active':'')+'" data-vreg-action="view-trash">Корзина ('+counts.trash+')</button><button class="vreg-tab '+(state.auditView?'active':'')+'" data-vreg-action="audit">Журнал изменений</button><span class="vreg-muted">'+(role==='uchet'?'Режим чтения · изменение и удаление записей отключены':'Корзина хранится 30 дней, затем очищается старшим мастером')+'</span></div>'+
       '<div class="vreg-tools" style="margin-top:12px">'+
       '<div class="vreg-field" style="min-width:220px"><label>Поиск по ФИО, группе, описанию</label><input id="vreg-q" value="'+esc(state.q)+'" placeholder="Введите ФИО или ключевые слова"></div>'+
       '<div class="vreg-field"><label>Группа</label><input id="vreg-group" value="'+esc(state.group)+'" list="vreg-groups" placeholder="Все группы"><datalist id="vreg-groups">'+groupOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></div>'+
@@ -205,8 +210,8 @@
       '<div class="vreg-field"><label>Дата с</label><input id="vreg-from" type="date" value="'+esc(state.from)+'"></div>'+
       '<div class="vreg-field"><label>Дата по</label><input id="vreg-to" type="date" value="'+esc(state.to)+'"></div>'+
       '<button class="vreg-button secondary" data-vreg-action="clear-filters">Сбросить</button></div></div>'+
-      '<div class="vreg-panel"><div class="vreg-tools" style="justify-content:space-between;margin-bottom:10px"><label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" data-vreg-action="select-page" '+(rows.length&&rows.every(x=>state.selected.has(x.k))?'checked':'')+'> Выбрать страницу</label>'+
-      '<div class="vreg-tools"><span class="vreg-muted">Выбрано: '+state.selected.size+'</span>'+(state.selected.size?'<button class="vreg-button secondary" data-vreg-action="export-selected">Экспорт выбранных</button>'+(!state.trash?'<button class="vreg-button danger" data-vreg-action="archive-selected">В корзину выбранные</button>':''):'')+'</div></div>'+
+      '<div class="vreg-panel">'+(role==='uchet'?'':'<div class="vreg-tools" style="justify-content:space-between;margin-bottom:10px"><label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" data-vreg-action="select-page" '+(rows.length&&rows.every(x=>state.selected.has(x.k))?'checked':'')+'> Выбрать страницу</label>'+
+      '<div class="vreg-tools"><span class="vreg-muted">Выбрано: '+state.selected.size+'</span>'+(state.selected.size?'<button class="vreg-button secondary" data-vreg-action="export-selected">Экспорт выбранных</button>'+(!state.trash?'<button class="vreg-button danger" data-vreg-action="archive-selected">В корзину выбранные</button>':''):'')+'</div></div>')+
       '<div class="vreg-table-wrap"><table class="vreg-table"><thead><tr><th></th><th>'+sortButton('date','Дата / время')+'</th><th>'+sortButton('fio','Обучающийся / группа')+'</th><th>'+sortButton('type','Нарушение / место')+'</th><th>Меры и примечание</th><th>Выявил / доклад</th><th>Действия</th></tr></thead><tbody>'+
       (rows.length?rows.map(item=>rowHtml(item,repeat)).join(''):'<tr><td colspan="7" class="vreg-empty">'+(state.trash?'Корзина пуста':'По выбранным условиям записей нет')+'</td></tr>')+
       '</tbody></table></div><div class="vreg-pagination" style="margin-top:12px"><span class="vreg-muted">Показано '+(total?start+1:0)+'–'+Math.min(start+state.pageSize,total)+' из '+total+'</span><div class="vreg-tools"><label class="vreg-muted">Строк на странице <select id="vreg-pagesize"><option '+(state.pageSize===25?'selected':'')+'>25</option><option '+(state.pageSize===50?'selected':'')+'>50</option><option '+(state.pageSize===100?'selected':'')+'>100</option></select></label><button class="vreg-button secondary" data-vreg-action="page-prev" '+(state.page<=1?'disabled':'')+'>Назад</button><span class="vreg-muted">Страница '+state.page+' / '+pages+'</span><button class="vreg-button secondary" data-vreg-action="page-next" '+(state.page>=pages?'disabled':'')+'>Далее</button></div></div></div>'+
@@ -215,7 +220,7 @@
   }
   function maintenancePage() {
     const m=state.maintenance;
-    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>НАРУШИТЕЛИ · ТЕХНИЧЕСКОЕ ОБСЛУЖИВАНИЕ</h1><p class="vreg-sub">Режим старшего мастера. Содержимое персональных записей недоступно.</p></div><button class="vreg-button secondary" data-vreg-action="maintenance-refresh" '+(state.maintenanceBusy?'disabled':'')+'>Проверить состояние</button></header>'+
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>НАРУШИТЕЛИ · ТЕХНИЧЕСКОЕ ОБСЛУЖИВАНИЕ</h1><p class="vreg-sub">Техническое обслуживание и контроль состояния реестра.</p></div><div class="vreg-tools"><button class="vreg-button secondary" data-vreg-action="view-registry">Открыть данные реестра</button><button class="vreg-button secondary" data-vreg-action="maintenance-refresh" '+(state.maintenanceBusy?'disabled':'')+'>Проверить состояние</button></div></header>'+
       (m?'<div class="vreg-stats">'+
         '<div class="vreg-stat"><b>'+m.total+'</b><span>Активных записей</span></div>'+
         '<div class="vreg-stat"><b>'+m.inTrash+'</b><span>В корзине</span></div>'+
@@ -310,7 +315,7 @@
     if (tab !== 'vl') return;
     const main=$('#m');
     if (!main) return;
-    main.innerHTML = role==='uchet' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' ? settingsPage() : listPage());
+    main.innerHTML = role==='uchet' && state.view==='maintenance' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' && role!=='uchet' ? settingsPage() : listPage());
   }
   function installDrawHook() {
     if (typeof draw !== 'function' || draw.__violationsRegistryHook) return;
@@ -572,9 +577,11 @@
       saveRegistry(next,'Запись восстановлена');
     }else if(action==='dossier')showDossier(key);
     else if(action==='modal-close')closeModal();
-    else if(action==='view-active'){state.trash=false;state.auditView=false;state.page=1;state.selected.clear();renderPage();}
-    else if(action==='view-trash'){state.trash=true;state.auditView=false;state.page=1;state.selected.clear();renderPage();}
-    else if(action==='audit'){state.auditView=true;getAudit();}
+    else if(action==='view-active'){state.trash=false;state.auditView=false;state.view=role==='uchet'?'registry':'list';state.page=1;state.selected.clear();renderPage();}
+    else if(action==='view-trash'){state.trash=true;state.auditView=false;state.view=role==='uchet'?'registry':'list';state.page=1;state.selected.clear();renderPage();}
+    else if(action==='view-registry'){state.view='registry';state.trash=false;state.auditView=false;state.page=1;renderPage();}
+    else if(action==='view-maintenance'){state.view='maintenance';renderPage();getMaintenance();}
+    else if(action==='audit'){state.view='registry';state.auditView=true;getAudit();}
     else if(action==='audit-refresh')getAudit();
     else if(action==='clear-filters'){state.q='';state.group='';state.type='';state.from='';state.to='';state.page=1;state.selected.clear();renderPage();}
     else if(action==='sort'){
@@ -681,8 +688,10 @@
     if(readyPromise)return readyPromise;
     readyPromise=(async()=>{
       install();
-      if(role==='uchet') await getMaintenance();
-      else await loadRegistry();
+      if(role==='uchet') {
+        state.view='maintenance';
+        await Promise.all([getMaintenance(),loadRegistry()]);
+      } else await loadRegistry();
       // Redraw once after adding the role-specific navigation entry and loading
       // the canonical registry, so the new menu item and summary counts appear.
       if(typeof draw==='function')draw(true);
@@ -693,7 +702,9 @@
   if(window.PATRUL_READY)ready();
   setInterval(()=>{
     if(!window.PATRUL_READY||document.visibilityState==='hidden'||state.busy)return;
-    if(role==='uchet')getMaintenance();
-    else loadRegistry({silent:true});
+    if(role==='uchet') {
+      if(state.view==='maintenance')getMaintenance();
+      else loadRegistry({silent:true});
+    } else loadRegistry({silent:true});
   },15000);
 })();
