@@ -52,6 +52,7 @@
     }
   }
   async function loadRegistry({silent=false}={}) {
+    const previousVersion=state.version;
     try {
       const result = await api('/api/violations');
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось загрузить реестр');
@@ -62,6 +63,10 @@
       state.error = '';
       applyChiefCache();
       if (!silent && tab === 'vl') renderPage();
+      else if (silent && state.version!==previousVersion) {
+        if (tab === 'vl') renderPage();
+        else if (role==='nachalnik' && tab==='ov' && typeof draw==='function') draw(true);
+      }
       return true;
     } catch (error) {
       state.error = error.message || 'Ошибка загрузки реестра';
@@ -503,14 +508,18 @@
     installDrawHook();
     if(tab==='vl')renderPage();
   }
+  let readyPromise=null;
   async function ready() {
-    install();
-    if(role==='uchet') {
-      await getMaintenance();
-    } else {
-      await loadRegistry();
-    }
-    if(typeof draw==='function'&&tab==='vl')draw(true);
+    if(readyPromise)return readyPromise;
+    readyPromise=(async()=>{
+      install();
+      if(role==='uchet') await getMaintenance();
+      else await loadRegistry();
+      // Redraw once after adding the role-specific navigation entry and loading
+      // the canonical registry, so the new menu item and summary counts appear.
+      if(typeof draw==='function')draw(true);
+    })();
+    return readyPromise;
   }
   window.addEventListener('patrul:ready',ready);
   if(window.PATRUL_READY)ready();
