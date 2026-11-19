@@ -107,7 +107,7 @@ before(async () => {
   serverProcess.stderr.on('data', chunk => { startupOutput += chunk.toString(); });
   try {
     await waitForServer();
-    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff');
+    await pool.query('TRUNCATE TABLE patrul_role_data, patrul_shared_staff, patrul_violation_registry');
   } catch (error) {
     throw new Error(`${error.message}\n${startupOutput}`);
   }
@@ -471,6 +471,133 @@ test('personal login session, CSRF protection, and role authorization work', asy
   const latest = await sessionApi('/api/session-data/zam', {}, employeeCookie);
   assert.equal(latest.status, 200);
   assert.ok(['device-a', 'device-b'].includes((await latest.json()).data.winner));
+});
+
+
+test('shared violations registry enforces roles, syncs between editors, and supports master maintenance', async () => {
+  async function createRoleSession(username, displayName, role) {
+    const created = await sessionApi('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, displayName, role })
+    }, adminCookie, adminCsrf);
+    assert.equal(created.status, 201, 'account should be created for ' + role);
+    const createdBody = await created.json();
+    const login = await sessionApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password: createdBody.temporaryPassword })
+    });
+    assert.equal(login.status, 200, 'account should log in for ' + role);
+    const loginBody = await login.json();
+    const cookie = (login.headers.get('set-cookie') || '').split(';')[0];
+    const changed = await sessionApi('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: createdBody.temporaryPassword,
+        newPassword: 'CI-' + role + '-Permanent-Password-2026!'
+      })
+    }, cookie, loginBody.csrfToken);
+    assert.equal(changed.status, 200, 'temporary password should be changed for ' + role);
+    return { cookie, csrf: loginBody.csrfToken };
+  }
+
+  const commander = await createRoleSession('ci.commander.registry','CI Registry Commander','nachalnik');
+  const documentOfficer = await createRoleSession('ci.document.registry','CI Registry Document Officer','dokumentoved');
+
+  const deniedPatrol = await sessionApi('/api/violations', {}, employeeCookie);
+  assert.equal(deniedPatrol.status, 403);
+  const deniedMasterRecords = await sessionApi('/api/violations', {}, adminCookie);
+  assert.equal(deniedMasterRecords.status, 403);
+
+  const initial = await sessionApi('/api/violations', {}, commander.cookie);
+  assert.equal(initial.status, 200);
+  const initialBody = await initial.json();
+  assert.ok(Array.isArray(initialBody.items));
+  assert.ok(initialBody.version >= 1);
+
+  const first = {
+    k: 'registry-ci-first', fio: 'Тестовый Студент', grp: 'ИСП-101',
+    type: 'Опоздание', d: testDutyDate, t: '08:10', post: 'КПП',
+    by: 'CI Commander', meas: 'Профилактическая беседа',
+    note: 'Интеграционная запись', rep: false, deletedAt: null
+  };
+  const firstWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: initialBody.version, items: [first] })
+  }, commander.cookie, commander.csrf);
+  assert.equal(firstWrite.status, 200);
+  const firstBody = await firstWrite.json();
+  assert.equal(firstBody.items.length, 1);
+  assert.ok(firstBody.items[0].createdAt);
+  assert.equal(firstBody.items[0].createdBy, 'CI Registry Commander');
+
+  const visibleToDocuments = await sessionApi('/api/violations', {}, documentOfficer.cookie);
+  assert.equal(visibleToDocuments.status, 200);
+  const documentSnapshot = await visibleToDocuments.json();
+  assert.equal(documentSnapshot.items[0].fio, first.fio);
+
+  const second = {
+    k: 'registry-ci-second', fio: 'Другой Тестовый Студент', grp: 'ИСП-102',
+    type: 'Нарушение дисциплины', d: testDutyDate, t: '09:25', post: 'Территория',
+    by: 'CI Document Officer', meas: 'Разъяснительная беседа',
+    note: 'Создано документоведом', rep: true, deletedAt: null
+  };
+  const secondWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: documentSnapshot.version, items: [...documentSnapshot.items, second] })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(secondWrite.status, 200);
+  const secondBody = await secondWrite.json();
+  assert.equal(secondBody.items.length, 2);
+
+  const staleWrite = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: initialBody.version, items: [first] })
+  }, commander.cookie, commander.csrf);
+  assert.equal(staleWrite.status, 409);
+  assert.equal((await staleWrite.json()).items.length, 2);
+
+  const masterSummary = await sessionApi('/api/violations/maintenance', {}, adminCookie);
+  assert.equal(masterSummary.status, 200);
+  const masterBody = await masterSummary.json();
+  assert.equal(masterBody.total, 2);
+  assert.equal(masterBody.inTrash, 0);
+  assert.equal(typeof masterBody.version, 'number');
+
+  const masterCannotWriteRecords = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: masterBody.version, items: [] })
+  }, adminCookie, adminCsrf);
+  assert.equal(masterCannotWriteRecords.status, 403);
+
+  const archivedItems = secondBody.items.map(item => item.k === second.k
+    ? { ...item, deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() }
+    : item);
+  const archive = await sessionApi('/api/violations', {
+    method: 'PUT',
+    body: JSON.stringify({ expectedVersion: secondBody.version, items: archivedItems })
+  }, documentOfficer.cookie, documentOfficer.csrf);
+  assert.equal(archive.status, 200);
+
+  const archivedSummaryResponse = await sessionApi('/api/violations/maintenance', {}, adminCookie);
+  const archivedSummary = await archivedSummaryResponse.json();
+  assert.equal(archivedSummary.inTrash, 1);
+  const purge = await sessionApi('/api/violations/maintenance/purge', {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: archivedSummary.version })
+  }, adminCookie, adminCsrf);
+  assert.equal(purge.status, 200);
+  const purgeBody = await purge.json();
+  assert.equal(purgeBody.purged, 1);
+  assert.equal(purgeBody.summary.inTrash, 0);
+  assert.equal(purgeBody.summary.total, 1);
+
+  const stored = await pool.query('SELECT data FROM patrul_violation_registry WHERE id=1');
+  assert.equal(stored.rows[0].data.__patrul_encrypted, 1);
+  assert.equal(JSON.stringify(stored.rows[0].data).includes(first.fio), false);
+  const audit = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM patrul_audit_log WHERE event_type IN ('violation_registry_updated','violation_registry_trash_purged')"
+  );
+  assert.ok(audit.rows[0].count >= 2);
 });
 
 
