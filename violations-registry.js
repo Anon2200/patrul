@@ -4,8 +4,8 @@
   if (!['nachalnik','dokumentoved','uchet'].includes(role)) return;
 
   const state = {
-    items: [], version: 0, updatedAt: null, busy: false, loaded: false, error: '',
-    q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
+    items: [], settings: {violationTypes:['Форма одежды','Внешний вид','Опоздание','Пропуск занятий','Курение / никотин','Алкоголь','Пропускной режим','Нарушение порядка','Другое'],repeatThreshold:2,deviantsResetAt:null,departments:{}}, version: 0, updatedAt: null, busy: false, loaded: false, error: '',
+    view: 'list', q: '', group: '', type: '', from: '', to: '', page: 1, pageSize: 50,
     sort: 'date', direction: 'desc', trash: false, auditView: false, selected: new Set(),
     audit: [], auditBusy: false, auditError: '', maintenance: null, maintenanceBusy: false, importPreview: null
   };
@@ -57,6 +57,7 @@
       const result = await api('/api/violations');
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось загрузить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : [];
+      if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
       state.version = Number(result.result.version || 0);
       state.updatedAt = result.result.updatedAt || null;
       state.loaded = true;
@@ -92,6 +93,7 @@
       }
       if (!result.response.ok) throw new Error(result.result.error || 'Не удалось сохранить реестр');
       state.items = Array.isArray(result.result.items) ? result.result.items : nextItems;
+      if(result.result.settings&&typeof result.result.settings==='object')state.settings=result.result.settings;
       state.version = Number(result.result.version || state.version);
       state.updatedAt = result.result.updatedAt || state.updatedAt;
       applyChiefCache();
@@ -187,7 +189,7 @@
     const groupOptions=[...new Set(activeItems().map(item=>item.grp).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
     return baseStyles()+'<section class="vreg-wrap">'+
       '<header class="vreg-head"><div><h1>НАРУШИТЕЛИ</h1><p class="vreg-sub">Единый реестр колледжа · серверное хранение · записи доступны начальнику и документоведу</p></div>'+
-      '<div class="vreg-tools"><button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button><button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button></div></header>'+
+      '<div class="vreg-tools"><button class="vreg-button" data-vreg-action="new" '+(state.busy?'disabled':'')+'>＋ Добавить нарушение</button><button class="vreg-button secondary" data-vreg-action="view-deviants">Девианты</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button><button class="vreg-button secondary" data-vreg-action="view-settings">Настройки</button><button class="vreg-button secondary" data-vreg-action="export">Экспорт CSV</button><button class="vreg-button secondary" data-vreg-action="import-open">Импорт CSV</button></div></header>'+
       '<div class="vreg-stats">'+
       '<div class="vreg-stat"><b>'+counts.total+'</b><span>Всего действующих записей</span></div>'+
       '<div class="vreg-stat"><b>'+counts.today+'</b><span>За сегодня</span></div>'+
@@ -246,11 +248,64 @@
       )+'</td></tr>').join(''):'<tr><td colspan="4" class="vreg-empty">Операций пока нет</td></tr>')+
       '</tbody></table></div><p class="vreg-muted">Содержимое записей студентов в журнале действий не дублируется.</p></div></section>';
   }
+
+  function repeatAnalysis() {
+    const reset=state.settings.deviantsResetAt||null,threshold=Number(state.settings.repeatThreshold)||2;
+    const groups=new Map();
+    activeItems().forEach(item=>{
+      if(reset&&item.d<reset)return;
+      const key=keyText(item.fio);
+      if(!key)return;
+      if(!groups.has(key))groups.set(key,{name:item.fio,records:[],groups:new Set(),types:new Map(),last:''});
+      const entry=groups.get(key);
+      entry.records.push(item);if(item.grp)entry.groups.add(item.grp);
+      entry.types.set(item.type,(entry.types.get(item.type)||0)+1);
+      if(item.d+' '+(item.t||'')>entry.last)entry.last=item.d+' '+(item.t||'');
+    });
+    return [...groups.values()].filter(entry=>entry.records.length>=threshold).map(entry=>({
+      ...entry,count:entry.records.length,last:entry.last.slice(0,10),
+      topType:[...entry.types.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||''
+    })).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ru'));
+  }
+  function deviantsPage() {
+    const entries=repeatAnalysis();
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>ПОВТОРНЫЕ НАРУШЕНИЯ</h1><p class="vreg-sub">Порог: '+Number(state.settings.repeatThreshold||2)+' записей · '+(state.settings.deviantsResetAt?'учёт с '+dateText(state.settings.deviantsResetAt):'весь период')+'</p></div><div class="vreg-tools"><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button><button class="vreg-button secondary" data-vreg-action="view-report">Отчёт</button></div></header>'+
+      '<div class="vreg-stats"><div class="vreg-stat"><b>'+entries.length+'</b><span>Студентов с повторениями</span></div><div class="vreg-stat"><b>'+entries.reduce((n,x)=>n+x.count,0)+'</b><span>Записей у повторных нарушителей</span></div><div class="vreg-stat"><b>'+Number(state.settings.repeatThreshold||2)+'</b><span>Порог повторения</span></div><div class="vreg-stat"><b>'+(state.settings.deviantsResetAt?dateText(state.settings.deviantsResetAt):'Весь период')+'</b><span>Начало текущего учёта</span></div></div>'+
+      '<div class="vreg-panel"><div class="vreg-table-wrap"><table class="vreg-table" style="min-width:750px"><thead><tr><th>Обучающийся</th><th>Группы</th><th>Нарушений</th><th>Чаще всего</th><th>Последнее</th><th></th></tr></thead><tbody>'+
+      (entries.length?entries.map(entry=>'<tr><td><b>'+esc(entry.name)+'</b></td><td>'+esc([...entry.groups].join(', ')||'—')+'</td><td><span class="vreg-tag warn">'+entry.count+'</span></td><td>'+esc(entry.topType)+'</td><td>'+dateText(entry.last)+'</td><td><button class="vreg-button secondary" data-vreg-action="dossier" data-key="'+esc(entry.records[0].k)+'">Досье</button></td></tr>').join(''):'<tr><td colspan="6" class="vreg-empty">Повторных нарушений по установленному порогу нет</td></tr>')+
+      '</tbody></table></div></div></section>';
+  }
+  function reportPage() {
+    const from=state.reportFrom||today().slice(0,7)+'-01',to=state.reportTo||today(),group=keyText(state.reportGroup||'');
+    const list=activeItems().filter(item=>item.d>=from&&item.d<=to&&(!group||keyText(item.grp).includes(group)));
+    const byType=new Map(),byGroup=new Map(),byStudent=new Map();
+    list.forEach(item=>{
+      byType.set(item.type,(byType.get(item.type)||0)+1);
+      if(item.grp)byGroup.set(item.grp,(byGroup.get(item.grp)||0)+1);
+      byStudent.set(keyText(item.fio),(byStudent.get(keyText(item.fio))||0)+1);
+    });
+    const typeRows=[...byType].sort((a,b)=>b[1]-a[1]),groupRows=[...byGroup].sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const repeats=[...byStudent.values()].filter(count=>count>1).length;
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>АНАЛИТИЧЕСКИЙ ОТЧЁТ</h1><p class="vreg-sub">Сводка по реестру за выбранный период и группе</p></div><div class="vreg-tools"><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button><button class="vreg-button secondary" data-vreg-action="report-print">Печать отчёта</button><button class="vreg-button" data-vreg-action="report-export">Экспорт CSV</button></div></header>'+
+      '<div class="vreg-panel"><div class="vreg-tools"><div class="vreg-field"><label>Начало периода</label><input type="date" id="vreg-report-from" value="'+esc(from)+'"></div><div class="vreg-field"><label>Конец периода</label><input type="date" id="vreg-report-to" value="'+esc(to)+'"></div><div class="vreg-field"><label>Группа (поиск по началу / части)</label><input id="vreg-report-group" value="'+esc(state.reportGroup||'')+'" placeholder="Все группы"></div><button class="vreg-button secondary" data-vreg-action="report-apply">Сформировать</button></div></div>'+
+      '<div class="vreg-stats"><div class="vreg-stat"><b>'+list.length+'</b><span>Нарушений за период</span></div><div class="vreg-stat"><b>'+byStudent.size+'</b><span>Студентов</span></div><div class="vreg-stat"><b>'+repeats+'</b><span>Студентов с 2+ записями</span></div><div class="vreg-stat"><b>'+groupRows.length+'</b><span>Групп в сводке</span></div></div>'+
+      '<div class="vreg-panel"><h3 style="margin-top:0">По видам нарушений</h3><div class="vreg-table-wrap"><table class="vreg-table" style="min-width:420px"><thead><tr><th>Вид нарушения</th><th>Количество</th></tr></thead><tbody>'+(typeRows.length?typeRows.map(row=>'<tr><td>'+esc(row[0])+'</td><td>'+row[1]+'</td></tr>').join(''):'<tr><td colspan="2" class="vreg-empty">Нет данных</td></tr>')+'</tbody></table></div></div>'+
+      '<div class="vreg-panel"><h3 style="margin-top:0">Топ групп</h3><div class="vreg-table-wrap"><table class="vreg-table" style="min-width:420px"><thead><tr><th>Группа</th><th>Количество</th></tr></thead><tbody>'+(groupRows.length?groupRows.map(row=>'<tr><td>'+esc(row[0])+'</td><td>'+row[1]+'</td></tr>').join(''):'<tr><td colspan="2" class="vreg-empty">Нет данных</td></tr>')+'</tbody></table></div></div>'+
+      '<p class="vreg-muted">Период: '+dateText(from)+' — '+dateText(to)+'. Сформировано: '+formatDateTime(new Date().toISOString())+'</p></section>';
+  }
+  function settingsPage() {
+    const config=state.settings,departments=Object.entries(config.departments||{});
+    return baseStyles()+'<section class="vreg-wrap"><header class="vreg-head"><div><h1>НАСТРОЙКИ РЕЕСТРА</h1><p class="vreg-sub">Параметры классификации нарушений и учёта повторных случаев</p></div><button class="vreg-button secondary" data-vreg-action="view-active">К реестру</button></header>'+
+      '<div class="vreg-panel"><h3 style="margin-top:0">Типы нарушений</h3><div class="vreg-tools">'+config.violationTypes.map(type=>'<span class="vreg-tag" style="border:1px solid var(--bd);padding:7px 9px">'+esc(type)+' <button data-vreg-action="type-remove" data-value="'+esc(type)+'" style="border:0;background:none;color:var(--red);cursor:pointer" aria-label="Удалить тип">×</button></span>').join('')+'</div><div class="vreg-tools" style="margin-top:12px"><div class="vreg-field"><label>Новый вид нарушения</label><input id="vreg-type-new" maxlength="120" placeholder="Например: Нарушение формы одежды"></div><button class="vreg-button secondary" data-vreg-action="type-add">Добавить тип</button></div></div>'+
+      '<div class="vreg-panel"><h3 style="margin-top:0">Повторные нарушения</h3><div class="vreg-tools"><div class="vreg-field"><label>Порог (сколько записей считать повторными)</label><input id="vreg-repeat-threshold" type="number" min="1" max="100" value="'+Number(config.repeatThreshold||2)+'"></div><div class="vreg-field"><label>Начало нового периода учёта (необязательно)</label><input id="vreg-repeat-reset" type="date" value="'+esc(config.deviantsResetAt||'')+'"></div><button class="vreg-button secondary" data-vreg-action="reset-start-today">Начать учёт с сегодня</button><button class="vreg-button secondary" data-vreg-action="reset-clear">Учитывать весь период</button></div></div>'+
+      (departments.length?'<div class="vreg-panel"><h3 style="margin-top:0">Префиксы групп и отделений</h3>'+departments.map(item=>'<div class="vreg-muted">'+esc(item[0])+' — '+esc(item[1])+'</div>').join('')+'</div>':'')+
+      '<div class="vreg-tools"><button class="vreg-button" data-vreg-action="settings-save">Сохранить настройки</button><span id="vreg-settings-notice" class="vreg-notice"></span></div></section>';
+  }
   function renderPage() {
     if (tab !== 'vl') return;
     const main=$('#m');
     if (!main) return;
-    main.innerHTML = role==='uchet' ? maintenancePage() : (state.auditView ? auditPage() : listPage());
+    main.innerHTML = role==='uchet' ? maintenancePage() : (state.auditView ? auditPage() : state.view==='deviants' ? deviantsPage() : state.view==='report' ? reportPage() : state.view==='settings' ? settingsPage() : listPage());
   }
   function installDrawHook() {
     if (typeof draw !== 'function' || draw.__violationsRegistryHook) return;
@@ -445,6 +500,21 @@
     }catch(error){state.error=error.message||'Ошибка очистки корзины';}
     finally{state.maintenanceBusy=false;renderPage();}
   }
+
+  async function saveSettings() {
+    const threshold=Number($('#vreg-repeat-threshold')?.value||state.settings.repeatThreshold);
+    const reset=$('#vreg-repeat-reset')?.value||null;
+    if(!Number.isInteger(threshold)||threshold<1||threshold>100){window.alert('Порог должен быть от 1 до 100');return;}
+    const settings={...state.settings,repeatThreshold:threshold,deviantsResetAt:reset};
+    try{
+      const response=await api('/api/violations/settings','PUT',{expectedVersion:state.version,settings});
+      if(response.response.status===409){state.version=Number(response.result.version||state.version);await loadRegistry({silent:true});renderPage();window.alert('Настройки изменились в другом окне. Загружена актуальная версия.');return;}
+      if(!response.response.ok)throw new Error(response.result.error||'Не удалось сохранить настройки');
+      state.settings=response.result.settings;state.version=Number(response.result.version||state.version);state.updatedAt=response.result.updatedAt||state.updatedAt;
+      const notice=$('#vreg-settings-notice');if(notice)notice.textContent='Настройки сохранены';
+      renderPage();
+    }catch(error){window.alert(error.message||'Ошибка сохранения настроек');}
+  }
   function handleAction(action, target) {
     const key=target.dataset.key;
     if(action==='new')recordForm();
@@ -488,7 +558,33 @@
       if(parsed.added&&window.confirm('Добавить '+parsed.added+' новых записей? Пропущено строк: '+parsed.skipped+'.')){
         saveRegistry([...state.items,...parsed.items],'Импорт завершён: добавлено '+parsed.added+' записей').then(ok=>{if(ok)closeModal();});
       }
-    }else if(action==='maintenance-refresh')getMaintenance();
+    }else if(action==='view-deviants'){state.view='deviants';state.auditView=false;renderPage();}
+    else if(action==='view-report'){state.view='report';state.auditView=false;renderPage();}
+    else if(action==='view-settings'){state.view='settings';state.auditView=false;renderPage();}
+    else if(action==='report-apply'){
+      state.reportFrom=$('#vreg-report-from')?.value||'';state.reportTo=$('#vreg-report-to')?.value||'';state.reportGroup=$('#vreg-report-group')?.value||'';
+      if(state.reportFrom&&state.reportTo&&state.reportFrom>state.reportTo){window.alert('Начало периода не может быть позже конца');return;}
+      renderPage();
+    }else if(action==='report-print'){window.print();}
+    else if(action==='report-export'){
+      const from=state.reportFrom||today().slice(0,7)+'-01',to=state.reportTo||today(),group=keyText(state.reportGroup||'');
+      exportCsv(activeItems().filter(item=>item.d>=from&&item.d<=to&&(!group||keyText(item.grp).includes(group))));
+    }else if(action==='type-add'){
+      const input=$('#vreg-type-new'),value=String(input?.value||'').trim();
+      if(!value)return;
+      if(state.settings.violationTypes.some(x=>keyText(x)===keyText(value))){window.alert('Такой тип уже существует');return;}
+      state.settings.violationTypes.push(value.slice(0,120));renderPage();
+    }else if(action==='type-remove'){
+      const value=target.dataset.value;
+      if(state.settings.violationTypes.length<=1){window.alert('Должен остаться хотя бы один тип');return;}
+      if(!window.confirm('Удалить тип «'+value+'» из доступного списка? Старые записи сохранятся.'))return;
+      state.settings.violationTypes=state.settings.violationTypes.filter(x=>x!==value);renderPage();
+    }else if(action==='reset-start-today'){
+      state.settings.deviantsResetAt=today();renderPage();
+    }else if(action==='reset-clear'){
+      state.settings.deviantsResetAt=null;renderPage();
+    }else if(action==='settings-save')saveSettings();
+    else if(action==='maintenance-refresh')getMaintenance();
     else if(action==='maintenance-purge')purgeOldTrash();
   }
   document.addEventListener('click',event=>{
