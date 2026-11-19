@@ -1485,8 +1485,8 @@ function createAuth(pool,send,readJson) {
         if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
         if(!VIOLATION_REGISTRY_ROLES.has(s.role)){send(res,403,{error:'Раздел нарушителей недоступен для этой роли'});return true;}
         if(p==='/api/violations') {
-          if(!VIOLATION_EDITOR_ROLES.has(s.role)){send(res,403,{error:'Просмотр записей реестра доступен начальнику и документоведу'});return true;}
           if(req.method==='GET') {
+            if(!VIOLATION_REGISTRY_ROLES.has(s.role)){send(res,403,{error:'Просмотр реестра недоступен для этой роли'});return true;}
             const state=await readViolationRegistry();
             send(res,200,{items:state.items,settings:state.settings,version:state.version,updatedAt:state.updatedAt,updatedBy:state.updatedBy});
             return true;
