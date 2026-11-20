@@ -3,7 +3,7 @@
 const CACHE_NAME = 'patrul-static-20261115-14';
 const ASSETS = [
   '/', '/index.html', '/icon-180.png', '/icon-192.png', '/icon-512.png',
-  '/duty-schedule.js', '/duty-calendar-global.js', '/duty-roster-section.js', '/cloud-sync.js', '/ops-workspace.js', '/personal-workspace.js', '/staff-workspace.js', '/mail.html', '/mail.js', '/mail-viewer.html', '/mail-viewer.js',
+  '/duty-schedule.js', '/duty-calendar-global.js', '/duty-roster-section.js', '/violators-section.js', '/cloud-sync.js', '/ops-workspace.js', '/personal-workspace.js', '/staff-workspace.js', '/mail.html', '/mail.js', '/mail-viewer.html', '/mail-viewer.js',
   '/zam.html', '/zam.webmanifest',
   '/dokumentoved.html', '/dokumentoved.webmanifest',
   '/patrol-senior.html', '/patrol-senior.js',

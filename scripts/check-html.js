@@ -336,6 +336,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   if (file === 'uchet.html' && (!html.includes('Комплекты постов') || !html.includes('function postKits'))) fail(file + ' must provide master post-equipment templates');
   if (file === 'nachalnik.html' && (!html.includes('postKitText'))) fail(file + ' must show shared post equipment in the duty roster');
   if (html.indexOf('src="staff-workspace.js?v=' + ASSET_VERSION + '"') < html.indexOf('src="personal-workspace.js?v=' + ASSET_VERSION + '"')) fail(file + ' must load staff-workspace.js after the existing role workspaces');
+  if (['nachalnik.html','dokumentoved.html','uchet.html'].includes(file) && !html.includes('src="violators-section.js?v=20261120-01"')) fail(file + ' must load the shared violators section');
   if (!html.includes('id="patrul-auth-gate"')) fail(file + ' must hide its workspace until authentication succeeds');
   const authGate = html.match(/<style id="patrul-auth-gate">([\s\S]*?)<\/style>/);
   const homeStyles = html.match(/<style id="patrul-home-styles">([\s\S]*?)<\/style>/);

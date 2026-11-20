@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const { encryptData, decryptData, readRoleData } = require('./data-crypto');
 const { promisify } = require('node:util');
 const { dutyDateAt,purgeExpiredDutyData } = require('./duty-store');
+const violatorsStore = require('./violators-store');
 const scrypt = promisify(crypto.scrypt);
 const ROLES = new Set(['nachalnik','zam','uchet','dokumentoved']);
 const COOKIE = '__Host-patrul_session';
@@ -345,7 +346,7 @@ function createAuth(pool,send,readJson) {
   }
   return async function handle(req,res,url) {
     const p=url.pathname;
-    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule'&&p!=='/api/duty-roster') return false;
+    if(!p.startsWith('/api/auth/')&&!p.startsWith('/api/admin/')&&!p.startsWith('/api/session-data/')&&p!=='/api/shared-staff'&&p!=='/api/violators'&&!p.startsWith('/api/mail/')&&!p.startsWith('/api/patrol-senior/')&&p!=='/api/tasks'&&!p.startsWith('/api/tasks/')&&!p.startsWith('/api/control/')&&!p.startsWith('/api/documents/')&&p!=='/api/duty-schedule'&&p!=='/api/duty-roster') return false;
     try {
       if(p==='/api/duty-schedule') {
         const session=await sessionFor(req);
@@ -1288,6 +1289,68 @@ function createAuth(pool,send,readJson) {
         await audit(s.id,'document_number_issued',null,{year,sequence});
         send(res,201,{year,sequence,number:String(sequence).padStart(3,'0')+'/'+year});
         return true;
+      }
+
+      if(p==='/api/violators') {
+        // Общий реестр нарушителей: один зашифрованный документ для начальника, документоведа и старшего мастера.
+        const s=await sessionFor(req);
+        if(!s){send(res,401,{error:'Требуется персональный вход'});return true;}
+        if(s.must_change_password){send(res,403,{error:'Сначала смените временный пароль'});return true;}
+        if(!violatorsStore.ROLE_PERMS[s.role]){send(res,403,{error:'Реестр нарушителей недоступен для этой роли'});return true;}
+        const actorName=String(s.display_name||s.username||'').slice(0,120);
+        if(req.method==='GET') {
+          const client=await pool.connect();
+          try {
+            await client.query('BEGIN');
+            await client.query('INSERT INTO patrul_violators(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+            let q=await client.query('SELECT data,version,updated_at FROM patrul_violators WHERE id=1 FOR UPDATE');
+            let row=q.rows[0];
+            if(!row.data) {
+              q=await client.query('UPDATE patrul_violators SET data=$1::jsonb,version=1,updated_at=NOW() WHERE id=1 RETURNING data,version,updated_at',[JSON.stringify(encryptData(violatorsStore.emptyDoc(),'violators'))]);
+              row=q.rows[0];
+            }
+            await client.query('COMMIT');
+            const version=Number(row.version);
+            if(String(url.searchParams.get('since')||'')===String(version)) {send(res,200,{unchanged:true,version});return true;}
+            const doc=violatorsStore.normalizeDoc(decryptData(row.data,'violators'));
+            send(res,200,violatorsStore.viewFor(doc,s.role,version));
+          } catch(e) {
+            await client.query('ROLLBACK').catch(()=>{});
+            throw e;
+          } finally { client.release(); }
+          return true;
+        }
+        if(req.method==='POST') {
+          if(!(await csrfOk(req,s))){send(res,403,{error:'Проверка CSRF не пройдена'});return true;}
+          const b=await readJson(req);
+          if(!b||typeof b!=='object'||Array.isArray(b)||!Array.isArray(b.ops)){send(res,400,{error:'Нужен список операций ops'});return true;}
+          const client=await pool.connect();
+          let view,results;
+          try {
+            await client.query('BEGIN');
+            await client.query('INSERT INTO patrul_violators(id,data,version) VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING');
+            const q=await client.query('SELECT data,version FROM patrul_violators WHERE id=1 FOR UPDATE');
+            const row=q.rows[0];
+            const current=row.data?violatorsStore.normalizeDoc(decryptData(row.data,'violators')):violatorsStore.emptyDoc();
+            const applied=violatorsStore.applyOps(current,b.ops,{role:s.role,userId:String(s.id),actor:actorName,nowMs:Date.now()});
+            const updated=await client.query(
+              'UPDATE patrul_violators SET data=$1::jsonb,version=version+1,updated_at=NOW() WHERE id=1 RETURNING version',
+              [JSON.stringify(encryptData(applied.doc,'violators'))]
+            );
+            await client.query('COMMIT');
+            results=applied.results;
+            view=violatorsStore.viewFor(applied.doc,s.role,Number(updated.rows[0].version));
+          } catch(e) {
+            await client.query('ROLLBACK').catch(()=>{});
+            if(e&&e.status){send(res,e.status,{error:e.message});return true;}
+            throw e;
+          } finally { client.release(); }
+          const kinds=[...new Set(b.ops.map(o=>String(o&&o.op||'').slice(0,20)))];
+          await audit(s.id,'violators_changed',null,{role:s.role,ops:b.ops.length,kinds});
+          send(res,200,{...view,results});
+          return true;
+        }
+        send(res,405,{error:'Метод не поддерживается'});return true;
       }
 
       if(p==='/api/shared-staff') {
