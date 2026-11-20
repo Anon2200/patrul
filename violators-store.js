@@ -6,9 +6,11 @@
 // проверить без PostgreSQL (test/violators-store.test.js).
 
 const DEFAULT_TYPES = [
-  'Опоздание',
   'Нарушение лок. акта №36',
+  'Нарушение лок. акта №2',
+  'Опоздание',
   'Нарушение дисциплины',
+  'Отсутствие студ. билета',
   'Курение в неположенном месте',
   'Другое'
 ];
@@ -25,7 +27,7 @@ const MAX_OPS_PER_REQUEST = 5000;
 const ROLE_PERMS = {
   nachalnik: ['add', 'update', 'delete', 'import', 'settings'],
   dokumentoved: ['add', 'update', 'delete', 'import'],
-  uchet: ['restore', 'purge', 'replaceAll', 'audit']
+  uchet: ['restore', 'purge', 'replaceAll', 'audit', 'settings']
 };
 const OP_PERM = {
   add: 'add',
@@ -324,6 +326,18 @@ function applyOne(doc, op, ctx) {
     case 'settings': {
       const next = cleanSettings(op.settings || {}, doc.settings);
       if (op.resetNow === true) next.resetAt = ctx.today;
+      if (op.rename) {
+        const from = text(op.rename.from, 60), to = text(op.rename.to, 60);
+        const idx = next.types.findIndex(x => nameKey(x) === nameKey(from));
+        if (idx < 0) fail(400, 'Вид нарушения не найден');
+        if (nameKey(from) === nameKey(FALLBACK_TYPE)) fail(400, 'Вид «Другое» переименовать нельзя');
+        if (!to) fail(400, 'Введите новое название');
+        if (nameKey(to) !== nameKey(from) && next.types.some(x => nameKey(x) === nameKey(to))) fail(400, 'Такой вид уже есть');
+        const old = next.types[idx];
+        next.types = next.types.slice();
+        next.types[idx] = to;
+        doc.records.forEach(r => { if (r.type === old) r.type = to; });
+      }
       doc.settings = next;
       return { details: 'порог ' + next.deviantMin + (next.resetAt ? ', учёт с ' + next.resetAt : '') + ', видов: ' + next.types.length };
     }

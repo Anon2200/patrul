@@ -14,7 +14,7 @@ function withDoc(ops, role = 'nachalnik', doc = store.emptyDoc(), extra = {}) {
 
 test('пустой документ содержит виды нарушений из реестра', () => {
   const doc = store.emptyDoc();
-  assert.deepEqual(doc.settings.types.slice(0, 4), ['Опоздание', 'Нарушение лок. акта №36', 'Нарушение дисциплины', 'Курение в неположенном месте']);
+  assert.deepEqual(doc.settings.types, ['Нарушение лок. акта №36', 'Нарушение лок. акта №2', 'Опоздание', 'Нарушение дисциплины', 'Отсутствие студ. билета', 'Курение в неположенном месте', 'Другое']);
   assert.equal(doc.settings.types.at(-1), 'Другое');
   assert.equal(doc.settings.deviantMin, 2);
 });
@@ -41,6 +41,7 @@ test('документовед записывает и правит, но не �
   assert.equal(edited.doc.records[0].grp, 'ПБ-101');
   assert.equal(edited.doc.records[0].fio, 'Иванов Иван');
   assert.throws(() => withDoc([{ op: 'settings', settings: { deviantMin: 3 } }], 'dokumentoved', first.doc), { status: 403 });
+  assert.throws(() => withDoc([{ op: 'settings', settings: { types: ['X'] } }], 'dokumentoved', first.doc), { status: 403 });
 });
 
 test('старший мастер не записывает нарушения, но видит корзину и журнал', () => {
@@ -143,4 +144,21 @@ test('повреждённый документ из базы приводитс
   assert.ok(doc.nextId > 7);
   assert.equal(doc.settings.deviantMin, 2);
   assert.ok(Array.isArray(doc.settings.types));
+});
+
+test('старший мастер правит виды нарушений: добавление, переименование, удаление', () => {
+  const base = withDoc([{ op: 'add', rec: rec({ type: 'Опоздание' }) }]).doc;
+  const added = withDoc([{ op: 'settings', settings: { types: [...base.settings.types, 'Драка'] } }], 'uchet', base).doc;
+  assert.ok(added.settings.types.includes('Драка'));
+  const renamed = withDoc([{ op: 'settings', rename: { from: 'Опоздание', to: 'Опоздание на службу' } }], 'uchet', added).doc;
+  assert.ok(renamed.settings.types.includes('Опоздание на службу'));
+  assert.ok(!renamed.settings.types.includes('Опоздание'));
+  assert.equal(renamed.records[0].type, 'Опоздание на службу');
+  const removed = withDoc([{ op: 'settings', settings: { types: renamed.settings.types.filter(x => x !== 'Драка') } }], 'uchet', renamed).doc;
+  assert.ok(!removed.settings.types.includes('Драка'));
+  assert.equal(removed.records[0].type, 'Опоздание на службу', 'старые записи не теряются');
+  assert.throws(() => withDoc([{ op: 'settings', rename: { from: 'Опоздание на службу', to: 'Другое' } }], 'uchet', removed), { status: 400 });
+  assert.throws(() => withDoc([{ op: 'settings', rename: { from: 'Другое', to: 'Иное' } }], 'uchet', removed), { status: 400 });
+  assert.throws(() => withDoc([{ op: 'settings', rename: { from: 'Нет такого', to: 'Иное' } }], 'uchet', removed), { status: 400 });
+  assert.throws(() => withDoc([{ op: 'add', rec: rec({ type: 'Драка' }) }], 'nachalnik', removed), { status: 400 });
 });
