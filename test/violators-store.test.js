@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const store = require('../violators-store');
+const store = require('../server/violators-store');
 
 const NOW = Date.parse('2026-11-19T12:00:00.000Z');
 const ctx = (role, extra = {}) => ({ role, userId: 'u-' + role, actor: role + ' user', nowMs: NOW, ...extra });

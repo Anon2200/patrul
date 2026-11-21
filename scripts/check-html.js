@@ -18,26 +18,26 @@ function fail(message) {
   process.exitCode = 1;
 }
 
-const server = fs.readFileSync('server.js', 'utf8');
-const index = fs.readFileSync('index.html', 'utf8');
-const serviceWorker = fs.readFileSync('sw.js', 'utf8');
-const cloudSync = fs.readFileSync('cloud-sync.js', 'utf8');
-const opsWorkspace = fs.readFileSync('ops-workspace.js', 'utf8');
-const personalWorkspace = fs.readFileSync('personal-workspace.js', 'utf8');
-const mailClient = fs.readFileSync('mail.js', 'utf8');
-const patrolSeniorPage = fs.readFileSync('patrol-senior.html', 'utf8');
-const mailPage = fs.readFileSync('mail.html', 'utf8');
-const mailViewerPage = fs.readFileSync('mail-viewer.html', 'utf8');
-const patrolSeniorAuth = fs.readFileSync('auth.js', 'utf8');
-const patrolSeniorClient = fs.readFileSync('patrol-senior.js', 'utf8');
-const commanderDutyPage = fs.readFileSync('nachalnik.html', 'utf8');
+const server = fs.readFileSync('server/server.js', 'utf8');
+const index = fs.readFileSync('public/index.html', 'utf8');
+const serviceWorker = fs.readFileSync('public/sw.js', 'utf8');
+const cloudSync = fs.readFileSync('public/cloud-sync.js', 'utf8');
+const opsWorkspace = fs.readFileSync('public/ops-workspace.js', 'utf8');
+const personalWorkspace = fs.readFileSync('public/personal-workspace.js', 'utf8');
+const mailClient = fs.readFileSync('public/mail.js', 'utf8');
+const patrolSeniorPage = fs.readFileSync('public/patrol-senior.html', 'utf8');
+const mailPage = fs.readFileSync('public/mail.html', 'utf8');
+const mailViewerPage = fs.readFileSync('public/mail-viewer.html', 'utf8');
+const patrolSeniorAuth = fs.readFileSync('server/auth.js', 'utf8');
+const patrolSeniorClient = fs.readFileSync('public/patrol-senior.js', 'utf8');
+const commanderDutyPage = fs.readFileSync('public/nachalnik.html', 'utf8');
 const dutyScriptIndex = commanderDutyPage.indexOf('src="duty-schedule.js');
 const staffScriptIndex = commanderDutyPage.indexOf('src="staff-workspace.js');
 if (dutyScriptIndex < 0 || staffScriptIndex < 0 || dutyScriptIndex > staffScriptIndex) fail('commander duty schedule must load before staff workspace so the roster assignment block can bind to nr');
 const calendarGlobalIndex = commanderDutyPage.indexOf('src="duty-calendar-global.js');
 const newDutyRosterIndex = commanderDutyPage.indexOf('src="duty-roster-section.js');
 if (calendarGlobalIndex < 0 || newDutyRosterIndex < 0 || newDutyRosterIndex < calendarGlobalIndex || newDutyRosterIndex < staffScriptIndex) fail('new duty roster workspace must load after shared duty calendar and staff modules');
-const newDutyRoster = fs.readFileSync('duty-roster-section.js', 'utf8');
+const newDutyRoster = fs.readFileSync('public/duty-roster-section.js', 'utf8');
 try { new vm.Script(newDutyRoster, { filename: 'duty-roster-section.js' }); } catch (error) { fail('new duty roster workspace: ' + error.message); }
 for (const required of ['Параметры смены','Назначения отделений на дату','Состав наряда по постам','Пересобрать все дни','function rebuildDate','function makePlan','function applyPlan','Сбросить состав наряда','/api/duty-roster']) {
   if (!newDutyRoster.includes(required)) fail('new duty roster workspace is missing: ' + required);
@@ -68,11 +68,11 @@ if (!bulkRebuildCode.includes('if(!(await loadAll()))return;') ||
 if (newDutyRoster.includes('save();') || !newDutyRoster.includes("api('/api/duty-roster'") || !cloudSync.includes("if(role==='nachalnik')delete copy.duty")) fail('daily duty roster must persist only through its independent API, while commander role snapshots omit duty');
 if (!patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes('patrul_duty_rosters') || !patrolSeniorAuth.includes('patrul_duty_schedule') || !patrolSeniorAuth.includes('UNION SELECT duty_date FROM patrul_duty_schedule WHERE duty_date>=$1::date')) fail('duty APIs must use independent PostgreSQL tables and include scheduled-only dates in bulk reads');
 if (!server.includes("010_independent_duty_storage.sql") || !server.includes('purgeLegacyCommanderDuty') || !server.includes('startDutyCleanup')) fail('server must create independent duty storage, remove old embedded duty data and schedule daily cleanup');
-if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Moscow'")) fail('daily duty cleanup must use the configured local timezone');
+if (!server.includes('PATRUL_TIME_ZONE') && !fs.readFileSync('server/duty-store.js','utf8').includes("process.env.PATRUL_TIME_ZONE || 'Europe/Moscow'")) fail('daily duty cleanup must use the configured local timezone');
 if (!server.includes("['/duty-roster-section.js', 'duty-roster-section.js']") || !serviceWorker.includes("'/duty-roster-section.js'")) fail('server and service worker must serve/cache the new duty roster workspace');
-const dutyStore = fs.readFileSync('duty-store.js','utf8');
+const dutyStore = fs.readFileSync('server/duty-store.js','utf8');
 if (!dutyStore.includes("process.env.PATRUL_TIME_ZONE || 'Europe/Moscow'") || !dutyStore.includes('startDutyCleanup') || !dutyStore.includes("DELETE FROM patrul_duty_rosters") || !dutyStore.includes("DELETE FROM patrul_patrol_senior_entries")) fail('daily duty cleanup must expire independent rosters and daily logs in the configured timezone');
-if (!fs.readFileSync('cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
+if (!fs.readFileSync('public/cloud-sync.js','utf8').includes("if(role==='nachalnik')delete copy.duty")) fail('commander cloud sync must never restore the retired embedded duty payload');
 
 try {
   const testSource = newDutyRoster.slice(0,newDutyRoster.lastIndexOf('})();')) + 'window.__rosterTest={rebuildDate,membersMatch};\n})();';
@@ -127,11 +127,11 @@ try {
 } catch (error) {
   fail('independent duty roster regression: ' + error.message);
 }
-const dutySchedule = fs.readFileSync('duty-schedule.js', 'utf8');
-const dutyCalendarGlobal = fs.readFileSync('duty-calendar-global.js', 'utf8');
+const dutySchedule = fs.readFileSync('public/duty-schedule.js', 'utf8');
+const dutyCalendarGlobal = fs.readFileSync('public/duty-calendar-global.js', 'utf8');
 try { new vm.Script(dutyCalendarGlobal, { filename: 'duty-calendar-global.js' }); } catch (error) { fail('shared duty calendar script: ' + error.message); }
 try { new vm.Script(dutySchedule, { filename: 'duty-schedule.js' }); } catch (error) { fail('duty schedule script: ' + error.message); }
-const staffWorkspaceLoader = fs.readFileSync('staff-workspace.js', 'utf8');
+const staffWorkspaceLoader = fs.readFileSync('public/staff-workspace.js', 'utf8');
 const staffPayload = staffWorkspaceLoader.match(/const encoded = '([A-Za-z0-9+/=]+)'/);
 let staffWorkspace = '';
 if (!staffPayload) {
@@ -225,8 +225,8 @@ for (const feature of ['/api/patrol-senior/eligible','/api/patrol-senior/activat
 if (!patrolSeniorAuth.includes("session.role!=='starshiy_patrulya'") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(s.role)")) fail('patrol senior access must remain department-scoped and block shared personnel administration');
 if (!opsWorkspace.includes('seniorActivation') || !opsWorkspace.includes('/api/patrol-senior/activation-code') || !cloudSync.includes('window.PATRUL_CSRF=csrfToken')) fail('higher roles must issue one-time activation codes from the workspace with the authenticated CSRF token');
 if (!opsWorkspace.includes('function showAssetQr') || !opsWorkspace.includes('data-ops="qr"') || !opsWorkspace.includes('window.QRM(payload,1)')) fail('equipment records must provide printable QR labels using inventory identifiers only');
-if (!fs.readFileSync('uchet.html','utf8').includes('window.QRM=function')) fail('the senior master page must load the local QR encoder before the equipment workspace');
-const seniorMasterPage = fs.readFileSync('uchet.html','utf8');
+if (!fs.readFileSync('public/uchet.html','utf8').includes('window.QRM=function')) fail('the senior master page must load the local QR encoder before the equipment workspace');
+const seniorMasterPage = fs.readFileSync('public/uchet.html','utf8');
 
 const dutyRulesStart = commanderDutyPage.indexOf('const dutyStaffPerson=');
 const dutyRulesEnd = commanderDutyPage.indexOf('const dv=', dutyRulesStart);
@@ -247,7 +247,7 @@ if (dutyRulesStart < 0 || dutyRulesEnd < 0) {
     fail('duty roster senior role classification: ' + error.message);
   }
 }
-const rosterModule = fs.readFileSync('duty-roster-section.js', 'utf8');
+const rosterModule = fs.readFileSync('public/duty-roster-section.js', 'utf8');
 if (commanderDutyPage.includes('Снаряжение (только Старшему патруля)') ||
     commanderDutyPage.includes('Подпись за получение снаряжения') ||
     /Снаряжение/.test(rosterModule) ||
@@ -318,7 +318,7 @@ for (const [file, role] of Object.entries(rolePages)) {
   }
   if (!index.includes('href="' + file + '"')) fail('index.html link missing for ' + file);
 
-  const html = fs.readFileSync(file, 'utf8');
+  const html = fs.readFileSync('public/' + file, 'utf8');
   if (countMatches(html, /name="theme-color"/g) !== 1 ||
       countMatches(html, /rel="apple-touch-icon"/g) !== 1 ||
       countMatches(html, /name="apple-mobile-web-app-capable"/g) !== 1) {
@@ -425,7 +425,7 @@ if (!cacheManifest || !cacheManifest[1].includes("'/cloud-sync.js'") || !cacheMa
 
 if (!serviceWorker.includes("const CACHE_NAME = 'patrul-static-20261115-14'") || !serviceWorker.includes("'/patrol-senior.js'")) fail('service worker must publish the current offline Patrol Senior client in a versioned precache');
 if (!server.includes("['/duty-schedule.js', 'duty-schedule.js']") || !serviceWorker.includes("'/duty-schedule.js'")) fail('server and service worker must serve/cache the duty schedule client');
-if (!fs.readFileSync('nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-12')) fail('commander cabinet must load the versioned duty schedule client');
+if (!fs.readFileSync('public/nachalnik.html', 'utf8').includes('duty-schedule.js?v=20261115-12')) fail('commander cabinet must load the versioned duty schedule client');
 if (!patrolSeniorAuth.includes('schedule,isSubstitute') && !patrolSeniorAuth.includes('postConflict,schedule,equipment:')) fail('senior patrol API must expose the department duty schedule and temporary substitution');
 if (!patrolSeniorClient.includes('График дежурств и подмена') || !patrolSeniorClient.includes('workspace.schedule.isSubstitute')) fail('senior patrol cabinet must display its assigned duty and temporary substitution');
 if (!dutySchedule.includes("TABS.push(['ds','График дежурств'])") || !dutySchedule.includes('departmentAssignments') || !dutySchedule.includes('seniorSubstitutions') || !dutySchedule.includes('Подмена сохранена')) fail('duty calendar must support department assignments and temporary senior-patrol substitutions');
@@ -433,7 +433,7 @@ if (!dutySchedule.includes('уже назначен на другое отдел
 if (!server.includes("['/duty-calendar-global.js', 'duty-calendar-global.js']") || !serviceWorker.includes("'/duty-calendar-global.js'")) fail('server and service worker must serve/cache the common role calendar');
 if (!patrolSeniorPage.includes('window.PATRUL_ROLE="starshiy_patrulya"') || !patrolSeniorPage.includes('src="duty-calendar-global.js?v=' + ASSET_VERSION + '"')) fail('Senior Patrol page must load the shared calendar after setting its role');
 if (!patrolSeniorAuth.includes("if(p==='/api/duty-schedule')") || !patrolSeniorAuth.includes("if(p==='/api/duty-roster')") || !patrolSeniorAuth.includes("SHARED_STAFF_ROLES.includes(session.role)") || !patrolSeniorAuth.includes("session.role==='starshiy_patrulya'")) fail('independent schedule and roster endpoints must authenticate role views and scope Senior Patrol');
-const uchetPage = fs.readFileSync('uchet.html', 'utf8');
+const uchetPage = fs.readFileSync('public/uchet.html', 'utf8');
 if (!uchetPage.includes('<aside id="nv"></aside>') || !uchetPage.includes('class="sp"')) fail('Senior Master sidebar must provide the calendar insertion point before its flex spacer');
 if (!dutyCalendarGlobal.includes("if(spacer)menu.insertBefore(b,spacer)")) fail('shared calendar navigation must be inserted before the sidebar footer spacer so it remains visible');
 if (!dutyCalendarGlobal.includes("fetch('/api/duty-schedule?month='") || !dutyCalendarGlobal.includes('Общий график дежурств') || !dutyCalendarGlobal.includes('Календарь дежурств')) fail('all non-commander roles must use the common server-backed duty calendar');

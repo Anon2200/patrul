@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const sandbox = { window: { PATRUL_ROLE: 'none' }, document: {}, localStorage: {}, console };
-vm.runInNewContext(fs.readFileSync(__dirname + '/../violators-section.js', 'utf8'), sandbox);
+vm.runInNewContext(fs.readFileSync(__dirname + '/../public/violators-section.js', 'utf8'), sandbox);
 const C = sandbox.window.PatrulViolatorsCore;
 const R = (id, fio, d, extra = {}) => ({ id, fio, grp: 'ЗЧС-205', type: 'Опоздание', d, t: '08:00', patrol: 'Сидоров', comment: '', meas: '', post: '', rep: false, del: '', ...extra });
 const list = [R(1, 'Иванов Иван', '2026-11-10'), R(2, 'Иванов Иван', '2026-11-11', { type: 'Нарушение дисциплины' }), R(3, 'Петров Пётр', '2026-11-12'), R(4, 'Петров Петр', '2026-11-12', { del: '2026-11-13T00:00:00Z' })];

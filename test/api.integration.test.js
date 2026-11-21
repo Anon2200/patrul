@@ -10,7 +10,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 process.env.PATRUL_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64url');
-const { encryptData, decryptData, migratePlaintextRows } = require('../data-crypto');
+const { encryptData, decryptData, migratePlaintextRows } = require('../server/data-crypto');
 
 const port = 43187;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -35,7 +35,7 @@ function currentDutyDate() {
 const testDutyDate = currentDutyDate();
 
 test('cloud status updates preserve employee and logout controls', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public/cloud-sync.js'), 'utf8');
   assert.ok(source.includes("const statusLabel = document.createElement('span')"));
   assert.ok(source.includes('badge.appendChild(statusLabel)'));
   assert.ok(source.includes('statusLabel.textContent='));
@@ -129,7 +129,7 @@ test('all four role pages encrypt exchange packets and reject plaintext', async 
   const strongPassword = 'CI-Shared-Exchange-Password-2026!';
   const value = { v: 1, roleData: 'encrypted-exchange-fixture' };
   for (const file of ['nachalnik.html', 'zam.html', 'uchet.html', 'dokumentoved.html']) {
-    const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
     const start = html.indexOf('function sxB64(');
     const end = html.indexOf('const SXCOL=', start);
     assert.ok(start >= 0 && end > start, file + ' must contain the exchange crypto functions');
@@ -698,7 +698,7 @@ test('document numbers are server-issued sequentially per year and role-protecte
 });
 
 test('post kit issue aggregates duplicate rows and never over-issues stock', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public/uchet.html'), 'utf8');
   const start = source.indexOf('function issuePostKit(t){');
   const end = source.indexOf('\nfunction returnPostKit', start);
   assert.ok(start >= 0 && end > start, 'post kit issue function must exist');
@@ -738,7 +738,7 @@ test('post kit issue aggregates duplicate rows and never over-issues stock', () 
 });
 
 test('role workspaces expose shared task and controlled inspection modules', () => {
-  const workspace = fs.readFileSync(path.join(__dirname, '..', 'ops-workspace.js'), 'utf8');
+  const workspace = fs.readFileSync(path.join(__dirname, '..', 'public/ops-workspace.js'), 'utf8');
   assert.ok(workspace.includes("id:'sharedTasks'"));
   assert.ok(workspace.includes("id:'roleControl'"));
   assert.ok(workspace.includes('/api/control/role-data/'));
@@ -764,7 +764,7 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes('ops-crossrole-task-summary'));
   assert.ok(workspace.includes('result.notifications'));
   assert.ok(workspace.includes('taskNotificationMarkup'));
-  const seniorUiSource = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  const seniorUiSource = fs.readFileSync(path.join(__dirname, '..', 'public/patrol-senior.js'), 'utf8');
   assert.ok(seniorUiSource.includes("taskTab.textContent=unreadCount"));
   assert.ok(seniorUiSource.includes("if(activeTab!=='tasks')loadSeniorTasks()"));
   assert.ok(workspace.includes('task-from-record'));
@@ -779,16 +779,16 @@ test('role workspaces expose shared task and controlled inspection modules', () 
   assert.ok(workspace.includes('minimumSequence'));
   assert.ok(workspace.includes('notificationMarkup'));
   assert.ok(workspace.includes('due_today'));
-  const seniorUi = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  const seniorUi = fs.readFileSync(path.join(__dirname, '..', 'public/patrol-senior.js'), 'utf8');
   assert.ok(seniorUi.includes('r.result.notifications'));
   assert.ok(seniorUi.includes('notificationMarkup'));
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server/server.js'), 'utf8');
   assert.ok(server.includes('008_document_numbering.sql'));
-  const senior = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  const senior = fs.readFileSync(path.join(__dirname, '..', 'public/patrol-senior.js'), 'utf8');
   assert.ok(senior.includes('loadSeniorTasks'));
   assert.ok(senior.includes('/api/tasks'));
   assert.ok(senior.includes("data-task-history"));
-  const master = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
+  const master = fs.readFileSync(path.join(__dirname, '..', 'public/uchet.html'), 'utf8');
   assert.ok(master.includes('function issuePostKit'));
   assert.ok(master.includes('const issued=postIssued(p),changes=[],requirements=new Map()'));
   assert.ok(master.includes('requirements.set(id,(requirements.get(id)||0)+rawQuantity)'));
@@ -1103,14 +1103,14 @@ test('shared personnel roster deduplicates legacy role lists and synchronizes ac
 });
 
 test('role client loads and polls the shared personnel roster', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'cloud-sync.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public/cloud-sync.js'), 'utf8');
   assert.ok(source.includes("request('/api/shared-staff')"));
   assert.ok(source.includes("request('/api/shared-staff','PUT'"));
   assert.ok(source.includes('startSharedPolling'));
   assert.ok(source.includes('remapStaffReferences'));
   assert.ok(source.includes('postEquipment'));
-  const masterPage = fs.readFileSync(path.join(__dirname, '..', 'uchet.html'), 'utf8');
-  const chiefPage = fs.readFileSync(path.join(__dirname, '..', 'nachalnik.html'), 'utf8');
+  const masterPage = fs.readFileSync(path.join(__dirname, '..', 'public/uchet.html'), 'utf8');
+  const chiefPage = fs.readFileSync(path.join(__dirname, '..', 'public/nachalnik.html'), 'utf8');
   assert.ok(masterPage.includes('function postKits'));
   assert.ok(chiefPage.includes('postKitText'));
 });
@@ -1513,7 +1513,7 @@ function createFakeIndexedDB() {
 }
 
 test('Patrol Senior offline queue encrypts local records and replays them after reauthentication', async () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'patrol-senior.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public/patrol-senior.js'), 'utf8');
   const nl = String.fromCharCode(10);
   const hook = [
     'window.__offlineTest = {',

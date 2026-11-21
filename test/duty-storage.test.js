@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {dutyDateAt,nextDutyMidnight,purgeExpiredDutyData,DUTY_TIME_ZONE} = require('../duty-store');
+const {dutyDateAt,nextDutyMidnight,purgeExpiredDutyData,DUTY_TIME_ZONE} = require('../server/duty-store');
 
 test('duty day uses the configured Moscow local calendar date', () => {
   assert.equal(DUTY_TIME_ZONE,'Europe/Moscow');
