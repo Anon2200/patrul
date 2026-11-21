@@ -12,11 +12,12 @@
 - `patrul_tasks`, `patrul_task_events`, `patrul_task_notifications` — общие поручения, история статусов и уведомления.
 - `patrul_mail_threads`, `patrul_mail_participants`, `patrul_mail_messages`, `patrul_mail_attachments` — внутренняя почта и вложения.
 - `patrul_users`, `patrul_sessions`, `patrul_audit_log` — персональные учётные записи, сессии и журнал аудита.
+- `patrul_violators` — общий зашифрованный реестр нарушителей (один документ для начальника, документоведа и старшего мастера).
 - `patrul_document_counters` — последовательная нумерация документов по году.
 
 ## Миграции
 
-При запуске `server.js` автоматически применяет миграции `001_identity_schema.sql`–`010_independent_duty_storage.sql` в порядке номеров. Перед первым запуском новой схемы в рабочей базе обязательно:
+При запуске `server.js` автоматически применяет миграции `001_identity_schema.sql`–`011_shared_violators.sql` в порядке номеров. Перед первым запуском новой схемы в рабочей базе обязательно:
 
 1. Сделать резервную копию PostgreSQL.
 2. Проверить, что ключ шифрования сохранён отдельно и доступен.
