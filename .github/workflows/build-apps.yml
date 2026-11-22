@@ -1,0 +1,87 @@
+name: Build apps (Windows and Android)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - '.github/workflows/build-apps.yml'
+  push:
+    tags:
+      - 'app-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patrul-windows-installer
+          path: apps/desktop/dist/*.exe
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm install --no-audit --no-fund
+      - run: node make-config.js
+      - run: npx cap add android
+      - name: Camera permission for QR scanning
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.CAMERA' "$MANIFEST" || sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />#' "$MANIFEST"
+          grep -n 'permission' "$MANIFEST"
+      - name: App icon
+        run: |
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            for n in ic_launcher.png ic_launcher_round.png ic_launcher_foreground.png; do
+              [ -f "android/app/src/main/res/$d/$n" ] && cp icon.png "android/app/src/main/res/$d/$n"
+            done
+          done
+      - run: npx cap sync android
+      - name: Build debug APK
+        working-directory: apps/android/android
+        run: ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Patrul.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patrul-android-apk
+          path: apps/android/Patrul.apk
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" out/* --repo "$GITHUB_REPOSITORY" --title "Приложения ${GITHUB_REF_NAME}" --notes "Установщик для Windows (.exe) и приложение для Android (.apk). Приложения открывают рабочий сайт, нужен интернет."
